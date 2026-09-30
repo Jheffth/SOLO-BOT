@@ -6,3 +6,8 @@ _cofre/
 
 # capturas de tela salvas pelo app
 Claude outputs/
+
+# scripts locais de servidor (têm senha dentro): nunca vão ao git
+create_db_user.py
+list_containers.py
+up_bot.py

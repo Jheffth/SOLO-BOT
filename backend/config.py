@@ -45,6 +45,13 @@ EVOLUTION_INSTANCE = _env("EVOLUTION_INSTANCE", "solo_rotinas")
 EVOLUTION_WEBHOOK_SECRET = _env("EVOLUTION_WEBHOOK_SECRET")
 WHATSAPP_NUMERO = _env("WHATSAPP_NUMERO")  # só dígitos, para o link wa.me
 
+# ── Voz (transcrição de áudio para os sistemas que não entendem áudio) ──
+GEMINI_API_KEY = _env("GEMINI_API_KEY")
+GEMINI_API_KEY_RESERVA = _env("GEMINI_API_KEY_RESERVA")
+GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-3.5-flash-lite")
+GROK_API_KEY = _env("GROK_API_KEY")
+GROK_STT_MODEL = _env("GROK_STT_MODEL", "grok-voice-transcribe-2.0")
+
 # ── Sistemas conectados ───────────────────────────────────────────
 #
 # Cada sistema é UM bloco. Um sistema novo é um bloco novo aqui, nada mais.

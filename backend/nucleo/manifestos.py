@@ -54,8 +54,13 @@ class Comando(BaseModel):
         return v
 
 
+class Audio(BaseModel):
+    recebe: bool = False            # entende o áudio bruto (senão o Solo Bot transcreve)
+
+
 class Manifesto(BaseModel):
     versao: str = Field(min_length=1, max_length=40)
+    audio: Audio = Field(default_factory=Audio)
     comandos: List[Comando] = Field(default_factory=list, max_length=80)
     exemplos: List[str] = Field(default_factory=list, max_length=12)
     novidades: List[str] = Field(default_factory=list, max_length=10)
@@ -91,6 +96,10 @@ def de(db: Session, app: str) -> Optional[dict]:
 def comandos_visiveis(db: Session, app: str) -> list:
     d = de(db, app)
     return [c for c in (d or {}).get("comandos", []) if not c.get("oculto")]
+
+
+def recebe_audio(db: Session, app: str) -> bool:
+    return bool(((de(db, app) or {}).get("audio") or {}).get("recebe"))
 
 
 # ── Gravação ──────────────────────────────────────────────────────

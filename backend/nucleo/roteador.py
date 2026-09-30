@@ -42,8 +42,11 @@ class Resposta:
     mensagens: List[dict] = field(default_factory=list)   # [{texto, opcoes}]
     curta: Optional[str] = None                            # toast do Telegram
 
-    def diz(self, texto: str, opcoes=None) -> "Resposta":
-        self.mensagens.append({"texto": texto, "opcoes": opcoes or []})
+    def diz(self, texto: str, opcoes=None, audio=None) -> "Resposta":
+        m = {"texto": texto, "opcoes": opcoes or []}
+        if audio:
+            m["audio"] = audio                           # {base64, mime}: voz depois do texto
+        self.mensagens.append(m)
         return self
 
 
@@ -292,7 +295,8 @@ def _traduzir(mod: modulos.Modulo, dados: dict, r: Resposta) -> Resposta:
         texto = (m.get("texto") or "").strip()
         if i == 0:
             texto = f"{mod.selo}\n{texto}" if texto else mod.selo
-        r.diz(texto, render.prefixar(m.get("opcoes"), mod.chave))
+        audio = m.get("audio") if isinstance(m.get("audio"), dict) else None
+        r.diz(texto, render.prefixar(m.get("opcoes"), mod.chave), audio)
     if dados.get("curta"):
         r.curta = str(dados["curta"])[:190]
     return r
@@ -311,7 +315,8 @@ def _desvinculado_la(db: Session, conta: Conta, mod: modulos.Modulo, dados: dict
 
 def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulos.Modulo,
                  texto: Optional[str] = None, dados: Optional[str] = None,
-                 resumo: Optional[str] = None) -> Resposta:
+                 resumo: Optional[str] = None, via_audio: bool = False,
+                 audio: Optional[tuple] = None) -> Resposta:
     v = _vinculo(conta, mod.chave)
     if not v:
         return _nao_conectado(mod)
@@ -319,8 +324,16 @@ def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulo
              "nome": conta.nome}
     if dados is not None:
         rota, corpo["dados"] = "acao", dados
+    elif audio is not None:
+        # O sistema entende áudio (manifesto): vão os bytes, e a inteligência é dele.
+        import base64
+        rota = "mensagem"
+        corpo["audio_base64"] = base64.b64encode(audio[0]).decode("ascii")
+        corpo["mime"] = audio[1]
     else:
         rota, corpo["texto"] = "mensagem", texto or "/ajuda"
+        if via_audio:
+            corpo["via_audio"] = True                    # o texto veio de uma transcrição
     try:
         resp = modulos.chamar(mod, rota, corpo)
     except modulos.ErroModulo as e:
@@ -328,7 +341,8 @@ def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulo
     if _desvinculado_la(db, conta, mod, resp):
         return _nao_conectado(mod)
     _registrar(db, conta, canal, mod.chave, "comando",
-               resumo or ("toque" if dados is not None else _resumo_comando(texto or "")))
+               resumo or ("toque" if dados is not None else "áudio" if audio is not None
+                          else _resumo_comando(texto or "")))
     return _traduzir(mod, resp, Resposta())
 
 
@@ -336,7 +350,7 @@ def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulo
 # A ENTRADA — texto
 # ══════════════════════════════════════════════════════════════════════
 def atender_texto(db: Session, canal: str, origem: str, texto: str,
-                  rotulo: Optional[str] = None) -> Resposta:
+                  rotulo: Optional[str] = None, via_audio: bool = False) -> Resposta:
     origem = str(origem)
     txt = (texto or "").strip()
     s = sessao_de(db, canal, origem)
@@ -380,7 +394,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
                 return _nao_conectado(mod)
             _entrar_modo(db, s, mod.chave)
             return para_sistema(db, conta, canal, origem, mod, texto=resto.strip() or "/ajuda",
-                                resumo=f"/{mod.chave}")
+                                resumo=f"/{mod.chave}", via_audio=via_audio)
 
     modo = _modo_valido(s)
 
@@ -392,7 +406,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         mod = modulos.por_chave(modo)
         if mod:
             _entrar_modo(db, s, modo)            # renova a validade
-            return para_sistema(db, conta, canal, origem, mod, texto=txt)
+            return para_sistema(db, conta, canal, origem, mod, texto=txt, via_audio=via_audio)
 
     # 5. hub com texto livre
     ligados = _sistemas_da_conta(db, conta)
@@ -400,13 +414,60 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return menu(db, conta)
     if len(ligados) == 1:
         _entrar_modo(db, s, ligados[0].chave)
-        return para_sistema(db, conta, canal, origem, ligados[0], texto=txt)
+        return para_sistema(db, conta, canal, origem, ligados[0], texto=txt, via_audio=via_audio)
 
     s.pendente = txt[:1000]
     db.commit()
     opcoes = [{"titulo": "", "acoes": [{"rotulo": f"{m.emoji} {m.nome.replace('Solo ', '')}",
                                         "dados": f"hub:app|{m.chave}"} for m in ligados]}]
     return Resposta().diz("🤔 Para qual sistema é isso?", opcoes)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# A ENTRADA — áudio
+# ══════════════════════════════════════════════════════════════════════
+def atender_audio(db: Session, canal: str, origem: str, conteudo: bytes, mime: str,
+                  rotulo: Optional[str] = None, segundos: int = 0) -> Resposta:
+    """
+    Se o sistema da vez entende áudio (manifesto), recebe os bytes. Senão o
+    Solo Bot transcreve e segue como texto — com o que ouviu repetido no
+    topo da resposta, porque quem fala precisa saber o que foi entendido.
+    """
+    from nucleo import manifestos, voz
+    origem = str(origem)
+    conta = conta_de(db, canal, origem)
+    if not conta:
+        return _boas_vindas()
+    if segundos > voz.MAX_SEGUNDOS or len(conteudo or b"") > voz.MAX_BYTES:
+        return Resposta().diz(f"🎤 Áudio longo demais. Mande até {voz.MAX_SEGUNDOS} segundos.")
+    if not conteudo:
+        return Resposta().diz("🎤 Não consegui baixar o áudio. Tente de novo, ou mande por escrito.")
+
+    s = sessao_de(db, canal, origem)
+    modo = _modo_valido(s)
+    ligados = _sistemas_da_conta(db, conta)
+    alvo = modulos.por_chave(modo) if modo else (ligados[0] if len(ligados) == 1 else None)
+    if alvo and _vinculo(conta, alvo.chave) and manifestos.recebe_audio(db, alvo.chave):
+        _entrar_modo(db, s, alvo.chave)
+        return para_sistema(db, conta, canal, origem, alvo, audio=(conteudo, voz._limpo(mime)))
+
+    try:
+        texto = voz.transcrever(conteudo, mime)
+    except voz.SemVoz:
+        return Resposta().diz("🎤 Ainda não entendo áudio: falta a chave de transcrição no servidor. "
+                              "Mande por escrito.")
+    except voz.FalhaVoz:
+        return Resposta().diz("🎤 Não consegui ouvir agora. Tente de novo em instantes, ou mande por escrito.")
+    if not texto:
+        return Resposta().diz("🎤 Não entendi o áudio. Pode repetir, ou mandar por escrito?")
+
+    r = atender_texto(db, canal, origem, texto, rotulo, via_audio=True)
+    eco = f"🎤 _“{texto}”_"
+    if r.mensagens:
+        r.mensagens[0]["texto"] = f"{eco}\n\n{r.mensagens[0]['texto']}"
+    else:
+        r.diz(eco)
+    return r
 
 
 # ══════════════════════════════════════════════════════════════════════

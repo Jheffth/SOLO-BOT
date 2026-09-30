@@ -81,8 +81,8 @@ def recarregar(modulos: list):
 
 
 # O ponto que os testes trocam por uma caixa de mentira.
-def _post(url: str, token: str, corpo: dict) -> httpx.Response:
-    with httpx.Client(timeout=TIMEOUT) as c:
+def _post(url: str, token: str, corpo: dict, timeout=TIMEOUT) -> httpx.Response:
+    with httpx.Client(timeout=timeout) as c:
         return c.post(url, json=corpo, headers={"X-Solo-Token": token})
 
 
@@ -107,11 +107,17 @@ def buscar(mod: Modulo, rota: str) -> dict:
         raise ErroModulo(f"{mod.nome} respondeu algo que não entendi.")
 
 
+TIMEOUT_AUDIO = httpx.Timeout(60.0, connect=3.0)   # ouvir + falar leva segundos
+
+
 def chamar(mod: Modulo, rota: str, corpo: dict) -> dict:
     if not mod.token:
         raise ErroModulo(f"{mod.nome} ainda não foi configurado no Solo Bot.")
     try:
-        r = _post(f"{mod.url}/interno/bot/{rota}", mod.token, corpo)
+        if "audio_base64" in corpo:
+            r = _post(f"{mod.url}/interno/bot/{rota}", mod.token, corpo, TIMEOUT_AUDIO)
+        else:
+            r = _post(f"{mod.url}/interno/bot/{rota}", mod.token, corpo)
     except httpx.HTTPError:
         log.exception("Falha de rede com %s (%s)", mod.chave, rota)
         raise ErroModulo(f"{mod.nome} não respondeu. Tente de novo em instantes.")

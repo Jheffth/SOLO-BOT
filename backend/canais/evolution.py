@@ -36,6 +36,19 @@ def enviar(jid: str, texto: str) -> dict:
                 {"number": numero, "text": texto[:4000]})
 
 
+def enviar_audio(jid: str, audio_b64: str) -> dict:
+    """Mensagem de VOZ (a bolinha do microfone), não arquivo."""
+    return _req("POST", f"/message/sendWhatsAppAudio/{config.EVOLUTION_INSTANCE}",
+                {"number": jid.split("@")[0], "audio": audio_b64, "encoding": True, "delay": 200})
+
+
+def midia_base64(chave: dict, mensagem: dict) -> dict:
+    """O conteúdo de uma mídia recebida: {base64, mimetype}. {} se falhar."""
+    r = _req("POST", f"/chat/getBase64FromMediaMessage/{config.EVOLUTION_INSTANCE}",
+             {"message": {"key": chave, "message": mensagem}, "convertToMp4": False})
+    return r if isinstance(r, dict) and r.get("base64") else {}
+
+
 def estado() -> dict:
     return _req("GET", f"/instance/connectionState/{config.EVOLUTION_INSTANCE}")
 

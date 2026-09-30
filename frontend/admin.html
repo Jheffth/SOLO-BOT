@@ -39,7 +39,7 @@
   </div>
 
   <section class="cartao vidro entrar-animado">
-    <div class="linha entre"><h2>Sistemas registrados</h2><button class="btn pequeno" id="sincronizar"><span data-i="activity"></span>Buscar manifestos</button></div>
+    <div class="linha entre"><h2>Sistemas registrados</h2><span class="linha" style="gap:.5rem"><span id="voz"></span><button class="btn pequeno" id="sincronizar"><span data-i="activity"></span>Buscar manifestos</button></span></div>
     <div style="overflow-x:auto"><table class="tabela" id="sistemas"></table></div>
   </section>
 </main>
@@ -79,10 +79,13 @@
         : `<dl class="dl"><dt>Instância</dt><dd class="mono pequeno">Evolution</dd><dt>Estado</dt><dd>${esc(w.estado || "—")}</dd></dl>`}
       <div class="rodape"><button class="btn pequeno ${aberto ? "" : "primario"}" id="ligar-wa" ${w.configurado ? "" : "disabled"}>${icon("qr")}${aberto ? "Reaplicar webhook" : "Gerar QR"}</button></div>`;
 
+    document.getElementById("voz").innerHTML = s.voz.transcricao
+      ? '<span class="chip ok"><span class="ponto"></span>Transcrição de áudio ligada</span>'
+      : '<span class="chip aguarda">Sem transcrição: defina GEMINI_API_KEY ou GROK_API_KEY</span>';
     document.getElementById("sistemas").innerHTML = `<tr><th>Sistema</th><th>Endereço interno</th><th>Token</th><th>Manifesto</th><th>Contas</th></tr>` +
       s.sistemas.map(m => `<tr><td><span class="linha" style="gap:.6rem"><span style="font-size:1.2rem">${esc(m.emoji)}</span><b style="font-weight:550">${esc(m.nome)}</b><code>/${esc(m.chave)}</code></span></td>
         <td class="mono pequeno muted">${esc(m.url)}</td><td>${m.configurado ? '<span class="chip ok">definido</span>' : '<span class="chip aguarda">faltando</span>'}</td>
-        <td>${m.manifesto ? `<span class="mono pequeno">${esc(m.manifesto.versao)}</span><br><small class="faint">${m.manifesto.comandos} comandos · ${Solo.tempoRelativo(m.manifesto.recebido_em)}</small>` : '<span class="chip aguarda">nunca recebido</span>'}</td>
+        <td>${m.manifesto ? `<span class="mono pequeno">${esc(m.manifesto.versao)}</span>${s.voz.sistemas_com_audio.includes(m.chave) ? ' <span class="chip ok" title="Recebe o áudio bruto">🎤 áudio próprio</span>' : ''}<br><small class="faint">${m.manifesto.comandos} comandos · ${Solo.tempoRelativo(m.manifesto.recebido_em)}</small>` : '<span class="chip aguarda">nunca recebido</span>'}</td>
         <td>${m.contas}</td></tr>`).join("");
 
     document.getElementById("ligar-tg").onclick = async function () {

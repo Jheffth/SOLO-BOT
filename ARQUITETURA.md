@@ -53,7 +53,7 @@ Todos com cabeçalho `X-Solo-Token: <BOT_SERVICE_TOKEN do sistema>`, só na rede
 | Rota | Corpo | Resposta |
 |---|---|---|
 | `POST /interno/bot/resgatar` | `{codigo}` | `{usuario_id, nome}` ou 404 |
-| `POST /interno/bot/mensagem` | `{usuario_id, canal, origem, texto}` | `{mensagens: [{texto, opcoes}]}` |
+| `POST /interno/bot/mensagem` | `{usuario_id, canal, origem, texto, via_audio?}` ou, para quem declara `audio.recebe`, `{…, audio_base64, mime}` | `{mensagens: [{texto, opcoes, audio?: {base64, mime}}]}` |
 | `POST /interno/bot/acao` | `{usuario_id, canal, origem, dados}` | `{mensagens: [...], curta}` |
 | `POST /interno/bot/desvinculado` | `{usuario_id}` | `{ok}` (opcional) |
 | `GET /interno/bot/manifesto` | — | o `bot_manifesto.json` do sistema |

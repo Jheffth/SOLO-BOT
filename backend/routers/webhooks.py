@@ -44,11 +44,18 @@ def _processar_telegram(update: dict):
             if chat.get("type") != "private":
                 return                       # grupo não é conosco
             texto = msg.get("text") or ""
-            if not texto:
-                telegram.enviar(str(chat["id"]), "Por enquanto eu só leio texto. 🙂")
-                return
             de = msg.get("from") or {}
             rotulo = ("@" + de["username"]) if de.get("username") else de.get("first_name")
+            som = msg.get("voice") or msg.get("audio")
+            if som:
+                r = roteador.atender_audio(db, "telegram", str(chat["id"]), telegram.baixar(som.get("file_id", "")),
+                                           som.get("mime_type") or "audio/ogg", rotulo,
+                                           int(som.get("duration") or 0))
+                entrega.entregar(db, "telegram", str(chat["id"]), r)
+                return
+            if not texto:
+                telegram.enviar(str(chat["id"]), "Por enquanto eu leio texto e áudio. 🙂")
+                return
             r = roteador.atender_texto(db, "telegram", str(chat["id"]), texto, rotulo)
             entrega.entregar(db, "telegram", str(chat["id"]), r)
     except Exception:  # noqa: BLE001
@@ -89,13 +96,39 @@ def _remetente(data: dict) -> Optional[str]:
     return None     # grupo, status, newsletter
 
 
+def _bytes_do_audio(data: dict, mensagem: dict, audio: dict) -> tuple:
+    """(conteúdo, mimetype): do próprio webhook (base64) ou pedindo à Evolution."""
+    import base64
+    from canais import evolution
+    mime = (audio.get("mimetype") or "audio/ogg").split(";")[0].strip() or "audio/ogg"
+    b64 = mensagem.get("base64") or data.get("base64")
+    if not b64:
+        r = evolution.midia_base64(data.get("key") or {}, mensagem)
+        b64 = r.get("base64")
+        mime = (r.get("mimetype") or mime).split(";")[0].strip() or mime
+    try:
+        return (base64.b64decode(b64) if b64 else b""), mime
+    except (ValueError, TypeError):
+        return b"", mime
+
+
 def _processar_whatsapp(evento: dict):
     db = SessionLocal()
     try:
         data = evento.get("data") or {}
         chave = data.get("key") or {}
         jid = _remetente(data)
-        texto = _texto(data.get("message") or {})
+        mensagem = data.get("message") or {}
+        texto = _texto(mensagem)
+        audio = mensagem.get("audioMessage")
+        if jid and audio and not chave.get("fromMe"):
+            if roteador.ja_processada(db, "whatsapp", chave.get("id")):
+                return
+            conteudo, mime = _bytes_do_audio(data, mensagem, audio)
+            r = roteador.atender_audio(db, "whatsapp", jid, conteudo, mime, data.get("pushName"),
+                                       int(audio.get("seconds") or 0))
+            entrega.entregar(db, "whatsapp", jid, r)
+            return
         if not jid or not texto:
             return
         # O ECO DO PRÓPRIO APARELHO. O número do bot pode ser o celular do

@@ -42,7 +42,7 @@ class SistemasFalsos:
         self.codigos = {"fin": {"CODFIN1": ("4", "jefferson")}, "rot": {"CODROT1": ("1", "Arquiteto")}}
         self.recebidos = []
 
-    def __call__(self, url, token, corpo):
+    def __call__(self, url, token, corpo, timeout=None):
         app = url.split("//")[1].split("/")[0]
         rota = url.rsplit("/", 1)[1]
         esperado = {"fin": "tok-fin", "rot": "tok-rot"}[app]
@@ -52,6 +52,9 @@ class SistemasFalsos:
         if rota == "resgatar":
             par = self.codigos[app].pop(corpo["codigo"], None)
             return Resp(404, {}) if not par else Resp(200, {"usuario_id": par[0], "nome": par[1]})
+        if rota == "mensagem" and "audio_base64" in corpo:
+            return Resp(200, {"mensagens": [{"texto": f"ouvi {len(corpo['audio_base64'])} b64",
+                                             "audio": {"base64": "QUJD", "mime": "audio/ogg"}}]})
         if rota == "mensagem":
             opcoes = [{"titulo": "Banho", "acoes": [{"rotulo": "✅", "dados": "ok|r|12"}]}] if app == "rot" else []
             return Resp(200, {"mensagens": [{"texto": f"eco:{corpo['texto']}", "opcoes": opcoes}]})
@@ -87,6 +90,8 @@ def caixa(monkeypatch):
     monkeypatch.setattr(telegram, "enviar", lambda chat, t, teclado=None: enviadas.append(("telegram", chat, t, teclado)) or {"ok": True})
     monkeypatch.setattr(telegram, "responder_toque", lambda cid, t="": enviadas.append(("toque", cid, t, None)))
     monkeypatch.setattr(evolution, "enviar", lambda jid, t: enviadas.append(("whatsapp", jid, t, None)) or {})
+    monkeypatch.setattr(telegram, "enviar_voz", lambda chat, b, mime: enviadas.append(("voz-telegram", chat, b, mime)) or True)
+    monkeypatch.setattr(evolution, "enviar_audio", lambda jid, b64: enviadas.append(("voz-whatsapp", jid, b64, None)) or {})
     return enviadas
 
 

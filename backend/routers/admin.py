@@ -38,10 +38,22 @@ def status(_: Conta = Depends(conta_admin), db: Session = Depends(get_db)):
                      "estado": ((ev.get("instance") or {}).get("state")) or ULTIMO_QR["estado"],
                      "qr": ULTIMO_QR["base64"],
                      "contas": por_canal.get("whatsapp", 0)},
+        "voz": {"transcricao": _voz_disponivel(),
+                 "sistemas_com_audio": [m.chave for m in modulos.todos() if _recebe_audio(db, m.chave)]},
         "sistemas": [{**m.publico(), "url": m.url, "contas": por_app.get(m.chave, 0),
                       "manifesto": _resumo_manifesto(db, m.chave)}
                      for m in modulos.todos()],
     }
+
+
+def _voz_disponivel() -> bool:
+    from nucleo import voz
+    return voz.disponivel()
+
+
+def _recebe_audio(db: Session, app: str) -> bool:
+    from nucleo import manifestos
+    return manifestos.recebe_audio(db, app)
 
 
 def _resumo_manifesto(db: Session, app: str):

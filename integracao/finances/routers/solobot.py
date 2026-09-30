@@ -8,6 +8,8 @@ Duas portas:
 
 O cérebro continua sendo bot/nucleo.py. Este arquivo só traduz.
 """
+import base64
+import binascii
 import logging
 from typing import Optional
 
@@ -52,6 +54,12 @@ class Mensagem(BaseModel):
     texto: Optional[str] = None
     dados: Optional[str] = None
     nome: Optional[str] = None
+    # Áudio bruto: o manifesto diz ao Solo Bot que o Finances entende áudio,
+    # então a voz chega inteira e é ouvida AQUI, com o contexto das contas
+    # e a regra do "sim" antes de transferência (bot/voz.py).
+    audio_base64: Optional[str] = None
+    mime: Optional[str] = None
+    via_audio: bool = False          # texto que o Solo Bot transcreveu (hub com dois sistemas)
 
 
 def _usuario(db: Session, usuario_id: str) -> Optional[Usuario]:
@@ -85,11 +93,44 @@ def mensagem(m: Mensagem, db: Session = Depends(get_db)):
     # O núcleo separa sessão por (canal, id_externo). A origem que o Solo Bot
     # manda ("solo:<conta>:<canal>") é estável por conversa — é o que basta.
     canal = (m.canal or "telegram").upper()
+    if m.audio_base64:
+        return {"mensagens": [_ouvir(db, canal, m.origem or f"solo:{u.id}", u, m)]}
     texto = (m.texto or "").strip()
     if texto.lower().split(" ")[0] in ("/vincular", "/desvincular"):
         return {"mensagens": [{"texto": "🔗 Os vínculos agora moram no painel do Solo Bot (/conta)."}]}
     resposta = nucleo.responder(db, canal, m.origem or f"solo:{u.id}", u, texto)
     return {"mensagens": [{"texto": resposta, "opcoes": []}]}
+
+
+def _ouvir(db: Session, canal: str, origem: str, u: Usuario, m: "Mensagem") -> dict:
+    """O mesmo caminho do áudio que chegava pelo Telegram e pelo WhatsApp próprios."""
+    from bot import fala, voz
+    falado = None
+    try:
+        conteudo = base64.b64decode(m.audio_base64, validate=True)
+        r = voz.processar_audio(db, canal, origem, u, conteudo, m.mime or "audio/ogg")
+        texto, falado = r.texto, r.falado
+    except (binascii.Error, ValueError):
+        texto = "🎤 Não consegui ler o áudio. Tente de novo, ou mande por escrito."
+    except voz.FalhaVoz as e:
+        texto = str(e)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao processar áudio vindo do Solo Bot")
+        db.rollback()
+        texto = "🎤 Não consegui processar o áudio. Mande por escrito, por favor."
+    msg = {"texto": texto, "opcoes": []}
+
+    # Voz de volta, se a pessoa quer (/audio on) e se há voz configurada.
+    # Ogg/Opus vira a "bolinha" no Telegram; o WhatsApp recebe MP3.
+    if falado and u.bot_resposta_audio is not False:
+        formato, mime = ("opus", "audio/ogg") if canal == "TELEGRAM" else ("mp3", "audio/mpeg")
+        try:
+            som = fala.sintetizar(falado, formato)
+            if som:
+                msg["audio"] = {"base64": base64.b64encode(som).decode("ascii"), "mime": mime}
+        except Exception:  # noqa: BLE001 — a voz é um a mais: nunca derruba a resposta
+            log.exception("Falha ao sintetizar a resposta falada")
+    return msg
 
 
 @interno.post("/acao")

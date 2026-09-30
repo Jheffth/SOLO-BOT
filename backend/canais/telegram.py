@@ -38,6 +38,37 @@ def enviar(chat_id: str, texto: str, teclado=None) -> dict:
     return r
 
 
+def baixar(file_id: str) -> bytes:
+    """O arquivo que a pessoa mandou (getFile + download). b"" se falhar."""
+    info = _chamar("getFile", {"file_id": file_id})
+    caminho = (info.get("result") or {}).get("file_path")
+    if not caminho:
+        return b""
+    try:
+        with httpx.Client(timeout=30) as c:
+            r = c.get(f"https://api.telegram.org/file/bot{config.TELEGRAM_BOT_TOKEN}/{caminho}")
+        return r.content if r.status_code == 200 else b""
+    except Exception:  # noqa: BLE001
+        log.exception("Telegram: download do arquivo falhou")
+        return b""
+
+
+def enviar_voz(chat_id: str, conteudo: bytes, mime: str) -> bool:
+    """Ogg/Opus vira a "bolinha" de voz (sendVoice); outro formato vai como áudio."""
+    if not disponivel():
+        return False
+    ogg = mime.startswith("audio/ogg")
+    metodo, campo, nome = ("sendVoice", "voice", "resposta.ogg") if ogg else ("sendAudio", "audio", "resposta.mp3")
+    url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/{metodo}"
+    try:
+        with httpx.Client(timeout=40) as c:
+            r = c.post(url, data={"chat_id": chat_id}, files={campo: (nome, conteudo, mime)})
+        return r.status_code == 200
+    except Exception:  # noqa: BLE001
+        log.exception("Telegram: envio de voz falhou")
+        return False
+
+
 def responder_toque(callback_id: str, texto: str = "") -> dict:
     return _chamar("answerCallbackQuery", {"callback_query_id": callback_id, "text": texto[:190]})
 

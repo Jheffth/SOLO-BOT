@@ -110,8 +110,22 @@ Os sistemas respondem no formato que o `conversa.py` já usa:
 - **WhatsApp:** lista numerada (`*1.* ✅ Concluir — Banho`). A escolha fica guardada
   **no Solo Bot** por 10 minutos, é de uso único, e o `2` volta como ação ao sistema.
 
-### O que fica de fora da fase 1
+### Áudio
 
-- **Áudio.** O Finances já transcreve voz. Na fase 2, o Solo Bot recebe o áudio e
-  repassa os bytes ao módulo ativo.
-- **SSO nos sistemas** ("Entrar com Conta Solo"), que reaproveita o mesmo fluxo.
+A pessoa pode mandar áudio no Telegram ou no WhatsApp, e o Solo Bot escolhe um de dois caminhos:
+
+- **O sistema entende áudio** (`"audio": {"recebe": true}` no manifesto; hoje, o Finances): o Solo
+  Bot entrega os bytes, e o sistema ouve com o contexto dele. O Finances conhece as contas e pede
+  "sim" antes de uma transferência ou de um valor alto. Se a pessoa quiser resposta falada (`/fin audio on`),
+  o sistema devolve a voz pronta, e o Solo Bot manda depois do texto.
+- **O sistema não entende áudio** (hoje, o Rotinas): o Solo Bot transcreve (Gemini, com o Grok de reserva)
+  e segue como se a pessoa tivesse digitado. O que ele ouviu vai repetido no topo da resposta
+  (`🎤 “terminei o treino”`).
+
+Sem modo ativo e com dois sistemas conectados, o áudio é transcrito, e o bot pergunta
+"para qual sistema?". O áudio não é guardado em lugar nenhum. O limite é de 90 segundos por áudio.
+
+### O que fica para depois
+
+- **SSO nos sistemas** ("Entrar com Conta Solo"), que reaproveita o mesmo fluxo de conexão.
+- **Roteamento pelo conteúdo**, para o "gastei 40 no almoço" ir ao Finances sem precisar de `/fin`.
