@@ -6,7 +6,7 @@ O que é da Conta Solo (painel → Avisos):
   · canais que recebem  — o `avisos` de cada canal (Telegram / WhatsApp)
   · horário de silêncio — ex.: 22:00 → 07:00. Aviso que chega nessa janela
     ESPERA numa fila e sai quando o silêncio termina. Nada se perde.
-  · voz nos avisos      — "sistema" (padrão): fala quando o sistema pede
+  · voz nos avisos      — "sistema" (padrão, "Personalizada" no painel): fala quando o sistema pede
                           (o Finances pede nos avisos em formato áudio);
                           "sempre"; "nunca".
 

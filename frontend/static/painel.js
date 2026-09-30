@@ -150,9 +150,9 @@
         </div>
       </div>
       <div class="avisos-voz">
-        <div><h3>Voz nos avisos</h3><p class="muted pequeno" style="margin:4px 0 0">O Finances pede voz nos avisos que você marcou como áudio lá.</p></div>
+        <div><h3>Voz nos avisos</h3><p class="muted pequeno" style="margin:4px 0 0"><b>Personalizada</b>: cada aviso sai do jeito que você marcou no sistema (no Finances, pelo formato do aviso; no Rotinas, em cada missão). <b>Sempre</b> e <b>Nunca</b> passam por cima dessa escolha.</p></div>
         <div class="segmentos" role="radiogroup" aria-label="Voz nos avisos">
-          ${[["sistema", "Quando o sistema pedir"], ["sempre", "Sempre"], ["nunca", "Nunca"]].map(([v, r]) =>
+          ${[["sistema", "Personalizada"], ["sempre", "Sempre"], ["nunca", "Nunca"]].map(([v, r]) =>
             `<button type="button" role="radio" data-avvoz="${v}" aria-checked="${a.voz === v}">${r}</button>`).join("")}
         </div>
       </div>`;
