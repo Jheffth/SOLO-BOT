@@ -168,6 +168,7 @@ class AvisoPendente(Base):
     app = Column(String(16), nullable=False)
     mensagens = Column(Text, nullable=False)          # JSON [{texto, opcoes, falado?}]
     voz = Column(Boolean, default=False, nullable=False)
+    valido_ate = Column(DateTime, nullable=True)      # UTC; passou disso na fila → descartado
     criado_em = Column(DateTime, default=datetime.utcnow)
 
 
@@ -212,6 +213,7 @@ def _migrar():
       · contas.email    — deixa de ser obrigatório
       · contas.voz      — preferência de resposta falada
       · contas.avisos_* — silêncio e voz dos avisos
+      · avisos_pendentes.valido_ate — validade do aviso guardado
     """
     from sqlalchemy import inspect, text
     insp = inspect(engine)
@@ -228,6 +230,11 @@ def _migrar():
                 con.execute(text(f"ALTER TABLE contas ADD COLUMN {nome} {tipo}"))
         if engine.dialect.name == "postgresql" and not colunas.get("email", {}).get("nullable", True):
             con.execute(text("ALTER TABLE contas ALTER COLUMN email DROP NOT NULL"))
+        if "avisos_pendentes" in insp.get_table_names():
+            pend = {c["name"] for c in insp.get_columns("avisos_pendentes")}
+            if "valido_ate" not in pend:
+                tipo = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
+                con.execute(text(f"ALTER TABLE avisos_pendentes ADD COLUMN valido_ate {tipo}"))
 
 
 def get_db():

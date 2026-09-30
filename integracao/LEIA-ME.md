@@ -49,6 +49,27 @@ contra sistemas de mentira em `tests/test_integracao.py`.
 
    `avisar` nunca levanta exceção. Aviso que falha não derruba o job que o disparou.
 
+   O contrato completo de `avisar` (todos opcionais depois de `texto`):
+
+   | Parâmetro | Para quê |
+   |---|---|
+   | `opcoes` | botões no formato neutro |
+   | `falado` | roteiro para ouvido; sem ele o Solo Bot resume sozinho |
+   | `voz` | `True` pede que o aviso seja falado (a Conta Solo decide: Personalizada / Sempre / Nunca) |
+   | `valido_ate` | `datetime` com fuso ou ISO 8601 com fuso. Se o aviso vencer enquanto espera o horário de silêncio, é descartado. Use em avisos de prazo |
+
+   ```python
+   from datetime import datetime, timedelta
+   from zoneinfo import ZoneInfo
+   inicio = datetime(2026, 10, 1, 14, 30, tzinfo=ZoneInfo("America/Sao_Paulo"))
+   solobot_ponte.avisar(u.id, "⏰ Faltam 15 min: Treino", voz=missao.aviso_voz,
+                        falado="Faltam quinze minutos para o treino.", valido_ate=inicio)
+   ```
+
+   Resposta de `/interno/enviar`: `{entregues, adiados, descartados, vinculado}`. `avisar` devolve
+   `True` quando o Solo Bot tratou o aviso (entregou, guardou ou descartou por vencido). Nesses casos
+   o sistema **não** cai para outro canal.
+
 ## Só no Rotinas: um ajuste de uma linha no `motors/conversa.py`
 
 O motor descobre o hunter pelo `chat_id` (`vinculo.por_origem`). Pelo Solo Bot,

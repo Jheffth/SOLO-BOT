@@ -132,16 +132,23 @@ def _post(caminho: str, corpo: dict, timeout: float = 8.0) -> Optional[dict]:
 
 
 def avisar(usuario_id, texto: str, opcoes=None, falado: Optional[str] = None,
-           voz: Optional[bool] = None) -> bool:
+           voz: Optional[bool] = None, valido_ate=None) -> bool:
     """
     Manda um aviso ao usuário por todos os canais dele no Solo Bot.
 
     `falado`: o roteiro para ouvido, se o sistema tiver (o Finances tem).
     `voz`:    True pede que o aviso seja falado (a Conta Solo decide se aceita:
               painel → Avisos → Voz nos avisos).
+    `valido_ate`: até quando o aviso faz sentido (datetime COM fuso, ou texto
+              ISO 8601 com fuso, ex. "2026-10-01T14:30:00-03:00"). Se a
+              pessoa estiver no horário de silêncio e o aviso vencer na
+              fila, o Solo Bot descarta em vez de entregar tarde. Use em
+              avisos de prazo ("faltam 15 min", "começou agora"). Sem fuso,
+              o Solo Bot lê como hora de Brasília (FUSO dele).
 
-    Devolve True se o Solo Bot aceitou — entregou agora ou guardou para depois
-    do horário de silêncio da pessoa. Nunca levanta exceção: aviso que falha
+    Devolve True se o Solo Bot aceitou — entregou agora, guardou para depois
+    do horário de silêncio ou descartou por já estar vencido. Em todos esses
+    casos o sistema NÃO deve tentar outro canal. Nunca levanta exceção: aviso que falha
     não pode derrubar o job que o disparou.
     """
     if not token():
@@ -151,8 +158,10 @@ def avisar(usuario_id, texto: str, opcoes=None, falado: Optional[str] = None,
         corpo["falado"] = falado[:1200]
     if voz is not None:
         corpo["voz"] = bool(voz)
+    if valido_ate is not None:
+        corpo["valido_ate"] = valido_ate.isoformat() if hasattr(valido_ate, "isoformat") else str(valido_ate)
     r = _post("/interno/enviar", corpo)
-    return bool(r and (r.get("entregues") or r.get("adiados")))
+    return bool(r and (r.get("entregues") or r.get("adiados") or r.get("descartados")))
 
 
 def situacao(usuario_id) -> dict:

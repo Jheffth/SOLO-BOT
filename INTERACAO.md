@@ -148,7 +148,15 @@ A preferência é da Conta Solo: `/voz audio` (padrão: fala quando a pessoa man
   e dos itens dos botões. Por exemplo, "Você tem quatro missões hoje. O treino já foi. Faltam a leitura e o banho.".
   A lista completa continua indo por escrito.
 
-Avisos saem só por escrito.
+**Avisos também podem sair em voz** (painel → Avisos → Voz nos avisos):
+- **Personalizada** (padrão): fala quando o sistema pede (`voz: true`). No Finances, os avisos em formato
+  áudio; no Rotinas, as missões marcadas para voz. O roteiro vem no `falado` do sistema ou, na falta, do resumo
+  falado acima.
+- **Sempre** / **Nunca**: passam por cima do pedido do sistema.
+
+Avisos respeitam o **horário de silêncio**: o que chega na janela espera numa fila e sai quando ela
+termina. Aviso com **validade** (`valido_ate`) que vence na fila é descartado, porque um "faltam 15 min"
+entregue às 7h da manhã só atrapalha.
 
 Sem modo ativo e com dois sistemas conectados, o áudio é transcrito, e o bot pergunta
 "para qual sistema?". O áudio não é guardado em lugar nenhum. O limite é de 90 segundos por áudio.

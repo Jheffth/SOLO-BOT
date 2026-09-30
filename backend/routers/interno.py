@@ -5,6 +5,7 @@ Sistema → Solo Bot. Por aqui chegam os avisos (manhã do Rotinas, fatura do Fi
 Só na rede interna, e só com o token do próprio sistema. O token diz QUEM
 está mandando: um sistema não consegue avisar em nome de outro.
 """
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -31,13 +32,14 @@ class Aviso(BaseModel):
     opcoes: Optional[List[dict]] = None
     falado: Optional[str] = Field(default=None, max_length=1200)   # roteiro para ouvido, se o sistema tiver
     voz: Optional[bool] = None                                     # o sistema pede que este aviso seja falado
+    valido_ate: Optional[datetime] = None                          # ISO com fuso; depois disso, não entregar
 
 
 @router.post("/enviar")
 def enviar(a: Aviso, mod: modulos.Modulo = Depends(_modulo), db: Session = Depends(get_db)):
     """Entrega agora, ou guarda até o fim do horário de silêncio da pessoa."""
     from nucleo import avisos
-    return avisos.receber(db, mod, a.usuario_id, a.texto, a.opcoes, a.falado, a.voz)
+    return avisos.receber(db, mod, a.usuario_id, a.texto, a.opcoes, a.falado, a.voz, a.valido_ate)
 
 
 @router.post("/manifesto")

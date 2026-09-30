@@ -37,7 +37,7 @@ def test_silencio_guarda_e_solta_depois(pronto, caixa, monkeypatch):
     _hora(monkeypatch, 23, 30)
     n = len(caixa)
     r = pronto.post("/interno/enviar", headers=ROT, json={"usuario_id": "1", "texto": "Missão das 23h vencida"}).json()
-    assert r == {"entregues": 0, "adiados": 1, "vinculado": True} and len(caixa) == n
+    assert r == {"entregues": 0, "adiados": 1, "descartados": 0, "vinculado": True} and len(caixa) == n
     a = pronto.get("/api/conta/avisos").json()
     assert a["na_fila"] == 1 and a["silencio"]["agora"] and a["silencio"]["termina_as"] == "07:00"
 
@@ -101,3 +101,73 @@ def test_validacao(pronto):
     assert pronto.patch("/api/conta/avisos", json={"voz": "gritando"}).status_code == 422
     a = pronto.patch("/api/conta/avisos", json={"silencio": False}).json()
     assert a["silencio"]["ativo"] is False
+
+
+# ── Validade ──────────────────────────────────────────────────────
+def _pendentes():
+    from database import AvisoPendente, SessionLocal
+    db = SessionLocal()
+    try:
+        return db.query(AvisoPendente).count()
+    finally:
+        db.close()
+
+
+def test_aviso_de_prazo_que_vence_no_silencio_e_descartado(pronto, caixa, monkeypatch):
+    pronto.patch("/api/conta/avisos", json={"silencio": True, "de": "22:00", "ate": "07:00"})
+    _hora(monkeypatch, 23, 30)
+    r = pronto.post("/interno/enviar", headers=ROT, json={
+        "usuario_id": "1", "texto": "⏰ Faltam 15 min: Leitura",
+        "valido_ate": "2026-10-01T23:45:00-03:00"}).json()
+    assert r["adiados"] == 1 and _pendentes() == 1
+    n = len(caixa)
+    from database import SessionLocal
+    db = SessionLocal()
+    assert avisos.despachar_pendentes(db, datetime(2026, 10, 2, 7, 0, tzinfo=ZoneInfo(config.FUSO))) == 0
+    db.close()
+    assert len(caixa) == n and _pendentes() == 0
+
+
+def test_aviso_ainda_valido_sai_quando_o_silencio_acaba(pronto, caixa, monkeypatch):
+    pronto.patch("/api/conta/avisos", json={"silencio": True, "de": "22:00", "ate": "07:00"})
+    _hora(monkeypatch, 23, 30)
+    pronto.post("/interno/enviar", headers=ROT, json={
+        "usuario_id": "1", "texto": "Missão de hoje: Treino",
+        "valido_ate": "2026-10-02T12:00:00-03:00"})
+    from database import SessionLocal
+    db = SessionLocal()
+    assert avisos.despachar_pendentes(db, datetime(2026, 10, 2, 7, 0, tzinfo=ZoneInfo(config.FUSO))) == 1
+    db.close()
+    assert "Missão de hoje: Treino" in caixa[-1][2]
+
+
+def test_aviso_que_chega_vencido_nao_sai(pronto, caixa, monkeypatch):
+    _hora(monkeypatch, 14, 20)
+    n = len(caixa)
+    r = pronto.post("/interno/enviar", headers=ROT, json={
+        "usuario_id": "1", "texto": "Começou agora: Treino",
+        "valido_ate": "2026-10-01T17:10:00+00:00"}).json()       # 14:10 em Brasília
+    assert r == {"entregues": 0, "adiados": 0, "descartados": 1, "vinculado": True}
+    assert len(caixa) == n and _pendentes() == 0
+
+
+def test_validade_sem_fuso_vale_como_hora_local(pronto, caixa, monkeypatch):
+    _hora(monkeypatch, 14, 0)
+    r = pronto.post("/interno/enviar", headers=ROT, json={
+        "usuario_id": "1", "texto": "Faltam 15 min", "valido_ate": "2026-10-01T14:15:00"}).json()
+    assert r["entregues"] == 1
+
+
+def test_ponte_manda_validade_e_aceita_descartado(monkeypatch):
+    import importlib.util, pathlib
+    spec = importlib.util.spec_from_file_location(
+        "ponte_validade", pathlib.Path(__file__).parent.parent / "integracao/comum/solobot_ponte.py")
+    ponte = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ponte)
+    monkeypatch.setenv("BOT_SERVICE_TOKEN", "t")
+    enviados = []
+    monkeypatch.setattr(ponte, "_post", lambda c, corpo, timeout=8.0: enviados.append(corpo) or
+                        {"entregues": 0, "adiados": 0, "descartados": 1})
+    quando = datetime(2026, 10, 1, 14, 30, tzinfo=ZoneInfo("America/Sao_Paulo"))
+    assert ponte.avisar(7, "Faltam 15 min", voz=True, valido_ate=quando) is True
+    assert enviados[0]["valido_ate"] == "2026-10-01T14:30:00-03:00" and enviados[0]["voz"] is True
