@@ -1,7 +1,10 @@
 # Integração — o que encaixa em cada sistema
 
-Nada aqui foi aplicado nos repositórios do Finances e do Rotinas. São arquivos
-prontos para copiar, mais três ajustes pequenos por sistema. Todos estão testados
+**Aplicado em 30/09/2026:** Solo Finances `9b83424`, Solo Rotinas `0d75014`
+(e `7dcfae1`, senha da Evolution fora do compose). Os `PROMPT_*.md` ficam como
+registro do que foi pedido. Se esta pasta mudar, copie de novo para os sistemas.
+
+São arquivos prontos para copiar, mais três ajustes pequenos por sistema. Todos estão testados
 contra sistemas de mentira em `tests/test_integracao.py`.
 
 ## Os dois sistemas
