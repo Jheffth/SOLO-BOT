@@ -154,6 +154,33 @@ class ManifestoModulo(Base):
     origem = Column(String(16), nullable=True)       # empurrado | buscado
 
 
+class Configuracao(Base):
+    """Chave/valor do que se ajusta na tela de Administração (voz, modelo)."""
+    __tablename__ = "configuracoes"
+
+    chave = Column(String(60), primary_key=True)
+    valor = Column(Text, nullable=True)
+    atualizado_em = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+def ler_config(chave: str):
+    db = SessionLocal()
+    try:
+        c = db.get(Configuracao, chave)
+        return c.valor if c else None
+    except Exception:  # noqa: BLE001 — tabela ainda não criada, banco fora: vale o padrão
+        return None
+    finally:
+        db.close()
+
+
+def gravar_config(db, chave: str, valor):
+    c = db.get(Configuracao, chave) or Configuracao(chave=chave)
+    c.valor = valor
+    db.merge(c)
+    db.commit()
+
+
 def criar_tabelas():
     Base.metadata.create_all(bind=engine)
     _migrar()

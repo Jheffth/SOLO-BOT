@@ -87,39 +87,103 @@ def _chaves() -> list:
     return [k for k in (config.ELEVENLABS_API_KEY, config.ELEVENLABS_API_KEY_SECONDARY) if k]
 
 
-def voz() -> Optional[str]:
-    """ELEVENLABS_VOICE_ID se houver; senão a primeira voz da conta (própria antes de premade)."""
-    if config.ELEVENLABS_VOICE_ID:
-        return config.ELEVENLABS_VOICE_ID
-    if _estado["voz"]:
-        return _estado["voz"]
+MODELOS = [
+    {"id": "eleven_flash_v2_5", "nome": "Rápido", "expressivo": False,
+     "descricao": "Flash v2.5: resposta mais rápida e metade do crédito. Voz neutra."},
+    {"id": "eleven_v4_turbo", "nome": "Expressivo", "expressivo": True,
+     "descricao": "v4 Turbo: entende os jeitos de falar ([animado], [sussurrando]…) e continua rápido."},
+    {"id": "eleven_v4", "nome": "Máximo", "expressivo": True,
+     "descricao": "v4: a atuação mais rica; um pouco mais lento e mais caro."},
+]
+CHAVE_VOZ, CHAVE_MODELO = "voz_elevenlabs", "modelo_elevenlabs"
+
+
+def modelo() -> str:
+    """ELEVENLABS_MODEL no .env fixa; senão o escolhido na tela; senão o Rápido."""
+    from database import ler_config
+    return config.ELEVENLABS_MODEL or ler_config(CHAVE_MODELO) or MODELO_RESERVA
+
+
+def _chave_para(rotulo: str) -> str:
+    return config.ELEVENLABS_API_KEY if rotulo == "principal" else config.ELEVENLABS_API_KEY_SECONDARY
+
+
+def listar_vozes() -> list:
+    """As vozes da conta ElevenLabs (tenta a chave principal, depois a reserva)."""
     for chave in _chaves():
         try:
             with httpx.Client(timeout=15) as c:
                 r = c.get(f"{API}/voices", headers={"xi-api-key": chave})
-            if r.status_code != 200:
-                continue
-            vozes = r.json().get("voices") or []
-            ordem = {"cloned": 0, "generated": 0, "premade": 1}
-            vozes.sort(key=lambda v: ordem.get(v.get("category"), 2))
-            if vozes:
-                _estado["voz"] = vozes[0]["voice_id"]
-                return _estado["voz"]
         except Exception:  # noqa: BLE001
-            log.exception("ElevenLabs: não consegui listar as vozes")
-    return None
+            continue
+        if r.status_code != 200:
+            continue
+        ordem = {"cloned": 0, "generated": 0, "premade": 1}
+        vozes = [{"voice_id": v.get("voice_id"), "nome": v.get("name") or v.get("voice_id"),
+                  "categoria": v.get("category"), "propria": v.get("category") in ("cloned", "generated"),
+                  "biblioteca": v.get("category") == "professional", "preview_url": v.get("preview_url"),
+                  "descricao": ", ".join(x for x in (v.get("labels") or {}).values() if isinstance(x, str))[:80]}
+                 for v in (r.json().get("voices") or []) if v.get("voice_id")]
+        vozes.sort(key=lambda v: (ordem.get(v["categoria"], 2), (v["nome"] or "").lower()))
+        return vozes
+    return []
 
 
-def sintetizar(texto: str, canal: str) -> Optional[dict]:
+def voz() -> Optional[str]:
+    """ELEVENLABS_VOICE_ID fixa; senão a escolhida na tela; senão a 1ª da conta (própria antes de premade)."""
+    from database import ler_config
+    if config.ELEVENLABS_VOICE_ID:
+        return config.ELEVENLABS_VOICE_ID
+    escolhida = ler_config(CHAVE_VOZ)
+    if escolhida:
+        return escolhida
+    if _estado["voz"]:
+        return _estado["voz"]
+    vozes = [v for v in listar_vozes() if not v["biblioteca"]] or listar_vozes()
+    _estado["voz"] = vozes[0]["voice_id"] if vozes else None
+    return _estado["voz"]
+
+
+def creditos() -> list:
+    """O saldo de caracteres de cada chave (GET /user/subscription; a chave precisa de "User: read")."""
+    from datetime import datetime, timezone
+    saida = []
+    for rotulo in ("principal", "reserva"):
+        chave = _chave_para(rotulo)
+        if not chave:
+            continue
+        item = {"rotulo": rotulo}
+        try:
+            with httpx.Client(timeout=12) as c:
+                r = c.get(f"{API}/user/subscription", headers={"xi-api-key": chave})
+            if r.status_code in (401, 403):
+                item["erro"] = 'A chave não pode ler os créditos: dê a ela a permissão "User → Read" na ElevenLabs.'
+            elif r.status_code != 200:
+                item["erro"] = f"A ElevenLabs respondeu HTTP {r.status_code}."
+            else:
+                d = r.json()
+                usados, limite = int(d.get("character_count") or 0), int(d.get("character_limit") or 0)
+                reset = d.get("next_character_count_reset_unix")
+                item.update({"usados": usados, "limite": limite, "restantes": max(limite - usados, 0),
+                             "plano": d.get("tier"),
+                             "renova_em": datetime.fromtimestamp(int(reset), tz=timezone.utc).date().isoformat()
+                             if reset else None})
+        except Exception:  # noqa: BLE001
+            item["erro"] = "Não consegui falar com a ElevenLabs agora."
+        saida.append(item)
+    return saida
+
+
+def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None) -> Optional[dict]:
     """{base64, mime} pronto para a entrega, ou None (sem chave, sem crédito, fora do ar)."""
     if not disponivel() or not texto:
         return None
-    id_voz = voz()
+    id_voz = id_voz or voz()
     if not id_voz:
         _estado["ultimo_erro"] = "nenhuma voz disponível na conta da ElevenLabs"
         return None
     formato, mime = FORMATOS.get(canal, FORMATOS["whatsapp"])
-    modelo = config.ELEVENLABS_MODEL or MODELO_RESERVA
+    modelo_id = modelo()
 
     def corpo(m: str) -> dict:
         return {"text": texto if expressivo(m) else _TAGS.sub("", texto).strip(),
@@ -127,7 +191,7 @@ def sintetizar(texto: str, canal: str) -> Optional[dict]:
                 "voice_settings": {"stability": 0.4 if expressivo(m) else 0.5, "similarity_boost": 0.8}}
 
     for chave in _chaves():
-        c_atual = corpo(modelo)
+        c_atual = corpo(modelo_id)
         for _ in range(3):
             try:
                 with httpx.Client(timeout=40) as c:

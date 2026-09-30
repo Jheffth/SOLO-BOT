@@ -38,6 +38,14 @@
     <article class="cartao vidro canal" style="--c:#1faa59" id="wa"></article>
   </div>
 
+  <section class="cartao vidro entrar-animado voz-admin" id="voz-admin" style="margin-bottom:28px">
+    <div class="linha entre" style="flex-wrap:wrap;gap:10px">
+      <div><h2>Voz do bot</h2><p class="muted pequeno" style="margin:4px 0 0">ElevenLabs · vale para todos os sistemas.</p></div>
+      <button class="btn pequeno" id="voz-recarregar"><span data-i="activity"></span>Atualizar saldo</button>
+    </div>
+    <div id="voz-corpo"><div class="esqueleto" style="height:160px;margin-top:16px"></div></div>
+  </section>
+
   <section class="cartao vidro entrar-animado">
     <div class="linha entre"><h2>Sistemas registrados</h2><span class="linha" style="gap:.5rem"><span id="voz"></span><button class="btn pequeno" id="sincronizar"><span data-i="activity"></span>Buscar manifestos</button></span></div>
     <div style="overflow-x:auto"><table class="tabela" id="sistemas"></table></div>
@@ -124,6 +132,96 @@
     carregar();
   };
   document.getElementById("atualizar").onclick = () => carregar().then(() => toast("Atualizado."));
+  // ── Voz: saldo, modelo e vozes (carrega uma vez; a ElevenLabs cobra por consulta de voz, não de saldo)
+  const fmt = n => Number(n || 0).toLocaleString("pt-BR");
+  const CAT = { cloned: "Clonada", generated: "Criada", premade: "Padrão", professional: "Biblioteca" };
+  let tocando = null;
+  function tocar(url, btn) {
+    if (tocando) { tocando.pause(); tocando = null; document.querySelectorAll(".voz-play.on").forEach(b => b.classList.remove("on")); }
+    const a = new Audio(url); tocando = a; btn && btn.classList.add("on");
+    a.onended = () => btn && btn.classList.remove("on");
+    a.play().catch(() => toast("Não consegui tocar a amostra.", "erro"));
+  }
+  async function carregarVoz() {
+    const alvo = document.getElementById("voz-corpo");
+    let v;
+    try { v = await api("/api/admin/voz"); } catch (e) { alvo.innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
+    if (!v.disponivel) { alvo.innerHTML = '<p class="muted" style="margin-top:14px">Defina <code>ELEVENLABS_API_KEY</code> no .env do Solo Bot para o bot falar.</p>'; return; }
+
+    const saldo = v.creditos.map(c => {
+      if (c.erro) return `<div class="saldo vidro"><div class="saldo-topo"><b>Chave ${esc(c.rotulo)}</b></div><p class="muted pequeno">${esc(c.erro)}</p></div>`;
+      const pct = c.limite ? Math.min(100, Math.round(c.restantes / c.limite * 100)) : 0;
+      const tom = pct < 10 ? "baixo" : pct < 30 ? "medio" : "ok";
+      return `<div class="saldo vidro ${tom}">
+        <div class="saldo-topo"><b>Chave ${esc(c.rotulo)}</b><span class="chip">${esc(c.plano || "—")}</span></div>
+        <div class="saldo-num"><b>${fmt(c.restantes)}</b><span>de ${fmt(c.limite)} caracteres</span></div>
+        <div class="saldo-barra"><i style="width:${pct}%"></i></div>
+        <small class="faint">${pct}% restante${c.renova_em ? ` · renova em ${new Date(c.renova_em + "T12:00:00").toLocaleDateString("pt-BR")}` : ""}
+          · ≈ ${fmt(Math.floor(c.restantes / 90))} respostas faladas</small>
+      </div>`;
+    }).join("");
+
+    const modelos = v.modelo.opcoes.map(m => `
+      <label class="modelo ${m.id === v.modelo.atual ? "on" : ""}">
+        <input type="radio" name="modelo" value="${esc(m.id)}" ${m.id === v.modelo.atual ? "checked" : ""} ${v.modelo.fixo_no_env ? "disabled" : ""}>
+        <span><b>${esc(m.nome)}</b>${m.expressivo ? ' <span class="chip ok">jeitos de falar</span>' : ""}<small>${esc(m.descricao)}</small></span>
+      </label>`).join("");
+
+    const fixa = v.voz.origem === "env";
+    const vozes = v.vozes.map(x => `
+      <div class="voz-item ${x.voice_id === v.voz.id ? "atual" : ""}">
+        <button class="voz-play" ${x.preview_url ? `data-preview="${esc(x.preview_url)}"` : "disabled"} title="Ouvir a amostra da ElevenLabs (não gasta crédito)">${icon("play")}</button>
+        <div class="voz-info"><b>${esc(x.nome)}</b><small>${esc(CAT[x.categoria] || x.categoria || "")}${x.descricao ? " · " + esc(x.descricao) : ""}</small>
+          ${x.biblioteca ? '<span class="chip aguarda" title="No plano gratuito a API recusa vozes da Biblioteca (erro 402).">exige plano pago</span>' : ""}</div>
+        ${x.voice_id === v.voz.id ? '<span class="chip ok"><span class="ponto"></span>em uso</span>'
+          : `<button class="btn pequeno" data-usar="${esc(x.voice_id)}" ${fixa ? "disabled" : ""}>Usar</button>`}
+      </div>`).join("") || '<p class="muted">Nenhuma voz na conta da ElevenLabs.</p>';
+
+    alvo.innerHTML = `
+      <div class="saldos">${saldo || '<p class="muted">Sem chave para consultar.</p>'}</div>
+      <div class="voz-grade">
+        <div>
+          <h3 style="margin:22px 0 10px">Modelo</h3>
+          ${v.modelo.fixo_no_env ? '<p class="muted pequeno">Fixado no .env (<code>ELEVENLABS_MODEL</code>). Tire de lá para escolher aqui.</p>' : ""}
+          <div class="modelos">${modelos}</div>
+          <h3 style="margin:22px 0 10px">Testar a frase</h3>
+          <div class="linha" style="flex-wrap:wrap">
+            <div class="entrada" style="flex:1;min-width:200px"><span>${icon("chat")}</span><input id="voz-frase" maxlength="200" value="Lancei quarenta e cinco reais no mercado. Faltam duas missões hoje."></div>
+            <button class="btn pequeno primario" id="voz-testar">Ouvir</button>
+          </div>
+          <small class="faint">Gasta créditos: é a frase de verdade, na voz e no modelo escolhidos.</small>
+          ${v.ultimo_erro ? `<p class="erro-form" style="margin-top:10px">Última falha: ${esc(v.ultimo_erro)}</p>` : ""}
+        </div>
+        <div>
+          <h3 style="margin:22px 0 10px">Vozes <span class="muted pequeno" style="font-weight:500">· em uso: ${esc(v.voz.nome || v.voz.id || "—")}${fixa ? " (fixada no .env)" : v.voz.origem === "automatica" ? " (automática)" : ""}</span></h3>
+          <div class="vozes">${vozes}</div>
+        </div>
+      </div>`;
+
+    alvo.querySelectorAll("[data-preview]").forEach(b => b.onclick = () => tocar(b.dataset.preview, b));
+    alvo.querySelectorAll("[data-usar]").forEach(b => b.onclick = async () => {
+      carregando(b, true);
+      try { await api("/api/admin/voz", { method: "PUT", body: { voice_id: b.dataset.usar } }); toast("Voz trocada para todos os sistemas."); carregarVoz(); }
+      catch (e) { carregando(b, false); toast(e.message, "erro"); }
+    });
+    alvo.querySelectorAll('input[name="modelo"]').forEach(r => r.onchange = async () => {
+      try { await api("/api/admin/voz", { method: "PUT", body: { modelo: r.value } }); toast("Modelo trocado."); carregarVoz(); }
+      catch (e) { toast(e.message, "erro"); carregarVoz(); }
+    });
+    document.getElementById("voz-testar").onclick = async function () {
+      carregando(this, true);
+      try {
+        const r = await fetch("/api/admin/voz/amostra", { method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ texto: document.getElementById("voz-frase").value }) });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "Não gerou a amostra.");
+        tocar(URL.createObjectURL(await r.blob()));
+      } catch (e) { toast(e.message, "erro"); }
+      carregando(this, false);
+    };
+  }
+  document.getElementById("voz-recarregar").onclick = () => carregarVoz();
+  carregarVoz();
+
   await carregar();
   setInterval(() => { if (!document.hidden) carregar().catch(() => {}); }, 8000);
 })();

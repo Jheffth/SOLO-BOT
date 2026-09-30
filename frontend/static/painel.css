@@ -135,3 +135,33 @@ code { font-family: var(--mono); font-size: .8rem; padding: .18rem .45rem; borde
 .segmentos button { border: 0; background: none; color: var(--muted); font-weight: 550; font-size: .86rem; padding: .5rem .8rem; border-radius: 9px; cursor: pointer; transition: background .2s, color .2s; }
 .segmentos button:hover { color: var(--text); }
 .segmentos button[aria-checked="true"] { background: var(--surface-2); color: var(--text); box-shadow: 0 0 0 1px var(--border-strong) inset; }
+
+/* admin · voz */
+.saldos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 16px; }
+.saldo { padding: 16px 18px; border-radius: 16px; display: grid; gap: 8px; --tom: var(--emerald); }
+.saldo.medio { --tom: var(--warn); } .saldo.baixo { --tom: var(--danger); }
+.saldo-topo { display: flex; justify-content: space-between; align-items: center; font-size: .88rem; }
+.saldo-topo b { font-weight: 600; text-transform: capitalize; }
+.saldo-num b { font: 600 1.7rem var(--display); letter-spacing: -.02em; color: var(--tom); }
+.saldo-num span { color: var(--muted); font-size: .85rem; margin-left: 6px; }
+.saldo-barra { height: 8px; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
+.saldo-barra i { display: block; height: 100%; border-radius: 8px; background: var(--tom); transition: width .8s cubic-bezier(.3,.9,.3,1); }
+.voz-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 28px; }
+.modelos { display: grid; gap: 8px; }
+.modelo { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: border-color .2s; }
+.modelo.on { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(167,139,250,.12); }
+.modelo input { margin-top: 3px; accent-color: #8b5cf6; }
+.modelo b { font-weight: 600; }
+.modelo small { display: block; color: var(--muted); font-size: .82rem; margin-top: 2px; }
+.vozes { display: grid; gap: 8px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+.voz-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); }
+.voz-item.atual { border-color: color-mix(in srgb, var(--emerald) 45%, var(--border)); }
+.voz-info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.voz-info b { font-weight: 550; font-size: .92rem; }
+.voz-info small { color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voz-info .chip { justify-self: start; margin-top: 2px; }
+.voz-play { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface-2); display: grid; place-items: center; cursor: pointer; flex: none; color: var(--text); }
+.voz-play svg { width: 16px; height: 16px; }
+.voz-play.on { background: var(--brand); color: #0b0b12; border: 0; animation: pulsar 1.2s infinite; }
+.voz-play[disabled] { opacity: .4; cursor: default; }
+@media (max-width: 860px) { .voz-grade { grid-template-columns: 1fr; gap: 0; } }

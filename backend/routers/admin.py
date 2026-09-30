@@ -2,7 +2,10 @@
 """O painel do administrador: estado dos canais e dos sistemas."""
 from datetime import datetime, timedelta
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -102,3 +105,68 @@ def conectar_whatsapp(_: Conta = Depends(conta_admin)):
     if r.get("estado") == "open":
         ULTIMO_QR["base64"] = None
     return {**r, "qr": r.get("qr") or (ULTIMO_QR["base64"] if r.get("estado") != "open" else None)}
+
+
+# ══════════════════════════════════════════════════════════════════════
+# VOZ — saldo de créditos, vozes e modelo (ElevenLabs)
+# ══════════════════════════════════════════════════════════════════════
+@router.get("/voz")
+def painel_voz(_: Conta = Depends(conta_admin)):
+    from database import ler_config
+    from nucleo import fala
+    if not fala.disponivel():
+        return {"disponivel": False}
+    vozes = fala.listar_vozes()
+    atual = fala.voz()
+    nome = next((v["nome"] for v in vozes if v["voice_id"] == atual), None)
+    origem = "env" if config.ELEVENLABS_VOICE_ID else "tela" if ler_config(fala.CHAVE_VOZ) else "automatica"
+    return {
+        "disponivel": True,
+        "creditos": fala.creditos(),
+        "vozes": vozes,
+        "voz": {"id": atual, "nome": nome, "origem": origem},
+        "modelo": {"atual": fala.modelo(), "fixo_no_env": bool(config.ELEVENLABS_MODEL), "opcoes": fala.MODELOS},
+        "ultimo_erro": fala.ultimo_erro(),
+    }
+
+
+class AjusteVoz(BaseModel):
+    voice_id: Optional[str] = None
+    modelo: Optional[str] = None
+
+
+@router.put("/voz")
+def ajustar_voz(dados: AjusteVoz, _: Conta = Depends(conta_admin), db: Session = Depends(get_db)):
+    from database import gravar_config
+    from nucleo import fala
+    if dados.voice_id is not None:
+        if config.ELEVENLABS_VOICE_ID:
+            raise HTTPException(409, "A voz está fixada no .env (ELEVENLABS_VOICE_ID). Tire de lá para escolher aqui.")
+        if dados.voice_id not in {v["voice_id"] for v in fala.listar_vozes()}:
+            raise HTTPException(404, "Essa voz não está na conta da ElevenLabs.")
+        gravar_config(db, fala.CHAVE_VOZ, dados.voice_id)
+        fala._estado["voz"] = None
+    if dados.modelo is not None:
+        if config.ELEVENLABS_MODEL:
+            raise HTTPException(409, "O modelo está fixado no .env (ELEVENLABS_MODEL). Tire de lá para escolher aqui.")
+        if dados.modelo not in {m["id"] for m in fala.MODELOS}:
+            raise HTTPException(422, "Modelo desconhecido.")
+        gravar_config(db, fala.CHAVE_MODELO, dados.modelo)
+    return {"ok": True, "voz": fala.voz(), "modelo": fala.modelo()}
+
+
+class Amostra(BaseModel):
+    texto: str = Field(default="Oi! Eu sou o Solo Bot. É assim que eu vou falar com você.", max_length=200)
+    voice_id: Optional[str] = None
+
+
+@router.post("/voz/amostra")
+def amostra_voz(dados: Amostra, _: Conta = Depends(conta_admin)):
+    """Gasta créditos: é a frase falada de verdade, no modelo atual."""
+    import base64
+    from fastapi.responses import Response
+    from nucleo import fala
+    r = fala.sintetizar(dados.texto, "whatsapp", dados.voice_id)
+    if not r:
+        raise HTTPException(502, fala.ultimo_erro() or "A ElevenLabs não gerou a amostra.")
+    return Response(base64.b64decode(r["base64"]), media_type="audio/mpeg")
