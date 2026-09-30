@@ -182,3 +182,11 @@ code { font-family: var(--mono); font-size: .8rem; padding: .18rem .45rem; borde
 .avisos-voz { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
 .chave[disabled] { opacity: .4; cursor: default; }
 @media (max-width: 680px) { .avisos-grade { grid-template-columns: 1fr; gap: 20px; } }
+
+/* Voz do Sistema (sussurros) */
+.voz-acoes { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
+.chip.sussurro { background: color-mix(in srgb, #7c3aed 16%, transparent); color: color-mix(in srgb, #8b5cf6 80%, var(--text)); border-color: color-mix(in srgb, #7c3aed 40%, transparent); }
+.sussurro-caixa { margin-top: 22px; padding: 14px 16px; border-radius: 16px;
+  border: 1px solid color-mix(in srgb, #7c3aed 35%, var(--border));
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, #7c3aed 14%, transparent), transparent 60%), var(--surface); }
+.sussurro-caixa #sussurro-frase { font-style: italic; }

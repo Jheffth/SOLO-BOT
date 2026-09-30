@@ -132,7 +132,7 @@ def _post(caminho: str, corpo: dict, timeout: float = 8.0) -> Optional[dict]:
 
 
 def avisar(usuario_id, texto: str, opcoes=None, falado: Optional[str] = None,
-           voz: Optional[bool] = None, valido_ate=None) -> bool:
+           voz: Optional[bool] = None, valido_ate=None, tom: Optional[str] = None) -> bool:
     """
     Manda um aviso ao usuário por todos os canais dele no Solo Bot.
 
@@ -145,6 +145,10 @@ def avisar(usuario_id, texto: str, opcoes=None, falado: Optional[str] = None,
               fila, o Solo Bot descarta em vez de entregar tarde. Use em
               avisos de prazo ("faltam 15 min", "começou agora"). Sem fuso,
               o Solo Bot lê como hora de Brasília (FUSO dele).
+    `tom`:    o jeito de falar. "sussurro" = a voz do Sistema cobrando (os
+              Ecos): voz própria (admin → Voz do Sistema), atuação sussurrada,
+              texto em itálico e a frase falada EXATAMENTE como veio.
+              Tom que o Solo Bot não conhece é ignorado.
 
     Devolve True se o Solo Bot aceitou — entregou agora, guardou para depois
     do horário de silêncio ou descartou por já estar vencido. Em todos esses
@@ -158,6 +162,8 @@ def avisar(usuario_id, texto: str, opcoes=None, falado: Optional[str] = None,
         corpo["falado"] = falado[:1200]
     if voz is not None:
         corpo["voz"] = bool(voz)
+    if tom:
+        corpo["tom"] = str(tom)[:20]
     if valido_ate is not None:
         corpo["valido_ate"] = valido_ate.isoformat() if hasattr(valido_ate, "isoformat") else str(valido_ate)
     r = _post("/interno/enviar", corpo)

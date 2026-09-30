@@ -56,6 +56,7 @@ contra sistemas de mentira em `tests/test_integracao.py`.
    | `opcoes` | botões no formato neutro |
    | `falado` | roteiro para ouvido; sem ele o Solo Bot resume sozinho |
    | `voz` | `True` pede que o aviso seja falado (a Conta Solo decide: Personalizada / Sempre / Nunca) |
+   | `tom` | jeito de falar. `"sussurro"` = a voz do Sistema cobrando (os Ecos): voz própria, sussurrada, texto em itálico, frase falada literalmente. Tom desconhecido é ignorado |
    | `valido_ate` | `datetime` com fuso ou ISO 8601 com fuso. Se o aviso vencer enquanto espera o horário de silêncio, é descartado. Use em avisos de prazo |
 
    ```python

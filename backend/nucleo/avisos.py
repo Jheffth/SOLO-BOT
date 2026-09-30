@@ -15,6 +15,10 @@ agora") perde o sentido depois da hora. Se chega já vencido, ou vence enquanto
 espera o silêncio acabar, é DESCARTADO em vez de entregue. Sem validade, o
 aviso guardado sai de qualquer jeito quando o silêncio termina.
 
+Tom (`tom`, opcional): "sussurro" é a voz do Sistema cobrando (os Ecos do
+Rotinas). Muda a voz, a atuação e o texto sai em itálico, sem resumo. Ver
+TONS em nucleo/fala.py. Tom desconhecido é ignorado.
+
 A voz, quando vai, usa o `falado` que o sistema mandou (o roteiro para
 ouvido que o Finances escreve) ou, na falta, o resumo falado da nucleo/fala.
 """
@@ -101,7 +105,7 @@ def _entregar(db: Session, conta: Conta, canal: str, origem: str, app: str, mens
 
 def receber(db: Session, mod: modulos.Modulo, usuario_id: str, texto: str, opcoes=None,
             falado: Optional[str] = None, voz: Optional[bool] = None,
-            valido_ate: Optional[datetime] = None) -> dict:
+            valido_ate: Optional[datetime] = None, tom: Optional[str] = None) -> dict:
     """Um aviso de um sistema. Entrega agora, guarda para depois do silêncio ou descarta (vencido)."""
     v = db.query(VinculoSistema).filter(VinculoSistema.app == mod.chave,
                                         VinculoSistema.usuario_id == str(usuario_id)).first()
@@ -113,9 +117,16 @@ def receber(db: Session, mod: modulos.Modulo, usuario_id: str, texto: str, opcoe
     if _vencido(validade):
         roteador._registrar(db, conta, None, mod.chave, "aviso", "Aviso descartado (chegou vencido)")
         return {"entregues": 0, "adiados": 0, "descartados": len(canais), "vinculado": bool(canais) or None}
-    msg = {"texto": f"{mod.selo}\n{texto}", "opcoes": render.prefixar(opcoes, mod.chave)}
+    from nucleo import fala
+    tom = fala.tom_valido(tom)
+    corpo = texto
+    if tom == "sussurro" and "_" not in texto and "\n" not in texto.strip():
+        corpo = f"_{texto.strip()}_"                 # o Sistema fala baixo: itálico
+    msg = {"texto": f"{mod.selo}\n{corpo}", "opcoes": render.prefixar(opcoes, mod.chave)}
     if falado:
         msg["falado"] = str(falado)[:900]
+    if tom:
+        msg["tom"] = tom
     com_voz = quer_voz(conta, voz)
     entregues = adiados = 0
     silencioso = em_silencio(conta)

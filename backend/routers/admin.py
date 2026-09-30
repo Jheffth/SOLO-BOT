@@ -120,11 +120,14 @@ def painel_voz(_: Conta = Depends(conta_admin)):
     atual = fala.voz()
     nome = next((v["nome"] for v in vozes if v["voice_id"] == atual), None)
     origem = "env" if config.ELEVENLABS_VOICE_ID else "tela" if ler_config(fala.CHAVE_VOZ) else "automatica"
+    sis = fala.voz_do_sistema()
     return {
         "disponivel": True,
         "creditos": fala.creditos(),
         "vozes": vozes,
         "voz": {"id": atual, "nome": nome, "origem": origem},
+        "voz_sistema": {"id": sis["id"], "origem": sis["origem"],
+                        "nome": next((v["nome"] for v in vozes if v["voice_id"] == sis["id"]), None)},
         "modelo": {"atual": fala.modelo(), "fixo_no_env": bool(config.ELEVENLABS_MODEL), "opcoes": fala.MODELOS},
         "ultimo_erro": fala.ultimo_erro(),
     }
@@ -133,6 +136,7 @@ def painel_voz(_: Conta = Depends(conta_admin)):
 class AjusteVoz(BaseModel):
     voice_id: Optional[str] = None
     modelo: Optional[str] = None
+    voice_id_sistema: Optional[str] = None        # a voz dos sussurros; "" volta a usar a voz do bot
 
 
 @router.put("/voz")
@@ -152,12 +156,17 @@ def ajustar_voz(dados: AjusteVoz, _: Conta = Depends(conta_admin), db: Session =
         if dados.modelo not in {m["id"] for m in fala.MODELOS}:
             raise HTTPException(422, "Modelo desconhecido.")
         gravar_config(db, fala.CHAVE_MODELO, dados.modelo)
-    return {"ok": True, "voz": fala.voz(), "modelo": fala.modelo()}
+    if dados.voice_id_sistema is not None:
+        if dados.voice_id_sistema and dados.voice_id_sistema not in {v["voice_id"] for v in fala.listar_vozes()}:
+            raise HTTPException(404, "Essa voz não está na conta da ElevenLabs.")
+        gravar_config(db, fala.CHAVE_VOZ_SISTEMA, dados.voice_id_sistema or None)
+    return {"ok": True, "voz": fala.voz(), "modelo": fala.modelo(), "voz_sistema": fala.voz_do_sistema()["id"]}
 
 
 class Amostra(BaseModel):
     texto: str = Field(default="Oi! Eu sou o Solo Bot. É assim que eu vou falar com você.", max_length=200)
     voice_id: Optional[str] = None
+    tom: Optional[str] = None
 
 
 @router.post("/voz/amostra")
@@ -166,7 +175,8 @@ def amostra_voz(dados: Amostra, _: Conta = Depends(conta_admin)):
     import base64
     from fastapi.responses import Response
     from nucleo import fala
-    r = fala.sintetizar(dados.texto, "whatsapp", dados.voice_id)
+    r = (fala.sintetizar(dados.texto, "whatsapp", dados.voice_id, tom=dados.tom) if fala.tom_valido(dados.tom)
+         else fala.sintetizar(dados.texto, "whatsapp", dados.voice_id))
     if not r:
         raise HTTPException(502, fala.ultimo_erro() or "A ElevenLabs não gerou a amostra.")
     return Response(base64.b64decode(r["base64"]), media_type="audio/mpeg")

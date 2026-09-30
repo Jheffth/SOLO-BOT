@@ -168,13 +168,19 @@
       </label>`).join("");
 
     const fixa = v.voz.origem === "env";
+    const sis = v.voz_sistema || { id: v.voz.id, origem: "mesma" };
+    const eSistema = id => sis.origem === "tela" && id === sis.id;
     const vozes = v.vozes.map(x => `
       <div class="voz-item ${x.voice_id === v.voz.id ? "atual" : ""}">
         <button class="voz-play" ${x.preview_url ? `data-preview="${esc(x.preview_url)}"` : "disabled"} title="Ouvir a amostra da ElevenLabs (não gasta crédito)">${icon("play")}</button>
         <div class="voz-info"><b>${esc(x.nome)}</b><small>${esc(CAT[x.categoria] || x.categoria || "")}${x.descricao ? " · " + esc(x.descricao) : ""}</small>
           ${x.biblioteca ? '<span class="chip aguarda" title="No plano gratuito a API recusa vozes da Biblioteca (erro 402).">exige plano pago</span>' : ""}</div>
-        ${x.voice_id === v.voz.id ? '<span class="chip ok"><span class="ponto"></span>em uso</span>'
-          : `<button class="btn pequeno" data-usar="${esc(x.voice_id)}" ${fixa ? "disabled" : ""}>Usar</button>`}
+        <div class="voz-acoes">
+          ${x.voice_id === v.voz.id ? '<span class="chip ok"><span class="ponto"></span>em uso</span>'
+            : `<button class="btn pequeno" data-usar="${esc(x.voice_id)}" ${fixa ? "disabled" : ""}>Usar</button>`}
+          ${eSistema(x.voice_id) ? '<span class="chip sussurro" title="A voz dos Ecos: quando o Sistema cobra">👁 Sistema</span>'
+            : `<button class="btn pequeno fantasma" data-sistema="${esc(x.voice_id)}" title="Usar esta voz nos sussurros do Sistema">👁</button>`}
+        </div>
       </div>`).join("") || '<p class="muted">Nenhuma voz na conta da ElevenLabs.</p>';
 
     alvo.innerHTML = `
@@ -190,6 +196,16 @@
             <button class="btn pequeno primario" id="voz-testar">Ouvir</button>
           </div>
           <small class="faint">Gasta créditos: é a frase de verdade, na voz e no modelo escolhidos.</small>
+
+          <div class="sussurro-caixa">
+            <h3 style="margin:0 0 4px">👁 Voz do Sistema <span class="muted pequeno" style="font-weight:500">· ${esc(sis.origem === "tela" ? (sis.nome || sis.id) : "a mesma do bot")}</span></h3>
+            <p class="muted pequeno" style="margin:0 0 10px">Os sussurros (os Ecos do Rotinas) saem nesta voz, baixos e instáveis${v.modelo.opcoes.find(m => m.id === v.modelo.atual)?.expressivo ? ", sussurrados de verdade pelo modelo expressivo" : ". No modelo Expressivo, ela sussurra de verdade"}. Escolha com o 👁 na lista.</p>
+            <div class="linha" style="flex-wrap:wrap">
+              <div class="entrada" style="flex:1;min-width:200px"><span>${icon("chat")}</span><input id="sussurro-frase" maxlength="200" value="Fio dental. O Sistema anotou."></div>
+              <button class="btn pequeno" id="sussurro-testar">Ouvir o sussurro</button>
+              ${sis.origem === "tela" ? '<button class="btn pequeno fantasma" id="sussurro-limpar" title="Volta a usar a voz do bot">Usar a do bot</button>' : ""}
+            </div>
+          </div>
           ${v.ultimo_erro ? `<p class="erro-form" style="margin-top:10px">Última falha: ${esc(v.ultimo_erro)}</p>` : ""}
         </div>
         <div>
@@ -204,6 +220,24 @@
       try { await api("/api/admin/voz", { method: "PUT", body: { voice_id: b.dataset.usar } }); toast("Voz trocada para todos os sistemas."); carregarVoz(); }
       catch (e) { carregando(b, false); toast(e.message, "erro"); }
     });
+    const vozSistema = async (id, b) => {
+      if (b) carregando(b, true);
+      try { await api("/api/admin/voz", { method: "PUT", body: { voice_id_sistema: id } }); toast(id ? "Voz do Sistema trocada." : "O Sistema volta a falar com a voz do bot."); carregarVoz(); }
+      catch (e) { if (b) carregando(b, false); toast(e.message, "erro"); }
+    };
+    alvo.querySelectorAll("[data-sistema]").forEach(b => b.onclick = () => vozSistema(b.dataset.sistema, b));
+    const limpar = document.getElementById("sussurro-limpar");
+    if (limpar) limpar.onclick = () => vozSistema("", limpar);
+    document.getElementById("sussurro-testar").onclick = async function () {
+      carregando(this, true);
+      try {
+        const r = await fetch("/api/admin/voz/amostra", { method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ texto: document.getElementById("sussurro-frase").value, tom: "sussurro" }) });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "Não gerou a amostra.");
+        tocar(URL.createObjectURL(await r.blob()));
+      } catch (e) { toast(e.message, "erro"); }
+      carregando(this, false);
+    };
     alvo.querySelectorAll('input[name="modelo"]').forEach(r => r.onchange = async () => {
       try { await api("/api/admin/voz", { method: "PUT", body: { modelo: r.value } }); toast("Modelo trocado."); carregarVoz(); }
       catch (e) { toast(e.message, "erro"); carregarVoz(); }

@@ -59,7 +59,7 @@ def _reais(m: re.Match) -> str:
     return base if not cent or cent == "00" else f"{base} e {int(cent)} centavos"
 
 
-def texto_falavel(texto: str) -> Optional[str]:
+def texto_falavel(texto: str, limite: Optional[int] = MAX_CARACTERES) -> Optional[str]:
     linhas = []
     for linha in (texto or "").splitlines():
         l = linha.strip()
@@ -77,8 +77,9 @@ def texto_falavel(texto: str) -> Optional[str]:
             linhas.append(l)
     if not linhas:
         return None
-    falado = ". ".join(x.rstrip(".!?") for x in linhas) + "."
-    return falado if len(falado) <= MAX_CARACTERES else None
+    # Cada linha guarda a própria pontuação: "?" e "!" são entonação, não enfeite.
+    falado = " ".join(x if x[-1] in ".!?…" else x + "." for x in linhas)
+    return falado if limite is None or len(falado) <= limite else None
 
 
 def expressivo(modelo: str) -> bool:
@@ -99,6 +100,27 @@ MODELOS = [
      "descricao": "v4: a atuação mais rica; um pouco mais lento e mais caro."},
 ]
 CHAVE_VOZ, CHAVE_MODELO = "voz_elevenlabs", "modelo_elevenlabs"
+CHAVE_VOZ_SISTEMA = "voz_sistema_elevenlabs"
+
+# ── Os TONS ──────────────────────────────────────────────────────
+# Um aviso pode pedir um jeito de falar (`tom`). O tom decide a voz, a
+# atuação e se o texto pode ser resumido. Tom desconhecido é ignorado:
+# um sistema mais novo que o Solo Bot não quebra nada.
+#
+#   sussurro — a voz do Sistema quando cobra (os Ecos do Rotinas). Voz
+#              própria (admin → "Voz do Sistema"), instável e dramática;
+#              nos modelos expressivos, a fala vai marcada [whispers].
+#              A frase é a arte: sai EXATAMENTE como veio, nunca resumida.
+TONS = {
+    "sussurro": {"etiqueta": "[whispers]",
+                 "expressivo": {"stability": 0.0, "similarity_boost": 0.75, "style": 0.7},
+                 "neutro": {"stability": 0.3, "similarity_boost": 0.75, "style": 0.6}},
+}
+
+
+def tom_valido(tom) -> Optional[str]:
+    t = (tom or "").strip().lower() if isinstance(tom, str) else ""
+    return t if t in TONS else None
 
 
 def modelo() -> str:
@@ -147,6 +169,17 @@ def voz() -> Optional[str]:
     return _estado["voz"]
 
 
+def voz_do_sistema() -> dict:
+    """A voz dos sussurros: a escolhida na tela; senão, a mesma voz do bot."""
+    from database import ler_config
+    escolhida = ler_config(CHAVE_VOZ_SISTEMA)
+    return {"id": escolhida or voz(), "origem": "tela" if escolhida else "mesma"}
+
+
+def voz_para(tom: Optional[str]) -> Optional[str]:
+    return voz_do_sistema()["id"] if tom_valido(tom) else voz()
+
+
 def creditos() -> list:
     """O saldo de caracteres de cada chave (GET /user/subscription; a chave precisa de "User: read")."""
     from datetime import datetime, timezone
@@ -177,11 +210,13 @@ def creditos() -> list:
     return saida
 
 
-def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None) -> Optional[dict]:
+def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
+               tom: Optional[str] = None) -> Optional[dict]:
     """{base64, mime} pronto para a entrega, ou None (sem chave, sem crédito, fora do ar)."""
     if not disponivel() or not texto:
         return None
-    id_voz = id_voz or voz()
+    tom = tom_valido(tom)
+    id_voz = id_voz or voz_para(tom)
     if not id_voz:
         _estado["ultimo_erro"] = "nenhuma voz disponível na conta da ElevenLabs"
         return None
@@ -189,9 +224,15 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None) -> Optional
     modelo_id = modelo()
 
     def corpo(m: str) -> dict:
-        return {"text": texto if expressivo(m) else _TAGS.sub("", texto).strip(),
-                "model_id": m, "language_code": "pt",
-                "voice_settings": {"stability": 0.4 if expressivo(m) else 0.5, "similarity_boost": 0.8}}
+        exp = expressivo(m)
+        dito = texto if exp else _TAGS.sub("", texto).strip()
+        ajustes = {"stability": 0.4 if exp else 0.5, "similarity_boost": 0.8}
+        if tom:
+            t = TONS[tom]
+            ajustes = dict(t["expressivo" if exp else "neutro"])
+            if exp and t.get("etiqueta") and not dito.lstrip().startswith("["):
+                dito = f"{t['etiqueta']} {dito}"
+        return {"text": dito, "model_id": m, "language_code": "pt", "voice_settings": ajustes}
 
     for chave in _chaves():
         c_atual = corpo(modelo_id)
@@ -275,6 +316,9 @@ def o_que_falar(mensagens: list) -> Optional[str]:
     feitos = [m.get("falado") for m in mensagens if m.get("falado")]
     if feitos:
         return " ".join(feitos)
+    if any(tom_valido(m.get("tom")) for m in mensagens):      # frase com tom: literal, nunca resumida
+        literal = " ".join(t for t in (texto_falavel(m.get("texto") or "", None) for m in mensagens) if t)
+        return literal[:MAX_CARACTERES] or None
     limpos = [texto_falavel(m.get("texto") or "") for m in mensagens]
     tem_lista = any(m.get("opcoes") for m in mensagens)
     if all(limpos) and not tem_lista:
@@ -301,7 +345,13 @@ def falar_resposta(conta, canal: str, resposta, entrada_audio: bool, forcar: boo
         return                                # o sistema já mandou a própria voz
     try:
         falado = o_que_falar(resposta.mensagens)
-        audio = sintetizar(falado, canal) if falado else None
+        tom = next((tom_valido(m.get("tom")) for m in resposta.mensagens if tom_valido(m.get("tom"))), None)
+        if not falado:
+            audio = None
+        elif tom:
+            audio = sintetizar(falado, canal, voz_para(tom), tom=tom)
+        else:
+            audio = sintetizar(falado, canal)
     except Exception:  # noqa: BLE001
         log.exception("Falha ao preparar a fala")
         audio = None

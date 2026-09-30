@@ -154,6 +154,11 @@ A preferência é da Conta Solo: `/voz audio` (padrão: fala quando a pessoa man
   falado acima.
 - **Sempre** / **Nunca**: passam por cima do pedido do sistema.
 
+**Tom do aviso** (`tom`): `"sussurro"` é a voz do Sistema quando cobra (os Ecos do Rotinas). Sai
+numa voz própria (admin → Voz do bot → 👁 Voz do Sistema; sem escolha, a voz do bot), com atuação
+instável e dramática, e sussurrada de verdade nos modelos expressivos. O texto vai em itálico. A frase
+é falada **exatamente como veio**, nunca resumida. Tom que o Solo Bot não conhece é ignorado.
+
 Avisos respeitam o **horário de silêncio**: o que chega na janela espera numa fila e sai quando ela
 termina. Aviso com **validade** (`valido_ate`) que vence na fila é descartado, porque um "faltam 15 min"
 entregue às 7h da manhã só atrapalha.

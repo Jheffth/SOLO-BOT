@@ -62,7 +62,7 @@ E no sentido contrário (sistema → Solo Bot):
 
 | Rota | Corpo |
 |---|---|
-| `POST /interno/enviar` | `{usuario_id, texto, opcoes?, falado?, voz?, valido_ate?}` (cabeçalho `X-Solo-Token` do sistema; o token diz o app) → `{entregues, adiados, descartados, vinculado}` |
+| `POST /interno/enviar` | `{usuario_id, texto, opcoes?, falado?, voz?, valido_ate?, tom?}` (cabeçalho `X-Solo-Token` do sistema; o token diz o app) → `{entregues, adiados, descartados, vinculado}` |
 | `POST /interno/manifesto` | o `bot_manifesto.json` — o sistema empurra ao subir |
 
 ## Onde mora cada comando

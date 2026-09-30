@@ -33,13 +33,14 @@ class Aviso(BaseModel):
     falado: Optional[str] = Field(default=None, max_length=1200)   # roteiro para ouvido, se o sistema tiver
     voz: Optional[bool] = None                                     # o sistema pede que este aviso seja falado
     valido_ate: Optional[datetime] = None                          # ISO com fuso; depois disso, não entregar
+    tom: Optional[str] = Field(default=None, max_length=20)        # "sussurro"; desconhecido é ignorado
 
 
 @router.post("/enviar")
 def enviar(a: Aviso, mod: modulos.Modulo = Depends(_modulo), db: Session = Depends(get_db)):
     """Entrega agora, ou guarda até o fim do horário de silêncio da pessoa."""
     from nucleo import avisos
-    return avisos.receber(db, mod, a.usuario_id, a.texto, a.opcoes, a.falado, a.voz, a.valido_ate)
+    return avisos.receber(db, mod, a.usuario_id, a.texto, a.opcoes, a.falado, a.voz, a.valido_ate, a.tom)
 
 
 @router.post("/manifesto")
