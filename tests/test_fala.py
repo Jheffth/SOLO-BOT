@@ -8,7 +8,10 @@ from test_fluxos import TG, _ligar_telegram, _tg
 
 @pytest.fixture()
 def voz_falsa(monkeypatch):
+    from nucleo import gemini
     monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "k")
+    monkeypatch.setattr(gemini, "gerar", lambda instrucao, texto, **k:
+                        "Você tem uma missão hoje: o banho." if "Itens com botões" in texto else None)
     ditos = []
 
     def sintetizar(texto, canal):
@@ -35,7 +38,7 @@ def _preparar(logado):
 
 def test_texto_falavel_limpa_e_corta():
     t = "🎤 _“x”_\n\n⚔️ *Rotinas*\n✅ Despesa de *R$ 1.318,40*\n*1.* ✅ — Banho\n_Responda com o número._"
-    assert fala.texto_falavel(t) == "Rotinas. Despesa de 1318 reais e 40 centavos."
+    assert fala.texto_falavel(t) == "Despesa de 1318 reais e 40 centavos."   # selo e eco ficam de fora
     assert fala.texto_falavel("a" * 600) is None
 
 
@@ -46,7 +49,7 @@ def test_padrao_fala_so_quando_manda_audio(logado, sistemas, caixa, voz_falsa, m
     _audio_tg(logado, monkeypatch)
     assert voz_falsa and voz_falsa[-1][1] == "telegram"   # áudio → voz
     assert caixa[-1] == ("voz-telegram", "777", b"VOZ", "audio/ogg")
-    assert voz_falsa[-1][0].startswith("Rotinas")         # o eco "🎤 “…”" não é falado
+    assert voz_falsa[-1][0] == "Você tem uma missão hoje: o banho."   # lista → resumo falado pela IA
 
 
 def test_sempre_e_nunca(logado, sistemas, caixa, voz_falsa, monkeypatch):
@@ -114,3 +117,34 @@ def test_sintetizar_cai_no_flash_e_na_chave_reserva(monkeypatch):
     assert r == {"base64": "T0s=", "mime": "audio/mpeg"}
     assert pedidos[1] == ("k1", "eleven_flash_v2_5", "Oi")      # tags fora no Flash
     assert pedidos[-1][0] == "k2"
+
+
+def test_resposta_curta_nao_chama_a_ia(monkeypatch):
+    from nucleo import gemini
+    monkeypatch.setattr(gemini, "gerar", lambda *a, **k: pytest.fail("não precisava de IA"))
+    msgs = [{"texto": "⚔️ *Rotinas*\n✅ Missão concluída! *+40 XP*", "opcoes": []}]
+    assert fala.o_que_falar(msgs) == "Missão concluída! +40 XP."
+
+
+def test_lista_vira_resumo_com_os_itens_dos_botoes(monkeypatch):
+    from nucleo import gemini
+    vistos = []
+    monkeypatch.setattr(gemini, "gerar", lambda instrucao, texto, **k: vistos.append(texto) or "Faltam duas missões: leitura e banho.")
+    msgs = [{"texto": "⚔️ *Rotinas*\n📅 Hoje · 3 missões", "opcoes": [
+        {"titulo": "Leitura", "acoes": [{"rotulo": "✅ Concluir", "dados": "rot:ok|r|1"}]},
+        {"titulo": "Banho", "acoes": [{"rotulo": "▶️ Iniciar", "dados": "rot:ini|r|2"}]}]}]
+    assert fala.o_que_falar(msgs) == "Faltam duas missões: leitura e banho."
+    assert "- Leitura (✅ Concluir)" in vistos[0] and "- Banho (▶️ Iniciar)" in vistos[0]
+
+
+def test_sem_gemini_lista_nao_e_falada(monkeypatch):
+    from nucleo import gemini
+    monkeypatch.setattr(gemini, "gerar", lambda *a, **k: None)
+    msgs = [{"texto": "x", "opcoes": [{"titulo": "Banho", "acoes": [{"rotulo": "✅", "dados": "d"}]}]}]
+    assert fala.o_que_falar(msgs) is None
+
+
+def test_falado_do_sistema_tem_prioridade(monkeypatch):
+    from nucleo import gemini
+    monkeypatch.setattr(gemini, "gerar", lambda *a, **k: pytest.fail("não precisava de IA"))
+    assert fala.o_que_falar([{"texto": "longo " * 200, "falado": "Pronto."}]) == "Pronto."

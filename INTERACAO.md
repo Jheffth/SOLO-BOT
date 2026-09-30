@@ -142,9 +142,13 @@ A pessoa pode mandar áudio no Telegram ou no WhatsApp, e o Solo Bot escolhe um 
 **Resposta falada é do Solo Bot, para todos os sistemas** (ElevenLabs, `nucleo/fala.py`).
 A preferência é da Conta Solo: `/voz audio` (padrão: fala quando a pessoa mandou áudio),
 `/voz sempre` ou `/voz nunca`, também no painel ("Resposta por voz"). O sistema pode mandar
-`falado`, uma versão da resposta feita para o ouvido; o Finances manda. Se não mandar, o Solo Bot
-limpa o texto (tira emoji, marcação, a lista numerada e o eco "🎤"). Resposta longa não é falada,
-e avisos saem só por escrito.
+`falado`, uma versão da resposta feita para o ouvido; o Finances manda. Se não mandar:
+- **resposta curta:** o Solo Bot limpa o texto (tira emoji, marcação, selo e o eco "🎤") e fala;
+- **lista ou resposta longa:** a Gemini faz um **resumo falado**, de 2 ou 3 frases, a partir do texto
+  e dos itens dos botões. Por exemplo, "Você tem quatro missões hoje. O treino já foi. Faltam a leitura e o banho.".
+  A lista completa continua indo por escrito.
+
+Avisos saem só por escrito.
 
 Sem modo ativo e com dois sistemas conectados, o áudio é transcrito, e o bot pergunta
 "para qual sistema?". O áudio não é guardado em lugar nenhum. O limite é de 90 segundos por áudio.

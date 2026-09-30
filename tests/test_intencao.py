@@ -95,9 +95,11 @@ def test_ia_le_o_json_do_gemini(monkeypatch):
         def __exit__(self, *a): pass
         def post(self, url, json, headers):
             assert "MENSAGEM: o que tem pra hoje" in json["contents"][0]["parts"][0]["text"]
+            assert json["generationConfig"]["responseMimeType"] == "application/json"
             return httpx.Response(200, json={"candidates": [{"content": {"parts": [
                 {"text": '{"app": "rot", "mensagem": "/hoje", "confianca": 0.92}'}]}}]},
                 request=httpx.Request("POST", url))
-    monkeypatch.setattr(intencao.httpx, "Client", C)
+    from nucleo import gemini
+    monkeypatch.setattr(gemini.httpx, "Client", C)
     it = intencao._ia("o que tem pra hoje", [{"chave": "rot"}], None)
     assert (it.app, it.mensagem, it.confianca) == ("rot", "/hoje", 0.92)

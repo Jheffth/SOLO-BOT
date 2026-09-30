@@ -50,6 +50,7 @@ def ultimo_erro() -> Optional[str]:
 # ── O que falar ──────────────────────────────────────────────────
 _EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-➿⬀-⯿️‍⃣]+")
 _TAGS = re.compile(r"\[[^\]\n]{1,40}\]")
+_SELO = re.compile(r"^\S{1,3}\s*\*[^*]{2,30}\*$")          # "💰 *Finances*" sozinho na linha
 
 
 def _reais(m: re.Match) -> str:
@@ -64,8 +65,10 @@ def texto_falavel(texto: str) -> Optional[str]:
         l = linha.strip()
         if not l:
             continue
-        if l.startswith("🎤") or re.match(r"^\*?\d+\.\*?\s", l) or "Responda com o número" in l:
-            continue                            # eco do áudio e lista numerada: são para ler
+        if l.startswith(("🎤", "🧭")) or re.match(r"^\*?\d+\.\*?\s", l) or "Responda com o número" in l:
+            continue                            # eco do áudio, nota de intenção e lista: são para ler
+        if _SELO.match(l):
+            continue                            # "⚔️ *Rotinas*": o selo é para os olhos
         l = _EMOJI.sub(" ", l)
         l = re.sub(r"[*_`~•▸]", " ", l).replace("→", " para ")
         l = re.sub(r"R\$\s*([\d.]+)(?:,(\d{2}))?", _reais, l)
@@ -221,6 +224,66 @@ def quer_falar(preferencia: Optional[str], entrada_audio: bool) -> bool:
     return p == "sempre" or (p == "audio" and entrada_audio)
 
 
+RESUMO = """Você é a voz de um assistente pessoal que fala com o usuário pelo celular.
+Receba a RESPOSTA ESCRITA de um sistema (texto e, às vezes, itens com botões) e diga o essencial
+em voz alta, em português do Brasil, como uma pessoa falaria.
+
+Regras:
+- No máximo 2 ou 3 frases curtas, até 300 caracteres.
+- Tom natural e direto, na segunda pessoa ("você tem…"). Nada de "aqui está", nada de saudação longa.
+- Lista longa: diga quantos são e cite no máximo 3 itens, os mais importantes (pendentes antes de concluídos).
+- Sem emoji, sem markdown, sem ler comandos (/hoje), sem números de lista.
+- NUNCA invente nada que não esteja na resposta. Se não houver o que falar, responda vazio."""
+
+
+def _para_ia(mensagens: list) -> str:
+    """O que a IA precisa ver: o texto e os itens das opções (é lá que moram as missões)."""
+    blocos = []
+    for m in mensagens:
+        blocos.append(m.get("texto") or "")
+        itens = []
+        for g in m.get("opcoes") or []:
+            titulo = (g.get("titulo") or "").strip()
+            acoes = ", ".join(a.get("rotulo", "") for a in g.get("acoes") or [])
+            if titulo or acoes:
+                itens.append(f"- {titulo} ({acoes})" if titulo else f"- {acoes}")
+        if itens:
+            blocos.append("Itens com botões:\n" + "\n".join(itens))
+    return "\n\n".join(b for b in blocos if b).strip()[:4000]
+
+
+def resumir(mensagens: list) -> Optional[str]:
+    """Um resumo falado, feito pela IA, para quando a resposta é longa ou só lista."""
+    from nucleo import gemini
+    base = _para_ia(mensagens)
+    if not base:
+        return None
+    dito = gemini.gerar(RESUMO, base, max_tokens=200, temperatura=0.3)
+    if not dito:
+        return None
+    dito = re.sub(r"[*_`#]", "", _EMOJI.sub("", dito)).strip()
+    return dito[:MAX_CARACTERES] or None
+
+
+def o_que_falar(mensagens: list) -> Optional[str]:
+    """
+    1. o `falado` que o sistema mandou (o Finances manda);
+    2. o texto limpo, se for curto;
+    3. senão, um resumo falado pela IA (listas, respostas longas, sistemas
+       que não escrevem para o ouvido — o Rotinas).
+    """
+    feitos = [m.get("falado") for m in mensagens if m.get("falado")]
+    if feitos:
+        return " ".join(feitos)
+    limpos = [texto_falavel(m.get("texto") or "") for m in mensagens]
+    tem_lista = any(m.get("opcoes") for m in mensagens)
+    if all(limpos) and not tem_lista:
+        falado = " ".join(limpos)
+        if len(falado) <= MAX_CARACTERES:
+            return falado
+    return resumir(mensagens)
+
+
 def falar_resposta(conta, canal: str, resposta, entrada_audio: bool) -> None:
     """
     Anexa a voz à ÚLTIMA mensagem da resposta, se a pessoa quiser. Nunca
@@ -235,14 +298,11 @@ def falar_resposta(conta, canal: str, resposta, entrada_audio: bool) -> None:
         return
     if any(m.get("audio") for m in resposta.mensagens):
         return                                # o sistema já mandou a própria voz
-    partes = [m.get("falado") or texto_falavel(m.get("texto") or "") for m in resposta.mensagens]
-    falado = " ".join(p for p in partes if p)
-    if not falado or len(falado) > MAX_CARACTERES * 2:
-        return
     try:
-        audio = sintetizar(falado, canal)
+        falado = o_que_falar(resposta.mensagens)
+        audio = sintetizar(falado, canal) if falado else None
     except Exception:  # noqa: BLE001
-        log.exception("Falha ao sintetizar")
+        log.exception("Falha ao preparar a fala")
         audio = None
     if audio:
         resposta.mensagens[-1]["audio"] = audio

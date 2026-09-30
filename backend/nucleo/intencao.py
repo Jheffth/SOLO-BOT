@@ -32,9 +32,6 @@ import unicodedata
 from dataclasses import dataclass
 from typing import List, Optional
 
-import httpx
-
-import config
 from nucleo import manifestos, modulos
 
 log = logging.getLogger("solobot.intencao")
@@ -109,28 +106,19 @@ Regras:
 
 
 def _ia(texto: str, sistemas: list, modo: Optional[str]) -> Optional[Intencao]:
-    chaves = [k for k in (config.GEMINI_API_KEY, config.GEMINI_API_KEY_RESERVA) if k]
-    if not chaves:
-        return None
+    from nucleo import gemini
     contexto = json.dumps({"modo_atual": modo or "", "sistemas": sistemas}, ensure_ascii=False)
-    corpo = {"systemInstruction": {"parts": [{"text": PROMPT}]},
-             "contents": [{"role": "user", "parts": [{"text": f"SISTEMAS: {contexto}\n\nMENSAGEM: {texto}"}]}],
-             "generationConfig": {"temperature": 0, "maxOutputTokens": 256, "responseMimeType": "application/json"}}
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent"
-    for chave in chaves:
-        try:
-            with httpx.Client(timeout=12) as c:
-                r = c.post(url, json=corpo, headers={"x-goog-api-key": chave})
-            r.raise_for_status()
-            partes = r.json()["candidates"][0]["content"]["parts"]
-            bruto = "".join(p.get("text", "") for p in partes if not p.get("thought"))
-            d = json.loads(bruto[bruto.find("{"): bruto.rfind("}") + 1])
-            return Intencao(app=(d.get("app") or "").strip().lower() or None,
-                            mensagem=(d.get("mensagem") or "").strip() or None,
-                            confianca=float(d.get("confianca") or 0), via="ia")
-        except Exception as e:  # noqa: BLE001
-            log.warning("Intenção via IA falhou: %s", type(e).__name__)
-    return None
+    bruto = gemini.gerar(PROMPT, f"SISTEMAS: {contexto}\n\nMENSAGEM: {texto}", json_saida=True)
+    if not bruto:
+        return None
+    try:
+        d = json.loads(bruto[bruto.find("{"): bruto.rfind("}") + 1])
+        return Intencao(app=(d.get("app") or "").strip().lower() or None,
+                        mensagem=(d.get("mensagem") or "").strip() or None,
+                        confianca=float(d.get("confianca") or 0), via="ia")
+    except (ValueError, TypeError):
+        log.warning("Intenção: a IA respondeu algo que não é JSON")
+        return None
 
 
 def _descrever(db, mods: List[modulos.Modulo]) -> list:
