@@ -1,0 +1,44 @@
+name: Deploy to Contabo VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            echo "Iniciando o deploy..."
+            
+            # Navega para a pasta do projeto ou clona caso nao exista
+            if [ ! -d "/root/SOLO-BOT" ]; then
+              echo "Clonando o repositorio pela primeira vez..."
+              git clone https://github.com/Jheffth/SOLO-BOT.git /root/SOLO-BOT
+            fi
+            
+            cd /root/SOLO-BOT
+            echo "Puxando atualizacoes do GitHub..."
+            git pull origin main
+            
+            # --- ADICIONE SEUS COMANDOS DE BUILD/RESTART AQUI ---
+            # Exemplo para Node.js com PM2:
+            # npm install
+            # pm2 restart solo-bot || pm2 start index.js --name "solo-bot"
+            
+            # Exemplo para Python:
+            # pip install -r requirements.txt
+            # systemctl restart solo-bot
+            
+            echo "Deploy concluido com sucesso!"
