@@ -431,26 +431,75 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if cmd in ("/ajuda", "/help", "ajuda") and not modo:
         return _ajuda_hub(db, conta)
 
+    ligados = _sistemas_da_conta(db, conta)
+
     # 4. modo ativo
     if modo:
         mod = modulos.por_chave(modo)
         if mod:
             _entrar_modo(db, s, modo)            # renova a validade
-            return para_sistema(db, conta, canal, origem, mod, texto=txt, via_audio=via_audio)
+            return _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod)
 
     # 5. hub com texto livre
-    ligados = _sistemas_da_conta(db, conta)
     if not ligados:
         return menu(db, conta)
     if len(ligados) == 1:
         _entrar_modo(db, s, ligados[0].chave)
-        return para_sistema(db, conta, canal, origem, ligados[0], texto=txt, via_audio=via_audio)
+        return _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, ligados[0])
+
+    # Entender pelo que foi dito, antes de perguntar.
+    from nucleo import intencao
+    it = intencao.interpretar(db, txt, ligados)
+    alvo = modulos.por_chave(it.app) if it.app else None
+    if alvo and it.mensagem:
+        _entrar_modo(db, s, alvo.chave)
+        return _entregar_intencao(db, conta, canal, origem, alvo, txt, it, via_audio)
 
     s.pendente = txt[:1000]
     db.commit()
     opcoes = [{"titulo": "", "acoes": [{"rotulo": f"{m.emoji} {m.nome.replace('Solo ', '')}",
                                         "dados": f"hub:app|{m.chave}"} for m in ligados]}]
     return Resposta().diz("🤔 Para qual sistema é isso?", opcoes)
+
+
+def _entregar_intencao(db, conta, canal, origem, mod, txt, it, via_audio) -> Resposta:
+    """Manda o que a intenção decidiu, e mostra em uma linha o que foi entendido."""
+    r = para_sistema(db, conta, canal, origem, mod, texto=it.mensagem, via_audio=via_audio)
+    if it.mensagem != txt and r.mensagens:
+        nota = f"🧭 _Entendi: {mod.nome.replace('Solo ', '')} · `{it.mensagem}`_"
+        r.mensagens[0]["texto"] = f"{nota}\n\n{r.mensagens[0]['texto']}"
+    return r
+
+
+def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod) -> Resposta:
+    """
+    Texto livre com um sistema já definido (modo ativo, ou único conectado).
+
+      · Comando ("/..."): vai direto, como sempre.
+      · O sistema entende texto livre (Finances): vai direto, A NÃO SER que as
+        palavras apontem claramente para outro sistema — aí a IA confirma e,
+        com confiança alta, troca de sistema.
+      · O sistema só entende comandos (Rotinas): a IA traduz a frase para o
+        comando ("o que tem pra hoje" → "/hoje").
+    """
+    from nucleo import intencao
+    if txt.startswith("/"):
+        return para_sistema(db, conta, canal, origem, mod, texto=txt, via_audio=via_audio)
+    livre = intencao.aceita_texto_livre(db, mod.chave)
+    if livre:
+        outros = [m for m in ligados if m.chave != mod.chave]
+        pontos = intencao.por_palavras(db, txt, [mod] + outros)
+        if not outros or pontos.get(mod.chave, 0) > 0 or not any(pontos.get(m.chave) for m in outros):
+            return para_sistema(db, conta, canal, origem, mod, texto=txt, via_audio=via_audio)
+    it = intencao.interpretar(db, txt, ligados or [mod], modo=mod.chave)
+    if it.app and it.app != mod.chave and it.confianca >= intencao.CONFIANCA_TROCA and it.mensagem:
+        outro = modulos.por_chave(it.app)
+        if outro and _vinculo(conta, outro.chave):
+            _entrar_modo(db, sessao_de(db, canal, origem), outro.chave)
+            return _entregar_intencao(db, conta, canal, origem, outro, txt, it, via_audio)
+    if it.app == mod.chave and it.mensagem:
+        return _entregar_intencao(db, conta, canal, origem, mod, txt, it, via_audio)
+    return para_sistema(db, conta, canal, origem, mod, texto=txt, via_audio=via_audio)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -526,7 +575,8 @@ def atender_toque(db: Session, canal: str, origem: str, dados: str) -> Resposta:
             _entrar_modo(db, s, mod.chave)
             pendente, s.pendente = s.pendente, None
             db.commit()
-            r = para_sistema(db, conta, canal, origem, mod, texto=pendente or "/ajuda")
+            r = (_com_intencao(db, conta, canal, origem, pendente, [mod], False, mod) if pendente
+                 else para_sistema(db, conta, canal, origem, mod, texto="/ajuda"))
             r.curta = r.curta or f"{mod.emoji} {mod.nome}"
             return r
         return Resposta(curta="Opção desconhecida.")

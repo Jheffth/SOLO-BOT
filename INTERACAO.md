@@ -94,6 +94,24 @@ você: /sair
 você: comprei pão 8            ← hub: "Para qual sistema?" [💰 Finances] [⚔️ Rotinas]
 ```
 
+**Antes de perguntar, o bot tenta entender** (`nucleo/intencao.py`):
+
+1. **Palavras:** o vocabulário de cada sistema, tirado do manifesto (comandos e exemplos) e de uma
+   base fixa ("gastei", "saldo", "rotina", "missão"…). Não custa nada. Se só um sistema casa e ele
+   aceita texto livre, a mensagem vai direto.
+2. **IA (Gemini):** quando as palavras não bastam, ou quando o destino só entende comandos, ela
+   escolhe o sistema e **traduz a frase em comando**: "o que tem pra hoje?" vira `/hoje` no Rotinas,
+   e "terminei a leitura" vira `/ok leitura`. A resposta mostra o que foi entendido
+   (`🧭 Entendi: Rotinas · /hoje`).
+
+O mesmo vale **dentro de um modo**. No Rotinas, frases viram comandos. No Finances, que entende texto
+livre, a IA só entra quando as palavras apontam para outro sistema. Com confiança alta, o bot **troca de
+sistema sozinho**: dizer "gastei 40 no mercado" no modo Rotinas vai para o Finances. Na dúvida (confiança
+abaixo de 0,6), ele pergunta como antes.
+
+No manifesto, `exemplos` preenchido significa que o sistema aceita texto livre, e aí a frase vai
+como está. Vazio significa que o sistema só entende comandos, e aí a frase é traduzida.
+
 A mensagem que gerou a pergunta **não se perde**: o bot guarda e a encaminha
 assim que o usuário escolhe.
 
