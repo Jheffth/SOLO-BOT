@@ -42,6 +42,7 @@ import os
 import secrets
 import threading
 import time
+import urllib.error
 import urllib.request
 from typing import Optional
 from urllib.parse import quote
@@ -150,11 +151,23 @@ def situacao(usuario_id) -> dict:
     base = _cfg("SOLO_BOT_INTERNO", "http://solo_bot:8000").rstrip("/")
     req = urllib.request.Request(f"{base}/interno/vinculo/{int(usuario_id)}",
                                  headers={"X-Solo-Token": token()})
+    # O MOTIVO VAI JUNTO. "Fora do ar" para tudo escondia o que importa:
+    # contêiner parado, token trocado e versão antiga pedem consertos
+    # diferentes, em lugares diferentes.
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
             return {"disponivel": True, **json.loads(r.read() or b"{}")}
+    except urllib.error.HTTPError as e:
+        if e.code == 403:
+            erro = "O Solo Bot recusou o token: o BOT_SERVICE_TOKEN daqui não é o mesmo do SOLO_MODULOS de lá."
+        elif e.code == 404:
+            erro = "O Solo Bot respondeu, mas não tem a rota de vínculo: atualize o Solo Bot."
+        else:
+            erro = f"O Solo Bot respondeu com erro {e.code}. Veja: docker logs solo_bot"
+        return {"disponivel": True, "conectado": None, "erro": erro}
     except Exception:  # noqa: BLE001
-        return {"disponivel": True, "conectado": None, "erro": "Solo Bot fora do ar"}
+        return {"disponivel": True, "conectado": None,
+                "erro": f"Não alcancei o Solo Bot em {base}. O contêiner solo_bot está rodando e na rede solo-network?"}
 
 
 # ── Manifesto: os comandos que este sistema oferece pelo Solo Bot ─
