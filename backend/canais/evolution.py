@@ -150,5 +150,32 @@ def parear(url_webhook: str) -> dict:
             "detalhe": None if qr else "A Evolution ainda não gerou o QR. Ele chega pelo webhook em segundos."}
 
 
+_NUMERO_CACHE = {"valor": None}
+
+
+def numero() -> str:
+    """
+    O número do bot, só dígitos. WHATSAPP_NUMERO no .env manda; sem ele,
+    pergunta à Evolution qual número está pareado na instância (ownerJid).
+    Assim o link wa.me funciona assim que o QR é lido, sem editar o .env.
+    """
+    if config.WHATSAPP_NUMERO:
+        return "".join(ch for ch in config.WHATSAPP_NUMERO if ch.isdigit())
+    if _NUMERO_CACHE["valor"]:
+        return _NUMERO_CACHE["valor"]
+    if not disponivel():
+        return ""
+    st, d = _chamar("GET", f"/instance/fetchInstances?instanceName={config.EVOLUTION_INSTANCE}", timeout=8)
+    itens = d if isinstance(d, list) else [d] if isinstance(d, dict) else []
+    for i in itens:
+        inst = i.get("instance") if isinstance(i.get("instance"), dict) else i
+        jid = inst.get("ownerJid") or inst.get("owner") or ""
+        digitos = "".join(ch for ch in jid.split("@")[0] if ch.isdigit())
+        if digitos:
+            _NUMERO_CACHE["valor"] = digitos
+            return digitos
+    return ""
+
+
 def link_wa(texto: str) -> str:
-    return f"https://wa.me/{config.WHATSAPP_NUMERO}?text={quote(texto)}"
+    return f"https://wa.me/{numero()}?text={quote(texto)}"

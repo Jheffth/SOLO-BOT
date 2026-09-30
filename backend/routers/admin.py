@@ -33,7 +33,7 @@ def status(_: Conta = Depends(conta_admin), db: Session = Depends(get_db)):
                      "ultimo_erro": (tg.get("result") or {}).get("last_error_message"),
                      "contas": por_canal.get("telegram", 0)},
         "whatsapp": {"configurado": evolution.disponivel() and bool(config.EVOLUTION_WEBHOOK_SECRET),
-                     "numero": config.WHATSAPP_NUMERO,
+                     "numero": evolution.numero() if evolution.disponivel() else config.WHATSAPP_NUMERO,
                      "estado": evolution.estado_simples() if evolution.disponivel() else ULTIMO_QR["estado"],
                      "qr": ULTIMO_QR["base64"],
                      "contas": por_canal.get("whatsapp", 0)},

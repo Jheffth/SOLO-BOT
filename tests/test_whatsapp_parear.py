@@ -60,3 +60,21 @@ def test_qr_so_pelo_webhook(cliente, monkeypatch):
     ULTIMO_QR["base64"] = None
     cliente.post("/api/whatsapp/webhook/wa-secreto", json={"event": "qrcode.updated", "data": {"qrcode": {"base64": "WFla"}}})
     assert ULTIMO_QR["base64"] == "data:image/png;base64,WFla"
+
+
+def test_numero_vem_da_evolution_quando_falta_no_env(monkeypatch):
+    import config
+    monkeypatch.setattr(config, "WHATSAPP_NUMERO", "")
+    monkeypatch.setattr(evolution, "_NUMERO_CACHE", {"valor": None})
+    monkeypatch.setattr(evolution, "_chamar", lambda *a, **k: (200, [{"ownerJid": "5561912345678@s.whatsapp.net"}]))
+    assert evolution.numero() == "5561912345678"
+    assert "wa.me/5561912345678?text=SOLO" in evolution.link_wa("SOLO 123456")
+
+
+def test_sem_numero_mensagem_diz_o_que_fazer(logado, monkeypatch):
+    import config
+    monkeypatch.setattr(config, "WHATSAPP_NUMERO", "")
+    monkeypatch.setattr(evolution, "_NUMERO_CACHE", {"valor": None})
+    monkeypatch.setattr(evolution, "_chamar", lambda *a, **k: (200, [{"ownerJid": None}]))
+    r = logado.post("/api/conta/canais/whatsapp/codigo")
+    assert r.status_code == 503 and "ler o QR" in r.json()["detail"]

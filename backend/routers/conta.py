@@ -55,8 +55,12 @@ def codigo_canal(canal: str, conta: Conta = Depends(conta_atual), db: Session = 
         raise HTTPException(404, "Canal desconhecido.")
     if canal == "telegram" and not (telegram.disponivel() and config.TELEGRAM_BOT_USERNAME):
         raise HTTPException(503, "O Telegram ainda não foi configurado no servidor.")
-    if canal == "whatsapp" and not (evolution.disponivel() and config.WHATSAPP_NUMERO):
-        raise HTTPException(503, "O WhatsApp ainda não foi configurado no servidor.")
+    if canal == "whatsapp":
+        if not evolution.disponivel():
+            raise HTTPException(503, "O WhatsApp ainda não foi configurado no servidor (falta EVOLUTION_API_KEY).")
+        if not evolution.numero():
+            raise HTTPException(503, "O número do bot ainda não está pareado: o administrador precisa ler o QR "
+                                     "em Administração → WhatsApp (ou definir WHATSAPP_NUMERO no .env).")
     c = roteador.gerar_codigo(db, conta, canal)
     if canal == "telegram":
         link, texto = telegram.link_start(c.codigo), None
