@@ -263,7 +263,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
 
 def _conta_resumo(db: Session, conta: Conta) -> Resposta:
     canais = {c.canal: c for c in conta.canais}
-    linhas = [f"👤 *{conta.nome}*", f"_{conta.email}_", "", "*Canais*"]
+    linhas = [f"👤 *{conta.nome}*", f"_{conta.usuario or conta.email}_", "", "*Canais*"]
     for canal, rotulo in (("telegram", "Telegram"), ("whatsapp", "WhatsApp")):
         linhas.append(f"{'🟢' if canal in canais else '⚪'} {rotulo}")
     linhas += ["", "*Sistemas*"]

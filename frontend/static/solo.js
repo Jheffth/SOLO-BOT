@@ -71,7 +71,7 @@
   function traduzirValidacao(lista) {
     const d = lista[0] || {};
     const campo = (d.loc || []).slice(-1)[0];
-    const nomes = { senha: "A senha", nome: "O nome", email: "O e-mail", nova: "A nova senha" };
+    const nomes = { senha: "A senha", nome: "O nome", email: "O e-mail", usuario: "O usuário", nova: "A nova senha" };
     if (d.type === "string_too_short") return `${nomes[campo] || "O campo"} está curto demais.`;
     return "Confira os campos.";
   }

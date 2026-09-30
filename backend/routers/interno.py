@@ -58,5 +58,5 @@ def vinculo(usuario_id: str, mod: modulos.Modulo = Depends(_modulo), db: Session
                                         VinculoSistema.usuario_id == str(usuario_id)).first()
     if not v:
         return {"conectado": False}
-    return {"conectado": True, "conta": v.conta.nome, "email": v.conta.email,
+    return {"conectado": True, "conta": v.conta.nome, "email": v.conta.email or v.conta.usuario,
             "canais": [c.canal for c in v.conta.canais]}

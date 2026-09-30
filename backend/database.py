@@ -24,7 +24,8 @@ class Conta(Base):
 
     id = Column(Integer, primary_key=True)
     nome = Column(String(100), nullable=False)
-    email = Column(String(200), nullable=False, unique=True, index=True)
+    usuario = Column(String(50), nullable=True, unique=True, index=True)   # o login do dia a dia
+    email = Column(String(200), nullable=True, unique=True, index=True)    # opcional
     senha_hash = Column(String(200), nullable=False)
     admin = Column(Boolean, default=False, nullable=False)
     ativo = Column(Boolean, default=True, nullable=False)
@@ -154,6 +155,28 @@ class ManifestoModulo(Base):
 
 def criar_tabelas():
     Base.metadata.create_all(bind=engine)
+    _migrar()
+
+
+def _migrar():
+    """
+    Ajustes em tabelas que JÁ existem — o create_all só cria o que falta, não
+    altera. Idempotente: roda em todo startup e só age se precisar.
+
+      · contas.usuario  — login por usuário (antes era só e-mail)
+      · contas.email    — deixa de ser obrigatório
+    """
+    from sqlalchemy import inspect, text
+    insp = inspect(engine)
+    if "contas" not in insp.get_table_names():
+        return
+    colunas = {c["name"]: c for c in insp.get_columns("contas")}
+    with engine.begin() as con:
+        if "usuario" not in colunas:
+            con.execute(text("ALTER TABLE contas ADD COLUMN usuario VARCHAR(50)"))
+            con.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_contas_usuario ON contas (usuario)"))
+        if engine.dialect.name == "postgresql" and not colunas.get("email", {}).get("nullable", True):
+            con.execute(text("ALTER TABLE contas ALTER COLUMN email DROP NOT NULL"))
 
 
 def get_db():

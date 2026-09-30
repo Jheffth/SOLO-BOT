@@ -108,6 +108,6 @@ def cliente():
 
 @pytest.fixture()
 def logado(cliente):
-    r = cliente.post("/api/auth/cadastro", json={"nome": "Jefferson Costa", "email": "j@solo.dev", "senha": "senha-forte-1"})
+    r = cliente.post("/api/auth/cadastro", json={"nome": "Jefferson Costa", "usuario": "jeff", "email": "j@solo.dev", "senha": "senha-forte-1"})
     assert r.status_code == 200, r.text
     return cliente

@@ -69,6 +69,12 @@ def conta_admin(conta: Conta = Depends(conta_atual)) -> Conta:
     return conta
 
 
+def eh_admin(email: str = None, usuario: str = None) -> bool:
+    """ADMIN_EMAILS aceita e-mails e nomes de usuário."""
+    alvos = {(email or "").lower(), (usuario or "").lower()} - {""}
+    return bool(alvos & config.ADMIN_EMAILS)
+
+
 def iguais(a: str, b: str) -> bool:
     """Comparação em tempo constante. Vazio nunca é igual a nada."""
     if not a or not b:

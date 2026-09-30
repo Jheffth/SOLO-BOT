@@ -74,7 +74,7 @@ def test_busca_periodica(cliente, sistemas):
 
 
 def test_admin_sincroniza_e_mostra_versao(cliente, sistemas):
-    cliente.post("/api/auth/cadastro", json={"nome": "Arq", "email": "arquiteto@solo.dev", "senha": "12345678"})
+    cliente.post("/api/auth/cadastro", json={"nome": "Arq", "usuario": "arq", "email": "arquiteto@solo.dev", "senha": "12345678"})
     assert cliente.post("/api/admin/manifestos/sincronizar").json()["fin"].startswith("ok")
     s = {x["chave"]: x for x in cliente.get("/api/admin/status").json()["sistemas"]}
     assert s["fin"]["manifesto"]["versao"] == "1" and s["fin"]["manifesto"]["comandos"] == 1

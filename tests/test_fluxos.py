@@ -33,10 +33,10 @@ def _ligar_telegram(c):
 
 # ── conta ─────────────────────────────────────────────────────────
 def test_cadastro_entrar_e_senha_errada(cliente):
-    assert cliente.post("/api/auth/cadastro", json={"nome": "A", "email": "x@y.z", "senha": "12345678"}).status_code == 422
-    r = cliente.post("/api/auth/cadastro", json={"nome": "Ana", "email": "Ana@Solo.dev", "senha": "12345678"})
+    assert cliente.post("/api/auth/cadastro", json={"nome": "A", "usuario": "aa", "email": "x@y.z", "senha": "12345678"}).status_code == 422
+    r = cliente.post("/api/auth/cadastro", json={"nome": "Ana", "usuario": "Ana_1", "email": "Ana@Solo.dev", "senha": "12345678"})
     assert r.status_code == 200 and r.json()["email"] == "ana@solo.dev"
-    assert cliente.post("/api/auth/cadastro", json={"nome": "Ana", "email": "ana@solo.dev", "senha": "12345678"}).status_code == 409
+    assert cliente.post("/api/auth/cadastro", json={"nome": "Ana", "usuario": "outra", "email": "ana@solo.dev", "senha": "12345678"}).status_code == 409
     cliente.post("/api/auth/sair")
     cliente.cookies.clear()
     assert cliente.get("/api/auth/eu").status_code == 401
@@ -46,7 +46,7 @@ def test_cadastro_entrar_e_senha_errada(cliente):
 
 
 def test_admin_pelo_email(cliente):
-    r = cliente.post("/api/auth/cadastro", json={"nome": "Arq", "email": "arquiteto@solo.dev", "senha": "12345678"})
+    r = cliente.post("/api/auth/cadastro", json={"nome": "Arq", "usuario": "arq", "email": "arquiteto@solo.dev", "senha": "12345678"})
     assert r.json()["admin"] is True
 
 
@@ -112,7 +112,7 @@ def test_conectar_exige_sessao(cliente, sistemas):
 def test_usuario_do_sistema_muda_de_conta(logado, sistemas):
     logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
     logado.post("/api/auth/sair"); logado.cookies.clear()
-    logado.post("/api/auth/cadastro", json={"nome": "Outra", "email": "o@solo.dev", "senha": "12345678"})
+    logado.post("/api/auth/cadastro", json={"nome": "Outra", "usuario": "outra", "email": "o@solo.dev", "senha": "12345678"})
     sistemas.codigos["fin"]["CODFIN2"] = ("4", "jefferson")
     r = logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN2"}).json()
     assert r["trocou_de_conta"] is True

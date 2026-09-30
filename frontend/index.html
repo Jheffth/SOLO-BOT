@@ -110,9 +110,17 @@
           <label for="nome">Nome</label>
           <div class="entrada"><span data-i="user"></span><input id="nome" autocomplete="name" placeholder="Como quer ser chamado"></div>
         </div>
-        <div class="campo">
-          <label for="email">E-mail</label>
-          <div class="entrada"><span data-i="mail"></span><input id="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" required></div>
+        <div class="campo" id="campo-login">
+          <label for="login">Usuário ou e-mail</label>
+          <div class="entrada"><span data-i="user"></span><input id="login" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="seu usuário" required></div>
+        </div>
+        <div class="campo oculto" id="campo-usuario">
+          <label for="usuario">Usuário</label>
+          <div class="entrada"><span data-i="user"></span><input id="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="é com ele que você entra"></div>
+        </div>
+        <div class="campo oculto" id="campo-email">
+          <label for="email">E-mail <span class="faint">(opcional)</span></label>
+          <div class="entrada"><span data-i="mail"></span><input id="email" type="email" autocomplete="email" placeholder="voce@exemplo.com"></div>
         </div>
         <div class="campo">
           <label for="senha">Senha</label>
@@ -168,6 +176,9 @@
     abas.querySelectorAll(".aba").forEach(b => b.setAttribute("aria-selected", String(b.dataset.aba === novo)));
     const cad = novo === "cadastro";
     document.getElementById("campo-nome").classList.toggle("oculto", !cad);
+    document.getElementById("campo-usuario").classList.toggle("oculto", !cad);
+    document.getElementById("campo-email").classList.toggle("oculto", !cad);
+    document.getElementById("campo-login").classList.toggle("oculto", cad);
     document.getElementById("forca").classList.toggle("oculto", !cad);
     document.getElementById("titulo").textContent = cad ? "Crie sua Conta Solo" : "Bem-vindo de volta";
     document.getElementById("sub").textContent = cad ? "Uma conta para todos os seus sistemas." : "Entre na sua Conta Solo.";
@@ -195,11 +206,19 @@
   document.getElementById("form").addEventListener("submit", async e => {
     e.preventDefault();
     const erro = document.getElementById("erro"), btn = document.getElementById("enviar");
-    const corpo = { email: document.getElementById("email").value.trim(), senha: senha.value };
-    if (modo === "cadastro") corpo.nome = document.getElementById("nome").value.trim();
-    if (modo === "cadastro" && corpo.nome.length < 2) return (erro.textContent = "Diga como quer ser chamado.");
-    if (!corpo.email.includes("@")) return (erro.textContent = "Confira o e-mail.");
-    if (modo === "cadastro" && corpo.senha.length < 8) return (erro.textContent = "A senha precisa de pelo menos 8 caracteres.");
+    const val = id => document.getElementById(id).value.trim();
+    let corpo;
+    if (modo === "cadastro") {
+      corpo = { nome: val("nome"), usuario: val("usuario"), email: val("email") || null, senha: senha.value };
+      if (corpo.nome.length < 2) return (erro.textContent = "Diga como quer ser chamado.");
+      if (!/^[A-Za-z0-9_.-]{3,30}$/.test(corpo.usuario)) return (erro.textContent = "Usuário: 3 a 30 letras, números, ponto, hífen ou sublinhado.");
+      if (corpo.email && !corpo.email.includes("@")) return (erro.textContent = "Confira o e-mail, ou deixe em branco.");
+      if (corpo.senha.length < 8) return (erro.textContent = "A senha precisa de pelo menos 8 caracteres.");
+    } else {
+      corpo = { login: val("login"), senha: senha.value };
+      if (!corpo.login) return (erro.textContent = "Digite seu usuário ou e-mail.");
+      if (!corpo.senha) return (erro.textContent = "Digite sua senha.");
+    }
     erro.textContent = "";
     Solo.carregando(btn, true);
     try {

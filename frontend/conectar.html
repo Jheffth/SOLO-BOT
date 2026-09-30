@@ -81,7 +81,7 @@
   el.innerHTML = `${ponte(false)}
     <h1>O <span class="grad">${esc(mod.nome)}</span> quer se conectar à sua Conta Solo</h1>
     <p class="sub">Depois disso, você fala com ele pelo Telegram e pelo WhatsApp.</p>
-    <div class="quem-c"><span class="avatar">${esc(Solo.iniciais(conta.nome))}</span><div><b>${esc(conta.nome)}</b><small>${esc(conta.email)}</small></div>
+    <div class="quem-c"><span class="avatar">${esc(Solo.iniciais(conta.nome))}</span><div><b>${esc(conta.nome)}</b><small>${esc(conta.identificacao)}</small></div>
       <a href="#" id="trocar">Não é você?</a></div>
     <ul class="poderes">
       <li>${icon("check")}<span>O bot encaminha ao ${esc(mod.nome)} o que você mandar no modo <code class="mono">/${esc(mod.chave)}</code></span></li>

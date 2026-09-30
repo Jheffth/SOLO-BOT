@@ -33,7 +33,7 @@
       nCanais && nSist ? `${nSist} ${nSist === 1 ? "sistema" : "sistemas"} respondendo por ${nCanais === 2 ? "Telegram e WhatsApp" : dados.canais.find(x => x.conectado).canal === "telegram" ? "Telegram" : "WhatsApp"}.`
       : "Faltam poucos passos para o bot falar por você.";
     document.getElementById("nome").value = document.activeElement.id === "nome" ? document.getElementById("nome").value : c.nome;
-    document.getElementById("email").value = c.email;
+    document.getElementById("email").value = c.usuario ? c.usuario + (c.email ? `  ·  ${c.email}` : "") : (c.email || "");
     renderProgresso(nCanais > 0, nSist > 0);
     renderCanais();
     renderSistemas();
