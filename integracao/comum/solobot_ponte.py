@@ -131,17 +131,28 @@ def _post(caminho: str, corpo: dict, timeout: float = 8.0) -> Optional[dict]:
         return None
 
 
-def avisar(usuario_id, texto: str, opcoes=None) -> bool:
+def avisar(usuario_id, texto: str, opcoes=None, falado: Optional[str] = None,
+           voz: Optional[bool] = None) -> bool:
     """
     Manda um aviso ao usuário por todos os canais dele no Solo Bot.
-    Devolve True se chegou a pelo menos um canal. Nunca levanta exceção:
-    aviso que falha não pode derrubar o job que o disparou.
+
+    `falado`: o roteiro para ouvido, se o sistema tiver (o Finances tem).
+    `voz`:    True pede que o aviso seja falado (a Conta Solo decide se aceita:
+              painel → Avisos → Voz nos avisos).
+
+    Devolve True se o Solo Bot aceitou — entregou agora ou guardou para depois
+    do horário de silêncio da pessoa. Nunca levanta exceção: aviso que falha
+    não pode derrubar o job que o disparou.
     """
     if not token():
         return False
-    r = _post("/interno/enviar", {"usuario_id": str(usuario_id), "texto": texto[:3800],
-                                  "opcoes": opcoes or None})
-    return bool(r and r.get("entregues"))
+    corpo = {"usuario_id": str(usuario_id), "texto": texto[:3800], "opcoes": opcoes or None}
+    if falado:
+        corpo["falado"] = falado[:1200]
+    if voz is not None:
+        corpo["voz"] = bool(voz)
+    r = _post("/interno/enviar", corpo)
+    return bool(r and (r.get("entregues") or r.get("adiados")))
 
 
 def situacao(usuario_id) -> dict:

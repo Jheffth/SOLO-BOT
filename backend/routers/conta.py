@@ -143,3 +143,51 @@ def trocar_senha(dados: TrocaSenha, conta: Conta = Depends(conta_atual), db: Ses
     conta.senha_hash = hash_senha(dados.nova)
     db.commit()
     return {"ok": True}
+
+
+# ══════════════════════════════════════════════════════════════════════
+# AVISOS — canais, horário de silêncio e voz (ver nucleo/avisos.py)
+# ══════════════════════════════════════════════════════════════════════
+def _avisos_publico(db: Session, conta: Conta) -> dict:
+    from database import AvisoPendente
+    from nucleo import avisos
+    canais = {c.canal: c for c in conta.canais}
+    fim = avisos.fim_do_silencio(conta)
+    return {
+        "canais": [{"canal": c, "conectado": c in canais, "avisos": canais[c].avisos if c in canais else False}
+                   for c in ("telegram", "whatsapp")],
+        "silencio": {"ativo": bool(avisos.silencio(conta)), "de": conta.avisos_silencio_de or "22:00",
+                     "ate": conta.avisos_silencio_ate or "07:00", "agora": bool(fim),
+                     "termina_as": fim.strftime("%H:%M") if fim else None},
+        "voz": conta.avisos_voz if conta.avisos_voz in avisos.VOZ_AVISOS else "sistema",
+        "na_fila": db.query(AvisoPendente).filter(AvisoPendente.conta_id == conta.id).count(),
+    }
+
+
+@router.get("/avisos")
+def ver_avisos(conta: Conta = Depends(conta_atual), db: Session = Depends(get_db)):
+    return _avisos_publico(db, conta)
+
+
+class AjusteAvisos(BaseModel):
+    silencio: Optional[bool] = None
+    de: Optional[str] = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    ate: Optional[str] = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    voz: Optional[str] = None
+
+
+@router.patch("/avisos")
+def ajustar_avisos(dados: AjusteAvisos, conta: Conta = Depends(conta_atual), db: Session = Depends(get_db)):
+    from nucleo import avisos
+    de = dados.de or conta.avisos_silencio_de or "22:00"
+    ate = dados.ate or conta.avisos_silencio_ate or "07:00"
+    ligar = dados.silencio if dados.silencio is not None else bool(avisos.silencio(conta))
+    if ligar and de == ate:
+        raise HTTPException(422, "O início e o fim do silêncio não podem ser iguais.")
+    conta.avisos_silencio_de, conta.avisos_silencio_ate = (de, ate) if ligar else (None, None)
+    if dados.voz is not None:
+        if dados.voz not in avisos.VOZ_AVISOS:
+            raise HTTPException(422, "Voz dos avisos: sistema, sempre ou nunca.")
+        conta.avisos_voz = dados.voz
+    db.commit()
+    return _avisos_publico(db, conta)

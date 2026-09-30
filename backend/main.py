@@ -34,14 +34,34 @@ async def _buscar_manifestos_sempre():
         await asyncio.sleep(config.MANIFESTO_MINUTOS * 60)
 
 
+async def _despachar_avisos_sempre():
+    """A cada minuto, solta os avisos que esperavam o horário de silêncio acabar."""
+    import asyncio
+    from database import SessionLocal
+    from nucleo import avisos
+    while True:
+        await asyncio.sleep(60)
+        db = SessionLocal()
+        try:
+            await asyncio.to_thread(avisos.despachar_pendentes, db)
+        except Exception:  # noqa: BLE001
+            logging.getLogger("solobot").exception("Despacho de avisos falhou")
+        finally:
+            db.close()
+
+
 @asynccontextmanager
 async def _vida(_app):
     import asyncio
     criar_tabelas()
-    tarefa = asyncio.create_task(_buscar_manifestos_sempre()) if config.MANIFESTO_MINUTOS > 0 else None
+    tarefas = []
+    if config.MANIFESTO_MINUTOS > 0:
+        tarefas.append(asyncio.create_task(_buscar_manifestos_sempre()))
+    if not config.AMBIENTE == "test":
+        tarefas.append(asyncio.create_task(_despachar_avisos_sempre()))
     yield
-    if tarefa:
-        tarefa.cancel()
+    for t in tarefas:
+        t.cancel()
 
 
 app = FastAPI(title="Solo Bot", lifespan=_vida, docs_url="/api/docs" if config.DEV else None, redoc_url=None)

@@ -91,6 +91,8 @@ def _modulos() -> list:
 
 MODULOS = _modulos()
 
+FUSO = _env("FUSO", "America/Sao_Paulo")   # para o horário de silêncio dos avisos
+
 MODO_MINUTOS = 30          # modo ativo expira
 ESCOLHA_MINUTOS = 10       # lista numerada do WhatsApp expira
 CODIGO_MINUTOS = 10        # tokens de canal

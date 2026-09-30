@@ -284,14 +284,15 @@ def o_que_falar(mensagens: list) -> Optional[str]:
     return resumir(mensagens)
 
 
-def falar_resposta(conta, canal: str, resposta, entrada_audio: bool) -> None:
+def falar_resposta(conta, canal: str, resposta, entrada_audio: bool, forcar: bool = False) -> None:
     """
     Anexa a voz à ÚLTIMA mensagem da resposta, se a pessoa quiser. Nunca
     levanta: a voz é um a mais, e a resposta escrita sai de qualquer jeito.
     """
     if conta is None or not resposta.mensagens or not disponivel():
         return
-    if not quer_falar(getattr(conta, "voz", None), entrada_audio):
+    # `forcar`: quem decidiu já foi outra regra (a voz dos avisos, em nucleo/avisos.py).
+    if not forcar and not quer_falar(getattr(conta, "voz", None), entrada_audio):
         for m in resposta.mensagens:         # quem pediu "nunca" não recebe nem a voz de um sistema
             if getattr(conta, "voz", None) == "nunca":
                 m.pop("audio", None)

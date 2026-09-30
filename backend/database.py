@@ -27,6 +27,9 @@ class Conta(Base):
     usuario = Column(String(50), nullable=True, unique=True, index=True)   # o login do dia a dia
     email = Column(String(200), nullable=True, unique=True, index=True)    # opcional
     voz = Column(String(10), nullable=True)            # audio (padrão) | sempre | nunca — ver nucleo/fala.py
+    avisos_silencio_de = Column(String(5), nullable=True)    # "22:00" — ver nucleo/avisos.py
+    avisos_silencio_ate = Column(String(5), nullable=True)   # "07:00"
+    avisos_voz = Column(String(10), nullable=True)           # sistema (padrão) | sempre | nunca
     senha_hash = Column(String(200), nullable=False)
     admin = Column(Boolean, default=False, nullable=False)
     ativo = Column(Boolean, default=True, nullable=False)
@@ -154,6 +157,20 @@ class ManifestoModulo(Base):
     origem = Column(String(16), nullable=True)       # empurrado | buscado
 
 
+class AvisoPendente(Base):
+    """Aviso que chegou no horário de silêncio e espera para sair."""
+    __tablename__ = "avisos_pendentes"
+
+    id = Column(Integer, primary_key=True)
+    conta_id = Column(Integer, ForeignKey("contas.id", ondelete="CASCADE"), nullable=False, index=True)
+    canal = Column(String(16), nullable=False)
+    origem = Column(String(80), nullable=False)
+    app = Column(String(16), nullable=False)
+    mensagens = Column(Text, nullable=False)          # JSON [{texto, opcoes, falado?}]
+    voz = Column(Boolean, default=False, nullable=False)
+    criado_em = Column(DateTime, default=datetime.utcnow)
+
+
 class Configuracao(Base):
     """Chave/valor do que se ajusta na tela de Administração (voz, modelo)."""
     __tablename__ = "configuracoes"
@@ -194,6 +211,7 @@ def _migrar():
       · contas.usuario  — login por usuário (antes era só e-mail)
       · contas.email    — deixa de ser obrigatório
       · contas.voz      — preferência de resposta falada
+      · contas.avisos_* — silêncio e voz dos avisos
     """
     from sqlalchemy import inspect, text
     insp = inspect(engine)
@@ -204,8 +222,10 @@ def _migrar():
         if "usuario" not in colunas:
             con.execute(text("ALTER TABLE contas ADD COLUMN usuario VARCHAR(50)"))
             con.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_contas_usuario ON contas (usuario)"))
-        if "voz" not in colunas:
-            con.execute(text("ALTER TABLE contas ADD COLUMN voz VARCHAR(10)"))
+        for nome, tipo in (("voz", "VARCHAR(10)"), ("avisos_silencio_de", "VARCHAR(5)"),
+                           ("avisos_silencio_ate", "VARCHAR(5)"), ("avisos_voz", "VARCHAR(10)")):
+            if nome not in colunas:
+                con.execute(text(f"ALTER TABLE contas ADD COLUMN {nome} {tipo}"))
         if engine.dialect.name == "postgresql" and not colunas.get("email", {}).get("nullable", True):
             con.execute(text("ALTER TABLE contas ALTER COLUMN email DROP NOT NULL"))
 

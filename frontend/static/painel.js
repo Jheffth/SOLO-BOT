@@ -36,6 +36,7 @@
     document.getElementById("email").value = c.usuario ? c.usuario + (c.email ? `  ·  ${c.email}` : "") : (c.email || "");
     renderProgresso(nCanais > 0, nSist > 0);
     renderCanais();
+    carregarAvisos();
     document.querySelectorAll("#voz-opcoes [data-voz]").forEach(b =>
       b.setAttribute("aria-checked", String(b.dataset.voz === (c.voz || "audio"))));
     renderSistemas();
@@ -73,8 +74,7 @@
       const estado = x.conectado ? `<span class="chip ok"><span class="ponto"></span>Conectado</span>`
         : x.disponivel ? `<span class="chip off">Não conectado</span>` : `<span class="chip aguarda">Indisponível</span>`;
       const corpo = x.conectado
-        ? `<p class="muted pequeno">${x.rotulo ? `Como <b style="color:var(--text)">${esc(x.rotulo)}</b> · ` : ""}desde ${new Date(x.desde + "Z").toLocaleDateString("pt-BR")}</p>
-           <div class="avisos-linha"><button class="chave" role="switch" aria-checked="${x.avisos}" data-avisos="${x.canal}" aria-label="Receber avisos por ${m.nome}"></button>Receber avisos por aqui</div>`
+        ? `<p class="muted pequeno">${x.rotulo ? `Como <b style="color:var(--text)">${esc(x.rotulo)}</b> · ` : ""}desde ${new Date(x.desde + "Z").toLocaleDateString("pt-BR")}</p>`
         : `<p class="muted pequeno">${x.disponivel ? m.texto : "O servidor ainda não foi configurado para este canal."}</p>`;
       const acoes = x.conectado
         ? `<button class="btn pequeno fantasma perigo" data-sair-canal="${x.canal}">${icon("unlink")}Desconectar</button>`
@@ -113,6 +113,57 @@
       return `<li><span class="ic">${a.app && a.tipo !== "vinculo" ? emoji(a.app) : icon(ICONE_ATIV[a.tipo] || "activity")}</span>
         <div><b>${esc(titulo)}</b><small>${onde ? esc(onde) + " · " : ""}${tempoRelativo(a.em)}</small></div></li>`;
     }).join("") : `<li class="vazio" style="display:block">Nada por aqui ainda. Mande um “oi” para o bot.</li>`;
+  }
+
+  // ── Avisos: canais, silêncio e voz ──
+  let avisos = null;
+  async function carregarAvisos() {
+    try { avisos = await api("/api/conta/avisos"); } catch (e) { return; }
+    renderAvisos();
+  }
+  function renderAvisos() {
+    const a = avisos, el = document.getElementById("avisos");
+    const canais = a.canais.map(c => {
+      const m = CANAIS[c.canal];
+      return `<div class="aviso-canal ${c.conectado ? "" : "off"}">
+        <span class="marca-mini" style="--c:${m.cor}">${icon(m.icone)}</span>
+        <div><b>${m.nome}</b><small>${c.conectado ? (c.avisos ? "recebe avisos" : "não recebe avisos") : "não conectado"}</small></div>
+        <button class="chave" role="switch" aria-checked="${c.conectado && c.avisos}" data-avisos="${c.canal}" ${c.conectado ? "" : "disabled"} aria-label="Avisos por ${m.nome}"></button>
+      </div>`;
+    }).join("");
+    const s = a.silencio;
+    const estadoSil = s.agora ? `<span class="chip aguarda">🌙 em silêncio até ${esc(s.termina_as)}</span>` : "";
+    el.innerHTML = `
+      <div class="avisos-grade">
+        <div class="pilha" style="gap:10px">
+          <h3>Onde chegam</h3>${canais}
+        </div>
+        <div class="pilha" style="gap:12px">
+          <div class="linha entre"><h3>Horário de silêncio</h3>
+            <button class="chave" role="switch" aria-checked="${s.ativo}" id="sil-liga" aria-label="Horário de silêncio"></button></div>
+          <p class="muted pequeno" style="margin:0">Avisos que chegarem nesse horário esperam e saem juntos quando ele terminar. Nada se perde.</p>
+          <div class="linha sil-horas ${s.ativo ? "" : "apagado"}">
+            <label>das <input type="time" id="sil-de" value="${esc(s.de)}" ${s.ativo ? "" : "disabled"}></label>
+            <label>às <input type="time" id="sil-ate" value="${esc(s.ate)}" ${s.ativo ? "" : "disabled"}></label>
+          </div>
+          <div class="linha" style="flex-wrap:wrap;gap:8px">${estadoSil}${a.na_fila ? `<span class="chip">${a.na_fila} aviso${a.na_fila > 1 ? "s" : ""} na fila</span>` : ""}</div>
+        </div>
+      </div>
+      <div class="avisos-voz">
+        <div><h3>Voz nos avisos</h3><p class="muted pequeno" style="margin:4px 0 0">O Finances pede voz nos avisos que você marcou como áudio lá.</p></div>
+        <div class="segmentos" role="radiogroup" aria-label="Voz nos avisos">
+          ${[["sistema", "Quando o sistema pedir"], ["sempre", "Sempre"], ["nunca", "Nunca"]].map(([v, r]) =>
+            `<button type="button" role="radio" data-avvoz="${v}" aria-checked="${a.voz === v}">${r}</button>`).join("")}
+        </div>
+      </div>`;
+    const salvar = async corpo => {
+      try { avisos = await api("/api/conta/avisos", { method: "PATCH", body: corpo }); renderAvisos(); toast("Avisos atualizados."); }
+      catch (e) { toast(e.message, "erro"); renderAvisos(); }
+    };
+    el.querySelector("#sil-liga").onclick = () => salvar({ silencio: !s.ativo, de: el.querySelector("#sil-de").value, ate: el.querySelector("#sil-ate").value });
+    ["#sil-de", "#sil-ate"].forEach(id => el.querySelector(id).onchange = () =>
+      salvar({ silencio: true, de: el.querySelector("#sil-de").value, ate: el.querySelector("#sil-ate").value }));
+    el.querySelectorAll("[data-avvoz]").forEach(b => b.onclick = () => salvar({ voz: b.dataset.avvoz }));
   }
 
   // ── Conectar um canal ──
@@ -194,7 +245,7 @@
     if (b.dataset.avisos) {
       const novo = b.getAttribute("aria-checked") !== "true";
       b.setAttribute("aria-checked", String(novo));
-      try { await api(`/api/conta/canais/${b.dataset.avisos}`, { method: "PATCH", body: { avisos: novo } }); toast(novo ? "Avisos ligados." : "Avisos desligados."); }
+      try { await api(`/api/conta/canais/${b.dataset.avisos}`, { method: "PATCH", body: { avisos: novo } }); toast(novo ? "Avisos ligados." : "Avisos desligados."); carregarAvisos(); }
       catch (err) { b.setAttribute("aria-checked", String(!novo)); toast(err.message, "erro"); }
     }
   });

@@ -11,7 +11,7 @@ from nucleo import render, roteador
 
 
 def entregar(db: Session, canal: str, origem: str, resposta: "roteador.Resposta",
-             entrada_audio: bool = False, falar: bool = True):
+             entrada_audio: bool = False, falar: bool = True, forcar_voz: bool = False):
     """
     `entrada_audio`: a pessoa mandou áudio (a preferência "audio" responde falado).
     `falar=False`: avisos e novidades saem só por escrito.
@@ -19,7 +19,8 @@ def entregar(db: Session, canal: str, origem: str, resposta: "roteador.Resposta"
     if falar:
         from nucleo import fala
         try:
-            fala.falar_resposta(roteador.conta_de(db, canal, origem), canal, resposta, entrada_audio)
+            fala.falar_resposta(roteador.conta_de(db, canal, origem), canal, resposta, entrada_audio,
+                                forcar=forcar_voz)
         except Exception:  # noqa: BLE001 — a voz nunca derruba a entrega
             import logging
             logging.getLogger("solobot.entrega").exception("Falha ao preparar a voz")

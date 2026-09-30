@@ -29,14 +29,15 @@ class Aviso(BaseModel):
     usuario_id: str
     texto: str = Field(min_length=1, max_length=3800)
     opcoes: Optional[List[dict]] = None
+    falado: Optional[str] = Field(default=None, max_length=1200)   # roteiro para ouvido, se o sistema tiver
+    voz: Optional[bool] = None                                     # o sistema pede que este aviso seja falado
 
 
 @router.post("/enviar")
 def enviar(a: Aviso, mod: modulos.Modulo = Depends(_modulo), db: Session = Depends(get_db)):
-    destinos = roteador.aviso(db, mod, a.usuario_id, a.texto, a.opcoes)
-    for canal, origem, resposta in destinos:
-        entrega.entregar(db, canal, origem, resposta, falar=False)
-    return {"entregues": len(destinos), "vinculado": bool(destinos) or None}
+    """Entrega agora, ou guarda até o fim do horário de silêncio da pessoa."""
+    from nucleo import avisos
+    return avisos.receber(db, mod, a.usuario_id, a.texto, a.opcoes, a.falado, a.voz)
 
 
 @router.post("/manifesto")
