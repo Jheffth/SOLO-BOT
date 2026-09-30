@@ -239,6 +239,14 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
     linhas = ["🧭 *Solo Bot — comandos*", ""]
     for m in ligados:
         linhas.append(f"▸ `/{m.chave}` — falar com o {m.emoji} {m.nome}")
+        # O que o sistema declarou no manifesto dele: a ajuda do hub não
+        # precisa ser reescrita a cada comando novo lá.
+        from nucleo import manifestos
+        cmds = [c for c in manifestos.comandos_visiveis(db, m.chave) if c["comando"] != "/ajuda"]
+        for c in cmds[:8]:
+            linhas.append(f"    `/{m.chave} {c['comando'].lstrip('/')}` — {c['descricao']}")
+        if len(cmds) > 8:
+            linhas.append(f"    _…e mais {len(cmds) - 8}: `/{m.chave} ajuda`_")
     linhas += [
         "▸ `/menu` — o cartão inicial",
         "▸ `/sair` — volta ao hub",

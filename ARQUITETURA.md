@@ -56,12 +56,46 @@ Todos com cabeçalho `X-Solo-Token: <BOT_SERVICE_TOKEN do sistema>`, só na rede
 | `POST /interno/bot/mensagem` | `{usuario_id, canal, origem, texto}` | `{mensagens: [{texto, opcoes}]}` |
 | `POST /interno/bot/acao` | `{usuario_id, canal, origem, dados}` | `{mensagens: [...], curta}` |
 | `POST /interno/bot/desvinculado` | `{usuario_id}` | `{ok}` (opcional) |
+| `GET /interno/bot/manifesto` | — | o `bot_manifesto.json` do sistema |
 
 E no sentido contrário (sistema → Solo Bot):
 
 | Rota | Corpo |
 |---|---|
 | `POST /interno/enviar` | `{app, usuario_id, texto, opcoes?}` (cabeçalho `X-Solo-Token` do sistema) |
+| `POST /interno/manifesto` | o `bot_manifesto.json` — o sistema empurra ao subir |
+
+## Onde mora cada comando
+
+**A lógica mora no sistema; a conversa mora no Solo Bot.** Se o comando lê ou grava
+dados de um sistema (`/saldo`, `/ok`), ele é do sistema. Se é sobre a conversa
+(`/menu`, `/sair`, `/conta`) ou junta sistemas (um futuro `/resumo`), é do Solo Bot.
+
+### Manifestos: como o Solo Bot descobre comandos novos
+
+Cada sistema tem um `bot_manifesto.json` ao lado do `solobot_ponte.py`:
+
+```json
+{
+  "versao": "2026.10.02",
+  "comandos": [{"comando": "/meta", "descricao": "Progresso das metas", "exemplo": "/fin meta"}],
+  "exemplos": ["gastei 80 almoço nubank"],
+  "novidades": ["Agora dá para ver suas metas."]
+}
+```
+
+- **Empurrado:** o sistema manda o manifesto ao subir (`anunciar_manifesto_em_segundo_plano`).
+- **Buscado:** o Solo Bot pede a cada sistema de 10 em 10 minutos (`MANIFESTO_MINUTOS`),
+  ou na hora, pelo botão **Buscar manifestos** da Administração.
+- **Usado em:** `/ajuda` do hub, cartão "Como falar comigo" do painel e coluna Manifesto do admin.
+- **Novidades:** `versao` nova de um manifesto já conhecido vira mensagem para quem tem o
+  sistema conectado (canais com avisos ligados), com as `novidades` e os comandos novos.
+  O primeiro manifesto de um sistema não é anunciado.
+- `"oculto": true` tira da vitrine um comando que existe, mas não faz sentido pelo Solo Bot.
+
+**Comando novo num sistema:** escrever o comando no bot do sistema, pôr uma linha no
+manifesto, trocar a `versao` (e, se quiser anunciar, escrever em `novidades`), deploy do
+sistema. O teste de coerência de cada sistema falha se o manifesto e o bot se desencontrarem.
 
 ## Migração (sem derrubar nada)
 

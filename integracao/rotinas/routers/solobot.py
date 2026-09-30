@@ -87,6 +87,12 @@ def _usuario(db: Session, usuario_id) -> Optional[Usuario]:
     return u if u and u.ativo else None
 
 
+@interno.get("/manifesto")
+def manifesto():
+    """Os comandos que este sistema oferece — o Solo Bot busca de 10 em 10 min."""
+    return ponte.ler_manifesto()
+
+
 @interno.post("/resgatar")
 def resgatar(r: Resgate, db: Session = Depends(get_db)):
     uid = ponte.resgatar(r.codigo)

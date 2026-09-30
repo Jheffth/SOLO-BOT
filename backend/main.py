@@ -17,10 +17,31 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 FRONT = Path(__file__).resolve().parent.parent / "frontend"
 
+async def _buscar_manifestos_sempre():
+    """De MANIFESTO_MINUTOS em MANIFESTO_MINUTOS, pede o manifesto a cada sistema."""
+    import asyncio
+    from database import SessionLocal
+    from nucleo import manifestos
+    await asyncio.sleep(20)                 # deixa os sistemas subirem junto
+    while True:
+        db = SessionLocal()
+        try:
+            await asyncio.to_thread(manifestos.buscar_todos, db)
+        except Exception:  # noqa: BLE001
+            logging.getLogger("solobot").exception("Busca de manifestos falhou")
+        finally:
+            db.close()
+        await asyncio.sleep(config.MANIFESTO_MINUTOS * 60)
+
+
 @asynccontextmanager
 async def _vida(_app):
+    import asyncio
     criar_tabelas()
+    tarefa = asyncio.create_task(_buscar_manifestos_sempre()) if config.MANIFESTO_MINUTOS > 0 else None
     yield
+    if tarefa:
+        tarefa.cancel()
 
 
 app = FastAPI(title="Solo Bot", lifespan=_vida, docs_url="/api/docs" if config.DEV else None, redoc_url=None)

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 import config
 from canais import evolution, telegram
 from database import Atividade, CanalVinculo, Conta, VinculoSistema, get_db
-from nucleo import modulos, roteador
+from nucleo import manifestos, modulos, roteador
 from routers.auth import conta_publica
 from seguranca import conferir_senha, conta_atual, hash_senha
 
@@ -32,7 +32,10 @@ def painel(conta: Conta = Depends(conta_atual), db: Session = Depends(get_db)):
     sistemas = []
     for m in modulos.todos():
         v = ligados.get(m.chave)
+        man = manifestos.de(db, m.chave) or {}
         sistemas.append({**m.publico(), "conectado": bool(v),
+                         "comandos": [c for c in man.get("comandos", []) if not c.get("oculto")],
+                         "exemplos": man.get("exemplos", []),
                          "nome_remoto": v.nome_remoto if v else None,
                          "desde": v.vinculado_em.isoformat() if v and v.vinculado_em else None})
     atividade = (db.query(Atividade).filter(Atividade.conta_id == conta.id)

@@ -38,6 +38,18 @@
     renderCanais();
     renderSistemas();
     renderAtividade();
+    renderComandos();
+  }
+
+  // Os comandos vêm do manifesto de cada sistema: comando novo lá aparece aqui sozinho.
+  function renderComandos() {
+    const alvo = document.getElementById("cmds-sistemas");
+    const blocos = dados.sistemas.filter(s => s.conectado && (s.comandos || []).length).map(s => {
+      const cmds = s.comandos.filter(c => c.comando !== "/ajuda").slice(0, 6);
+      return `<div class="cmds-sis"><b class="${s.chave === "fin" ? "fin" : "rot"}">${esc(s.emoji)} ${esc(s.nome.replace("Solo ", ""))}</b>
+        <ul class="comandos">${cmds.map(c => `<li><code>/${esc(s.chave)} ${esc(c.comando.slice(1))}</code><span>${esc(c.descricao)}</span></li>`).join("")}</ul></div>`;
+    });
+    alvo.innerHTML = blocos.join("");
   }
 
   function renderProgresso(canal, sistema) {

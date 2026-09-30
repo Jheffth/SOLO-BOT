@@ -59,11 +59,24 @@ class SistemasFalsos:
             return Resp(200, {"mensagens": [{"texto": f"feito:{corpo['dados']}"}], "curta": "ok!"})
         return Resp(200, {"ok": True})
 
+    manifestos = {
+        "fin": {"versao": "1", "comandos": [{"comando": "/saldo", "descricao": "Saldo das contas"}]},
+        "rot": {"versao": "1", "comandos": [{"comando": "/hoje", "descricao": "Missões do dia"}]},
+    }
+
+    def get(self, url, token):
+        app = url.split("//")[1].split("/")[0]
+        if token != {"fin": "tok-fin", "rot": "tok-rot"}[app]:
+            return Resp(403, {})
+        return Resp(200, self.manifestos[app])
+
 
 @pytest.fixture()
 def sistemas(monkeypatch):
     s = SistemasFalsos()
+    s.manifestos = {k: dict(v) for k, v in SistemasFalsos.manifestos.items()}
     monkeypatch.setattr(modulos, "_post", s)
+    monkeypatch.setattr(modulos, "_get", s.get)
     return s
 
 

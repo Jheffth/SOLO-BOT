@@ -12,6 +12,10 @@ O QUE ELA FAZ
     com o token de serviço.
   · confere o token de serviço nas rotas /interno/bot/*.
   · manda avisos para o Solo Bot (`avisar`).
+  · publica o MANIFESTO — o `bot_manifesto.json` que diz ao Solo Bot quais
+    comandos este sistema tem. O Solo Bot busca de 10 em 10 minutos, e o
+    sistema avisa sozinho ao subir (`anunciar_manifesto_em_segundo_plano`),
+    então o deploy de um comando novo já chega ao Solo Bot.
 
 POR QUE O CÓDIGO É ASSINADO E NÃO GUARDADO
 
@@ -36,6 +40,7 @@ import json
 import logging
 import os
 import secrets
+import threading
 import time
 import urllib.request
 from typing import Optional
@@ -150,3 +155,54 @@ def situacao(usuario_id) -> dict:
             return {"disponivel": True, **json.loads(r.read() or b"{}")}
     except Exception:  # noqa: BLE001
         return {"disponivel": True, "conectado": None, "erro": "Solo Bot fora do ar"}
+
+
+# ── Manifesto: os comandos que este sistema oferece pelo Solo Bot ─
+#
+# O arquivo mora ao lado desta ponte (`bot_manifesto.json`). Comando novo
+# no bot = uma linha nele + `versao` nova. O teste de coerência de cada
+# sistema garante que o manifesto e o bot não se desencontrem.
+MANIFESTO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_manifesto.json")
+
+
+def ler_manifesto() -> dict:
+    with open(MANIFESTO, encoding="utf-8") as f:
+        dados = json.load(f)
+    dados.pop("_leia", None)
+    dados["app"] = _cfg("SOLO_BOT_APP") or dados.get("app")
+    return dados
+
+
+def anunciar_manifesto() -> bool:
+    """Empurra o manifesto para o Solo Bot. True se ele aceitou."""
+    if not token():
+        return False
+    try:
+        dados = ler_manifesto()
+    except Exception:  # noqa: BLE001
+        log.exception("bot_manifesto.json ilegível — o Solo Bot não será avisado")
+        return False
+    r = _post("/interno/manifesto", dados)
+    return bool(r and r.get("ok"))
+
+
+def anunciar_manifesto_em_segundo_plano(tentativas=(5, 30, 120, 600)):
+    """
+    Para o startup do sistema. Nunca bloqueia a subida e nunca levanta:
+    o Solo Bot pode estar reiniciando junto (mesmo deploy), então tenta
+    algumas vezes com espera crescente. Se todas falharem, a busca
+    periódica do próprio Solo Bot resolve em até 10 minutos.
+    """
+    if not token():
+        return None
+
+    def _tentar():
+        for espera in tentativas:
+            time.sleep(espera)
+            if anunciar_manifesto():
+                log.info("Manifesto anunciado ao Solo Bot")
+                return
+
+    t = threading.Thread(target=_tentar, name="solobot-manifesto", daemon=True)
+    t.start()
+    return t

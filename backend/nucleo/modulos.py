@@ -86,6 +86,27 @@ def _post(url: str, token: str, corpo: dict) -> httpx.Response:
         return c.post(url, json=corpo, headers={"X-Solo-Token": token})
 
 
+def _get(url: str, token: str) -> httpx.Response:
+    with httpx.Client(timeout=TIMEOUT) as c:
+        return c.get(url, headers={"X-Solo-Token": token})
+
+
+def buscar(mod: Modulo, rota: str) -> dict:
+    """GET em /interno/bot/<rota>. Mesmas regras de erro do `chamar`."""
+    if not mod.token:
+        raise ErroModulo(f"{mod.nome} ainda não foi configurado no Solo Bot.")
+    try:
+        r = _get(f"{mod.url}/interno/bot/{rota}", mod.token)
+    except httpx.HTTPError:
+        raise ErroModulo(f"{mod.nome} não respondeu.")
+    if r.status_code >= 400:
+        raise ErroModulo(f"{mod.nome} recusou o pedido ({r.status_code}).")
+    try:
+        return r.json()
+    except ValueError:
+        raise ErroModulo(f"{mod.nome} respondeu algo que não entendi.")
+
+
 def chamar(mod: Modulo, rota: str, corpo: dict) -> dict:
     if not mod.token:
         raise ErroModulo(f"{mod.nome} ainda não foi configurado no Solo Bot.")

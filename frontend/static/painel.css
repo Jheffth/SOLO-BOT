@@ -122,3 +122,9 @@ code { font-family: var(--mono); font-size: .8rem; padding: .18rem .45rem; borde
   .cartoes.dois { grid-template-columns: 1fr; }
   .modal { padding: 22px 18px; }
 }
+
+/* comandos vindos dos manifestos */
+.cmds-sis { display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border); }
+.cmds-sis > b { font-size: .82rem; font-weight: 600; }
+.cmds-sis .comandos li { font-size: .84rem; }
+.cmds-sis .comandos code { min-width: 0; text-align: left; white-space: nowrap; }

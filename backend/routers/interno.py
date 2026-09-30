@@ -39,6 +39,17 @@ def enviar(a: Aviso, mod: modulos.Modulo = Depends(_modulo), db: Session = Depen
     return {"entregues": len(destinos), "vinculado": bool(destinos) or None}
 
 
+@router.post("/manifesto")
+def receber_manifesto(corpo: dict, mod: modulos.Modulo = Depends(_modulo), db: Session = Depends(get_db)):
+    """O sistema avisa, ao subir, quais comandos tem. Ver nucleo/manifestos.py."""
+    from nucleo import manifestos
+    try:
+        r = manifestos.guardar(db, mod, corpo, "empurrado")
+    except manifestos.ManifestoInvalido as e:
+        raise HTTPException(422, f"manifesto inválido: {e}")
+    return {"ok": True, **r}
+
+
 @router.get("/vinculo/{usuario_id}")
 def vinculo(usuario_id: str, mod: modulos.Modulo = Depends(_modulo), db: Session = Depends(get_db)):
     """Para a aba Bots do sistema mostrar 'conectado ao Solo Bot como fulano'."""

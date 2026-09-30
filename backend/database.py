@@ -138,6 +138,20 @@ class Atividade(Base):
     criado_em = Column(DateTime, default=datetime.utcnow, index=True)
 
 
+class ManifestoModulo(Base):
+    """
+    O que cada sistema declarou saber fazer pelo bot (o `bot_manifesto.json`
+    dele). Uma linha por sistema: a versão atual é o que importa.
+    """
+    __tablename__ = "manifestos"
+
+    app = Column(String(16), primary_key=True)
+    versao = Column(String(40), nullable=False)
+    dados = Column(Text, nullable=False)             # JSON validado
+    recebido_em = Column(DateTime, default=datetime.utcnow)
+    origem = Column(String(16), nullable=True)       # empurrado | buscado
+
+
 def criar_tabelas():
     Base.metadata.create_all(bind=engine)
 

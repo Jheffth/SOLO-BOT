@@ -83,3 +83,4 @@ ESCOLHA_MINUTOS = 10       # lista numerada do WhatsApp expira
 CODIGO_MINUTOS = 10        # tokens de canal
 TENTATIVAS_MAX = 5         # erros por origem antes do castigo
 CASTIGO_MINUTOS = 15
+MANIFESTO_MINUTOS = int(_env("MANIFESTO_MINUTOS", "0" if AMBIENTE == "test" else "10"))  # 0 = não busca

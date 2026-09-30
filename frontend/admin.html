@@ -39,7 +39,7 @@
   </div>
 
   <section class="cartao vidro entrar-animado">
-    <div class="linha entre"><h2>Sistemas registrados</h2><span class="muted pequeno">em <code>SOLO_MODULOS</code></span></div>
+    <div class="linha entre"><h2>Sistemas registrados</h2><button class="btn pequeno" id="sincronizar"><span data-i="activity"></span>Buscar manifestos</button></div>
     <div style="overflow-x:auto"><table class="tabela" id="sistemas"></table></div>
   </section>
 </main>
@@ -79,9 +79,11 @@
         : `<dl class="dl"><dt>Instância</dt><dd class="mono pequeno">Evolution</dd><dt>Estado</dt><dd>${esc(w.estado || "—")}</dd></dl>`}
       <div class="rodape"><button class="btn pequeno ${aberto ? "" : "primario"}" id="ligar-wa" ${w.configurado ? "" : "disabled"}>${icon("qr")}${aberto ? "Reaplicar webhook" : "Gerar QR"}</button></div>`;
 
-    document.getElementById("sistemas").innerHTML = `<tr><th>Sistema</th><th>Endereço interno</th><th>Token</th><th>Contas</th></tr>` +
+    document.getElementById("sistemas").innerHTML = `<tr><th>Sistema</th><th>Endereço interno</th><th>Token</th><th>Manifesto</th><th>Contas</th></tr>` +
       s.sistemas.map(m => `<tr><td><span class="linha" style="gap:.6rem"><span style="font-size:1.2rem">${esc(m.emoji)}</span><b style="font-weight:550">${esc(m.nome)}</b><code>/${esc(m.chave)}</code></span></td>
-        <td class="mono pequeno muted">${esc(m.url)}</td><td>${m.configurado ? '<span class="chip ok">definido</span>' : '<span class="chip aguarda">faltando</span>'}</td><td>${m.contas}</td></tr>`).join("");
+        <td class="mono pequeno muted">${esc(m.url)}</td><td>${m.configurado ? '<span class="chip ok">definido</span>' : '<span class="chip aguarda">faltando</span>'}</td>
+        <td>${m.manifesto ? `<span class="mono pequeno">${esc(m.manifesto.versao)}</span><br><small class="faint">${m.manifesto.comandos} comandos · ${Solo.tempoRelativo(m.manifesto.recebido_em)}</small>` : '<span class="chip aguarda">nunca recebido</span>'}</td>
+        <td>${m.contas}</td></tr>`).join("");
 
     document.getElementById("ligar-tg").onclick = async function () {
       carregando(this, true);
@@ -97,6 +99,15 @@
     };
   }
 
+  document.getElementById("sincronizar").onclick = async function () {
+    carregando(this, true);
+    try {
+      const r = await api("/api/admin/manifestos/sincronizar", { method: "POST" });
+      toast(Object.entries(r).map(([k, v]) => `${k}: ${v}`).join(" · "));
+    } catch (e) { toast(e.message, "erro"); }
+    carregando(this, false);
+    carregar();
+  };
   document.getElementById("atualizar").onclick = () => carregar().then(() => toast("Atualizado."));
   await carregar();
   setInterval(() => { if (!document.hidden) carregar().catch(() => {}); }, 8000);

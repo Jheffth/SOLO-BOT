@@ -38,9 +38,25 @@ def status(_: Conta = Depends(conta_admin), db: Session = Depends(get_db)):
                      "estado": ((ev.get("instance") or {}).get("state")) or ULTIMO_QR["estado"],
                      "qr": ULTIMO_QR["base64"],
                      "contas": por_canal.get("whatsapp", 0)},
-        "sistemas": [{**m.publico(), "url": m.url, "contas": por_app.get(m.chave, 0)}
+        "sistemas": [{**m.publico(), "url": m.url, "contas": por_app.get(m.chave, 0),
+                      "manifesto": _resumo_manifesto(db, m.chave)}
                      for m in modulos.todos()],
     }
+
+
+def _resumo_manifesto(db: Session, app: str):
+    from nucleo import manifestos
+    d = manifestos.de(db, app)
+    if not d:
+        return None
+    return {"versao": d["versao"], "comandos": len(d.get("comandos", [])),
+            "recebido_em": d["recebido_em"], "origem": d["origem"]}
+
+
+@router.post("/manifestos/sincronizar")
+def sincronizar_manifestos(_: Conta = Depends(conta_admin), db: Session = Depends(get_db)):
+    from nucleo import manifestos
+    return manifestos.buscar_todos(db)
 
 
 @router.post("/telegram/webhook")
