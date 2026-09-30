@@ -71,12 +71,15 @@
       <div class="rodape"><button class="btn pequeno primario" id="ligar-tg" ${t.configurado ? "" : "disabled"}>${icon("link")}${webhookOk ? "Religar webhook" : "Ligar webhook"}</button></div>`;
 
     const w = s.whatsapp;
+    const ROTULO_WA = { open: "Conectado", connecting: "Aguardando o QR", close: "Desconectado",
+      inexistente: "Instância não criada", inacessivel: "Evolution fora do alcance", chave_invalida: "Chave da Evolution recusada" };
+    w.rotulo = ROTULO_WA[w.estado] || w.estado;
     const aberto = w.estado === "open";
     document.getElementById("wa").innerHTML = `
-      <div class="linha entre"><span class="marca-canal">${icon("whatsapp")}</span>${estado(aberto, "Conectado", w.configurado ? (w.estado || "Desconectado") : "Não configurado")}</div>
+      <div class="linha entre"><span class="marca-canal">${icon("whatsapp")}</span>${estado(aberto, "Conectado", w.configurado ? (w.rotulo || "Desconectado") : "Não configurado")}</div>
       <h3>WhatsApp ${w.numero ? `<span class="muted" style="font-weight:500">+${esc(w.numero)}</span>` : ""}</h3>
       ${w.qr && !aberto ? `<div class="qr" style="margin:0"><img alt="QR do WhatsApp" src="${esc(w.qr)}"></div><p class="muted pequeno">WhatsApp → Aparelhos conectados → Conectar aparelho.</p>`
-        : `<dl class="dl"><dt>Instância</dt><dd class="mono pequeno">Evolution</dd><dt>Estado</dt><dd>${esc(w.estado || "—")}</dd></dl>`}
+        : `<dl class="dl"><dt>Instância</dt><dd class="mono pequeno">Evolution</dd><dt>Estado</dt><dd>${esc(w.rotulo || "—")}</dd></dl>`}
       <div class="rodape"><button class="btn pequeno ${aberto ? "" : "primario"}" id="ligar-wa" ${w.configurado ? "" : "disabled"}>${icon("qr")}${aberto ? "Reaplicar webhook" : "Gerar QR"}</button></div>`;
 
     document.getElementById("voz").innerHTML = s.voz.transcricao
@@ -96,9 +99,15 @@
     };
     document.getElementById("ligar-wa").onclick = async function () {
       carregando(this, true);
-      try { await api("/api/admin/whatsapp/conectar", { method: "POST" }); toast("Webhook aplicado."); }
-      catch (e) { toast(e.message, "erro"); }
-      carregar();
+      try {
+        const r = await api("/api/admin/whatsapp/conectar", { method: "POST" });
+        if (!r.webhook_ok && r.estado !== "open") toast(r.detalhe || "A Evolution recusou o webhook.", "erro");
+        else if (r.qr) toast("QR pronto: escaneie em até 20 segundos. Se vencer, clique de novo.");
+        else toast(r.detalhe || "Webhook aplicado.", r.estado === "open" ? "ok" : "erro");
+      } catch (e) { toast(e.message, "erro"); }
+      await carregar();
+      // O QR também chega pelo webhook: olha de novo por alguns segundos.
+      for (let i = 0; i < 5; i++) { await new Promise(res => setTimeout(res, 2000)); await carregar(); }
     };
   }
 

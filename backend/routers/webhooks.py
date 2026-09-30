@@ -164,7 +164,10 @@ async def webhook_whatsapp(segredo: str, request: Request, background: Backgroun
     corpo = await request.json()
     tipo = (corpo.get("event") or evento or "").lower().replace("_", ".").replace("-", ".")
     if tipo == "qrcode.updated":
-        ULTIMO_QR["base64"] = ((corpo.get("data") or {}).get("qrcode") or {}).get("base64")
+        b64 = ((corpo.get("data") or {}).get("qrcode") or {}).get("base64") or (corpo.get("data") or {}).get("base64")
+        if b64 and not b64.startswith("data:"):
+            b64 = f"data:image/png;base64,{b64}"
+        ULTIMO_QR["base64"] = b64
     elif tipo == "connection.update":
         ULTIMO_QR["estado"] = (corpo.get("data") or {}).get("state")
         if ULTIMO_QR["estado"] == "open":
