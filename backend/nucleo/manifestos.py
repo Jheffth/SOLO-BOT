@@ -162,7 +162,7 @@ def _anunciar(db: Session, mod: modulos.Modulo, anterior: dict, novo: dict) -> i
             if not c.avisos:
                 continue
             try:
-                entrega.entregar(db, c.canal, c.origem, roteador.Resposta().diz(texto))
+                entrega.entregar(db, c.canal, c.origem, roteador.Resposta().diz(texto), falar=False)
                 n += 1
             except Exception:  # noqa: BLE001
                 log.exception("Falha ao anunciar novidades de %s", mod.chave)

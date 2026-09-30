@@ -35,7 +35,7 @@ class Aviso(BaseModel):
 def enviar(a: Aviso, mod: modulos.Modulo = Depends(_modulo), db: Session = Depends(get_db)):
     destinos = roteador.aviso(db, mod, a.usuario_id, a.texto, a.opcoes)
     for canal, origem, resposta in destinos:
-        entrega.entregar(db, canal, origem, resposta)
+        entrega.entregar(db, canal, origem, resposta, falar=False)
     return {"entregues": len(destinos), "vinculado": bool(destinos) or None}
 
 

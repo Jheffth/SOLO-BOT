@@ -36,6 +36,8 @@
     document.getElementById("email").value = c.usuario ? c.usuario + (c.email ? `  ·  ${c.email}` : "") : (c.email || "");
     renderProgresso(nCanais > 0, nSist > 0);
     renderCanais();
+    document.querySelectorAll("#voz-opcoes [data-voz]").forEach(b =>
+      b.setAttribute("aria-checked", String(b.dataset.voz === (c.voz || "audio"))));
     renderSistemas();
     renderAtividade();
     renderComandos();
@@ -180,6 +182,14 @@
       if (!(await confirmar(`Desconectar ${s.nome}?`, `O bot deixa de falar pelo ${s.nome}. Nada lá dentro é apagado.`, "Desconectar"))) return;
       await api(`/api/conta/sistemas/${s.chave}`, { method: "DELETE" });
       toast(`${s.nome} desconectado.`); carregar();
+    }
+    if (b.dataset.voz) {
+      try {
+        dados.conta = await api("/api/conta", { method: "PATCH", body: { voz: b.dataset.voz } });
+        document.querySelectorAll("#voz-opcoes [data-voz]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
+        toast({ audio: "Vou falar quando você mandar áudio.", sempre: "Vou responder sempre falando.", nunca: "Só por escrito, então." }[b.dataset.voz]);
+      } catch (err) { toast(err.message, "erro"); }
+      return;
     }
     if (b.dataset.avisos) {
       const novo = b.getAttribute("aria-checked") !== "true";

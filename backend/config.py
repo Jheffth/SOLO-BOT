@@ -52,6 +52,12 @@ GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-3.5-flash-lite")
 GROK_API_KEY = _env("GROK_API_KEY")
 GROK_STT_MODEL = _env("GROK_STT_MODEL", "grok-voice-transcribe-2.0")
 
+# ── Fala (responder por voz, para todos os sistemas) ─────────────
+ELEVENLABS_API_KEY = _env("ELEVENLABS_API_KEY")
+ELEVENLABS_API_KEY_SECONDARY = _env("ELEVENLABS_API_KEY_SECONDARY")   # entra se a principal falhar
+ELEVENLABS_VOICE_ID = _env("ELEVENLABS_VOICE_ID")                     # vazio = 1ª voz da conta
+ELEVENLABS_MODEL = _env("ELEVENLABS_MODEL", "eleven_flash_v2_5")
+
 # ── Sistemas conectados ───────────────────────────────────────────
 #
 # Cada sistema é UM bloco. Um sistema novo é um bloco novo aqui, nada mais.

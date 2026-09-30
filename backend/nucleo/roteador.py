@@ -254,11 +254,37 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/menu` — o cartão inicial",
         "▸ `/sair` — volta ao hub",
         "▸ `/conta` — canais e sistemas ligados",
+        "▸ `/voz` — responder falando (áudio, sempre ou nunca)",
         "",
         "_Dentro de um sistema, `/ajuda` mostra os comandos dele. "
         f"O modo dura {config.MODO_MINUTOS} min sem mensagem._",
     ]
     return Resposta().diz("\n".join(linhas))
+
+
+VOZ_ROTULO = {"audio": "falo quando você manda áudio", "sempre": "falo sempre",
+              "nunca": "respondo só por escrito"}
+VOZ_APELIDO = {"on": "audio", "ligar": "audio", "audio": "audio", "áudio": "audio", "sempre": "sempre",
+               "off": "nunca", "desligar": "nunca", "nunca": "nunca", "texto": "nunca"}
+
+
+def _cmd_voz(db: Session, conta: Conta, arg: str) -> Resposta:
+    from nucleo import fala
+    atual = conta.voz if conta.voz in VOZ_ROTULO else "audio"
+    if not arg:
+        extra = "" if fala.disponivel() else "\n\n⚠️ A voz ainda não está configurada no servidor."
+        return Resposta().diz(
+            f"🔊 *Voz:* {VOZ_ROTULO[atual]}.\n\n"
+            "▸ `/voz audio` — falo quando você manda áudio\n"
+            "▸ `/voz sempre` — falo sempre\n"
+            "▸ `/voz nunca` — só por escrito" + extra)
+    novo = VOZ_APELIDO.get(arg)
+    if not novo:
+        return Resposta().diz("Use `/voz audio`, `/voz sempre` ou `/voz nunca`.")
+    conta.voz = novo
+    db.commit()
+    _registrar(db, conta, None, None, "conta", f"Voz: {VOZ_ROTULO[novo]}")
+    return Resposta().diz(f"🔊 Pronto: {VOZ_ROTULO[novo]}.")
 
 
 def _conta_resumo(db: Session, conta: Conta) -> Resposta:
@@ -297,6 +323,8 @@ def _traduzir(mod: modulos.Modulo, dados: dict, r: Resposta) -> Resposta:
             texto = f"{mod.selo}\n{texto}" if texto else mod.selo
         audio = m.get("audio") if isinstance(m.get("audio"), dict) else None
         r.diz(texto, render.prefixar(m.get("opcoes"), mod.chave), audio)
+        if m.get("falado"):
+            r.mensagens[-1]["falado"] = str(m["falado"])[:900]   # a versão para ouvir, feita pelo sistema
     if dados.get("curta"):
         r.curta = str(dados["curta"])[:190]
     return r
@@ -386,6 +414,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return menu(db, conta, prefixo="↩️ De volta ao hub.\n\n")
     if cmd == "/conta":
         return _conta_resumo(db, conta)
+    if cmd == "/voz":
+        return _cmd_voz(db, conta, resto.strip().lower())
 
     if cmd.startswith("/"):
         mod = _comando_de_modulo(cmd)

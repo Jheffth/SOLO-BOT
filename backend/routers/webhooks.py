@@ -51,7 +51,7 @@ def _processar_telegram(update: dict):
                 r = roteador.atender_audio(db, "telegram", str(chat["id"]), telegram.baixar(som.get("file_id", "")),
                                            som.get("mime_type") or "audio/ogg", rotulo,
                                            int(som.get("duration") or 0))
-                entrega.entregar(db, "telegram", str(chat["id"]), r)
+                entrega.entregar(db, "telegram", str(chat["id"]), r, entrada_audio=True)
                 return
             if not texto:
                 telegram.enviar(str(chat["id"]), "Por enquanto eu leio texto e áudio. 🙂")
@@ -127,7 +127,7 @@ def _processar_whatsapp(evento: dict):
             conteudo, mime = _bytes_do_audio(data, mensagem, audio)
             r = roteador.atender_audio(db, "whatsapp", jid, conteudo, mime, data.get("pushName"),
                                        int(audio.get("seconds") or 0))
-            entrega.entregar(db, "whatsapp", jid, r)
+            entrega.entregar(db, "whatsapp", jid, r, entrada_audio=True)
             return
         if not jid or not texto:
             return

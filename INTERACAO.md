@@ -116,11 +116,17 @@ A pessoa pode mandar áudio no Telegram ou no WhatsApp, e o Solo Bot escolhe um 
 
 - **O sistema entende áudio** (`"audio": {"recebe": true}` no manifesto; hoje, o Finances): o Solo
   Bot entrega os bytes, e o sistema ouve com o contexto dele. O Finances conhece as contas e pede
-  "sim" antes de uma transferência ou de um valor alto. Se a pessoa quiser resposta falada (`/fin audio on`),
-  o sistema devolve a voz pronta, e o Solo Bot manda depois do texto.
+  "sim" antes de uma transferência ou de um valor alto.
 - **O sistema não entende áudio** (hoje, o Rotinas): o Solo Bot transcreve (Gemini, com o Grok de reserva)
   e segue como se a pessoa tivesse digitado. O que ele ouviu vai repetido no topo da resposta
   (`🎤 “terminei o treino”`).
+
+**Resposta falada é do Solo Bot, para todos os sistemas** (ElevenLabs, `nucleo/fala.py`).
+A preferência é da Conta Solo: `/voz audio` (padrão: fala quando a pessoa mandou áudio),
+`/voz sempre` ou `/voz nunca`, também no painel ("Resposta por voz"). O sistema pode mandar
+`falado`, uma versão da resposta feita para o ouvido; o Finances manda. Se não mandar, o Solo Bot
+limpa o texto (tira emoji, marcação, a lista numerada e o eco "🎤"). Resposta longa não é falada,
+e avisos saem só por escrito.
 
 Sem modo ativo e com dois sistemas conectados, o áudio é transcrito, e o bot pergunta
 "para qual sistema?". O áudio não é guardado em lugar nenhum. O limite é de 90 segundos por áudio.

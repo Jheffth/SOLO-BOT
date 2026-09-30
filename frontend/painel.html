@@ -39,6 +39,17 @@
       <section class="bloco entrar-animado" style="animation-delay:.05s">
         <div class="bloco-topo"><h2>Canais</h2><p class="muted">Por onde você fala com o bot. Conecte uma vez; vale para todos os sistemas.</p></div>
         <div class="cartoes dois" id="canais"><div class="esqueleto" style="height:190px"></div><div class="esqueleto" style="height:190px"></div></div>
+        <div class="cartao vidro voz-cartao">
+          <div class="linha entre" style="flex-wrap:wrap;gap:12px">
+            <div class="linha"><span class="icone-caixa" data-ic="chat"></span>
+              <div><h3>Resposta por voz</h3><p class="muted pequeno">O bot fala a resposta, em qualquer sistema. Mensagens longas, como listas, vão só por escrito.</p></div></div>
+            <div class="segmentos" id="voz-opcoes" role="radiogroup" aria-label="Resposta por voz">
+              <button type="button" role="radio" data-voz="audio">Quando eu mandar áudio</button>
+              <button type="button" role="radio" data-voz="sempre">Sempre</button>
+              <button type="button" role="radio" data-voz="nunca">Nunca</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="bloco entrar-animado" style="animation-delay:.1s">

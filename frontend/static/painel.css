@@ -128,3 +128,10 @@ code { font-family: var(--mono); font-size: .8rem; padding: .18rem .45rem; borde
 .cmds-sis > b { font-size: .82rem; font-weight: 600; }
 .cmds-sis .comandos li { font-size: .84rem; }
 .cmds-sis .comandos code { min-width: 0; text-align: left; white-space: nowrap; }
+
+/* resposta por voz */
+.voz-cartao { margin-top: 16px; }
+.segmentos { display: inline-flex; padding: 4px; gap: 4px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); flex-wrap: wrap; }
+.segmentos button { border: 0; background: none; color: var(--muted); font-weight: 550; font-size: .86rem; padding: .5rem .8rem; border-radius: 9px; cursor: pointer; transition: background .2s, color .2s; }
+.segmentos button:hover { color: var(--text); }
+.segmentos button[aria-checked="true"] { background: var(--surface-2); color: var(--text); box-shadow: 0 0 0 1px var(--border-strong) inset; }

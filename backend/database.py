@@ -26,6 +26,7 @@ class Conta(Base):
     nome = Column(String(100), nullable=False)
     usuario = Column(String(50), nullable=True, unique=True, index=True)   # o login do dia a dia
     email = Column(String(200), nullable=True, unique=True, index=True)    # opcional
+    voz = Column(String(10), nullable=True)            # audio (padrão) | sempre | nunca — ver nucleo/fala.py
     senha_hash = Column(String(200), nullable=False)
     admin = Column(Boolean, default=False, nullable=False)
     ativo = Column(Boolean, default=True, nullable=False)
@@ -165,6 +166,7 @@ def _migrar():
 
       · contas.usuario  — login por usuário (antes era só e-mail)
       · contas.email    — deixa de ser obrigatório
+      · contas.voz      — preferência de resposta falada
     """
     from sqlalchemy import inspect, text
     insp = inspect(engine)
@@ -175,6 +177,8 @@ def _migrar():
         if "usuario" not in colunas:
             con.execute(text("ALTER TABLE contas ADD COLUMN usuario VARCHAR(50)"))
             con.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_contas_usuario ON contas (usuario)"))
+        if "voz" not in colunas:
+            con.execute(text("ALTER TABLE contas ADD COLUMN voz VARCHAR(10)"))
         if engine.dialect.name == "postgresql" and not colunas.get("email", {}).get("nullable", True):
             con.execute(text("ALTER TABLE contas ALTER COLUMN email DROP NOT NULL"))
 

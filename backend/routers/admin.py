@@ -37,12 +37,23 @@ def status(_: Conta = Depends(conta_admin), db: Session = Depends(get_db)):
                      "estado": evolution.estado_simples() if evolution.disponivel() else ULTIMO_QR["estado"],
                      "qr": ULTIMO_QR["base64"],
                      "contas": por_canal.get("whatsapp", 0)},
-        "voz": {"transcricao": _voz_disponivel(),
+        "voz": {"transcricao": _voz_disponivel(), "fala": _fala_disponivel(),
+                 "fala_erro": _fala_erro(),
                  "sistemas_com_audio": [m.chave for m in modulos.todos() if _recebe_audio(db, m.chave)]},
         "sistemas": [{**m.publico(), "url": m.url, "contas": por_app.get(m.chave, 0),
                       "manifesto": _resumo_manifesto(db, m.chave)}
                      for m in modulos.todos()],
     }
+
+
+def _fala_disponivel() -> bool:
+    from nucleo import fala
+    return fala.disponivel()
+
+
+def _fala_erro():
+    from nucleo import fala
+    return fala.ultimo_erro()
 
 
 def _voz_disponivel() -> bool:

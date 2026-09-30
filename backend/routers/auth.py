@@ -60,6 +60,7 @@ def _abrir_sessao(response: Response, conta: Conta):
 def conta_publica(c: Conta) -> dict:
     return {"id": c.id, "nome": c.nome, "usuario": c.usuario, "email": c.email,
             "identificacao": c.usuario or c.email, "admin": c.admin,
+            "voz": c.voz if c.voz in ("audio", "sempre", "nunca") else "audio",
             "criado_em": c.criado_em.isoformat() if c.criado_em else None}
 
 

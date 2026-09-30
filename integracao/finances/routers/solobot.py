@@ -98,13 +98,23 @@ def mensagem(m: Mensagem, db: Session = Depends(get_db)):
     texto = (m.texto or "").strip()
     if texto.lower().split(" ")[0] in ("/vincular", "/desvincular"):
         return {"mensagens": [{"texto": "🔗 Os vínculos agora moram no painel do Solo Bot (/conta)."}]}
+    if texto.lower().split(" ")[0] == "/audio":
+        return {"mensagens": [{"texto": "🔊 A voz agora é do Solo Bot, para todos os sistemas: mande `/voz` "
+                                        "(áudio, sempre ou nunca)."}]}
     resposta = nucleo.responder(db, canal, m.origem or f"solo:{u.id}", u, texto)
     return {"mensagens": [{"texto": resposta, "opcoes": []}]}
 
 
 def _ouvir(db: Session, canal: str, origem: str, u: Usuario, m: "Mensagem") -> dict:
-    """O mesmo caminho do áudio que chegava pelo Telegram e pelo WhatsApp próprios."""
-    from bot import fala, voz
+    """
+    O mesmo caminho do áudio que chegava pelo Telegram e pelo WhatsApp próprios.
+
+    A VOZ DE VOLTA É DO SOLO BOT: aqui só devolvemos `falado`, a versão da
+    resposta pensada para o ouvido ("quarenta e cinco reais", com direção de
+    atuação). Quem decide se fala (preferência /voz da Conta Solo) e quem
+    sintetiza é o Solo Bot — uma voz só para todos os sistemas.
+    """
+    from bot import voz
     falado = None
     try:
         conteudo = base64.b64decode(m.audio_base64, validate=True)
@@ -119,17 +129,8 @@ def _ouvir(db: Session, canal: str, origem: str, u: Usuario, m: "Mensagem") -> d
         db.rollback()
         texto = "🎤 Não consegui processar o áudio. Mande por escrito, por favor."
     msg = {"texto": texto, "opcoes": []}
-
-    # Voz de volta, se a pessoa quer (/audio on) e se há voz configurada.
-    # Ogg/Opus vira a "bolinha" no Telegram; o WhatsApp recebe MP3.
-    if falado and u.bot_resposta_audio is not False:
-        formato, mime = ("opus", "audio/ogg") if canal == "TELEGRAM" else ("mp3", "audio/mpeg")
-        try:
-            som = fala.sintetizar(falado, formato)
-            if som:
-                msg["audio"] = {"base64": base64.b64encode(som).decode("ascii"), "mime": mime}
-        except Exception:  # noqa: BLE001 — a voz é um a mais: nunca derruba a resposta
-            log.exception("Falha ao sintetizar a resposta falada")
+    if falado:
+        msg["falado"] = falado
     return msg
 
 

@@ -10,7 +10,19 @@ from canais import evolution, telegram
 from nucleo import render, roteador
 
 
-def entregar(db: Session, canal: str, origem: str, resposta: "roteador.Resposta"):
+def entregar(db: Session, canal: str, origem: str, resposta: "roteador.Resposta",
+             entrada_audio: bool = False, falar: bool = True):
+    """
+    `entrada_audio`: a pessoa mandou áudio (a preferência "audio" responde falado).
+    `falar=False`: avisos e novidades saem só por escrito.
+    """
+    if falar:
+        from nucleo import fala
+        try:
+            fala.falar_resposta(roteador.conta_de(db, canal, origem), canal, resposta, entrada_audio)
+        except Exception:  # noqa: BLE001 — a voz nunca derruba a entrega
+            import logging
+            logging.getLogger("solobot.entrega").exception("Falha ao preparar a voz")
     if canal == "telegram":
         for m in resposta.mensagens:
             if m["texto"]:

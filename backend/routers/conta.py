@@ -115,12 +115,18 @@ def desconectar_sistema(app: str, conta: Conta = Depends(conta_atual), db: Sessi
 
 
 class Perfil(BaseModel):
-    nome: str = Field(min_length=2, max_length=100)
+    nome: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    voz: Optional[str] = None           # audio | sempre | nunca
 
 
 @router.patch("")
 def perfil(dados: Perfil, conta: Conta = Depends(conta_atual), db: Session = Depends(get_db)):
-    conta.nome = dados.nome.strip()
+    if dados.nome is not None:
+        conta.nome = dados.nome.strip()
+    if dados.voz is not None:
+        if dados.voz not in ("audio", "sempre", "nunca"):
+            raise HTTPException(422, "Voz: audio, sempre ou nunca.")
+        conta.voz = dados.voz
     db.commit()
     return conta_publica(conta)
 
