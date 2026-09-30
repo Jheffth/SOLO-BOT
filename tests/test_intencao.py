@@ -68,6 +68,16 @@ def test_no_modo_rotinas_um_gasto_troca_para_o_finances(dois, sistemas, caixa, m
     assert sistemas.recebidos[-1][0] == "fin"
 
 
+def test_sistema_de_texto_livre_recebe_a_frase_original_nao_a_reescrita(dois, sistemas, caixa, monkeypatch):
+    # A IA reescreveu "Paguei 123,67 da internet." como "gastei 123.67 internet",
+    # e o Finances leu R$ 12.367. Para quem entende frase solta, vai a original.
+    _tg(dois, "/rot hoje")
+    _ia(monkeypatch, {"app": "fin", "mensagem": "gastei 123.67 internet", "confianca": 0.95})
+    _tg(dois, "Paguei 123,67 da internet.")
+    assert sistemas.recebidos[-1][0] == "fin"
+    assert sistemas.recebidos[-1][2]["texto"] == "Paguei 123,67 da internet."
+
+
 def test_no_modo_finances_texto_livre_nao_chama_ia(dois, sistemas, monkeypatch):
     _tg(dois, "/fin saldo")
     ch = _ia(monkeypatch, None)

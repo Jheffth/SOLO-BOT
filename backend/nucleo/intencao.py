@@ -166,8 +166,13 @@ def interpretar(db, texto: str, candidatos: List[modulos.Modulo], modo: Optional
 
     ia = _ia(texto, _descrever(db, candidatos), modo)
     if ia and ia.app in chaves and ia.confianca >= CONFIANCA_MINIMA:
-        if not ia.mensagem:
-            ia.mensagem = texto if aceita_texto_livre(db, ia.app) else None
+        if aceita_texto_livre(db, ia.app) and not (ia.mensagem or "").startswith("/"):
+            # O sistema entende frase solta: vai a frase ORIGINAL, nunca a
+            # reescrita da IA. Ela trocou "Paguei 123,67 da internet" por
+            # "gastei 123.67 internet" — e o Finances leu R$ 12.367.
+            ia.mensagem = texto
+        elif not ia.mensagem:
+            ia.mensagem = None
         return ia
     if unico:                      # a IA não ajudou, mas as palavras apontam um só
         return Intencao(app=unico, mensagem=texto if aceita_texto_livre(db, unico) else None,
