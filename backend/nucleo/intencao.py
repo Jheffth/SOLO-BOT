@@ -101,6 +101,17 @@ Regras:
   - senão, traduza para UM comando da lista daquele sistema, com os argumentos que a pessoa disse
     (ex.: "terminei a leitura" -> "/ok leitura"; "o que tenho pra hoje" -> "/hoje"). Sem o prefixo do sistema.
   - se nenhum comando serve, vazio.
+- Ao montar um comando:
+  - siga o "uso" do comando À RISCA, inclusive a ORDEM dos argumentos (o "exemplo" mostra um caso real);
+  - número vai só como número: "R$ 25" -> 25, "vinte e cinco reais" -> 25, "meio litro" -> 500 se a unidade for ml;
+    vírgula decimal vira ponto ("12,50" -> 12.5);
+  - o título da missão vai em POUCAS palavras que a identifiquem (o sistema procura por trecho do nome);
+    descarte palavras de ligação e o que for descrição da meta ("na rotina de R$ 50 no turno da noite" -> "noite");
+  - nunca copie a frase inteira para dentro do comando.
+- Exemplos:
+  - "Some R$ 25 na rotina de R$ 50 no turno da noite" -> {"app":"rot","mensagem":"/somar noite 25","confianca":0.9}
+  - "bebi meio litro de água" -> {"app":"rot","mensagem":"/somar água 500","confianca":0.85}
+  - "comecei o treino" -> {"app":"rot","mensagem":"/iniciar treino","confianca":0.9}
 - "confianca": de 0 a 1.
 - Nunca invente comando fora da lista."""
 
@@ -128,8 +139,8 @@ def _descrever(db, mods: List[modulos.Modulo]) -> list:
         saida.append({"chave": m.chave, "nome": m.nome, "descricao": m.descricao,
                       "aceita_texto_livre": bool(man.get("exemplos")),
                       "exemplos": man.get("exemplos", [])[:5],
-                      "comandos": [{"comando": c["comando"], "descricao": c["descricao"],
-                                    "exemplo": c.get("exemplo")}
+                      "comandos": [{k: v for k, v in (("comando", c["comando"]), ("descricao", c["descricao"]),
+                                                        ("uso", c.get("uso")), ("exemplo", c.get("exemplo"))) if v}
                                    for c in man.get("comandos", []) if not c.get("oculto")]})
     return saida
 

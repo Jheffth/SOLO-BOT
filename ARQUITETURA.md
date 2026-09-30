@@ -92,6 +92,8 @@ Cada sistema tem um `bot_manifesto.json` ao lado do `solobot_ponte.py`:
   sistema conectado (canais com avisos ligados), com as `novidades` e os comandos novos.
   O primeiro manifesto de um sistema não é anunciado.
 - `"oculto": true` tira da vitrine um comando que existe, mas não faz sentido pelo Solo Bot.
+- `"uso": "/somar <título> <valor>"` é a sintaxe exata, na ordem. A IA de intenção segue isso para
+  transformar "some 25 na meta da noite" (texto ou áudio) em `/somar noite 25`.
 
 **Comando novo num sistema:** escrever o comando no bot do sistema, pôr uma linha no
 manifesto, trocar a `versao` (e, se quiser anunciar, escrever em `novidades`), deploy do

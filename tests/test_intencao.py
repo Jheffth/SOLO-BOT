@@ -103,3 +103,18 @@ def test_ia_le_o_json_do_gemini(monkeypatch):
     monkeypatch.setattr(gemini.httpx, "Client", C)
     it = intencao._ia("o que tem pra hoje", [{"chave": "rot"}], None)
     assert (it.app, it.mensagem, it.confianca) == ("rot", "/hoje", 0.92)
+
+
+def test_ia_recebe_a_sintaxe_do_comando(dois, sistemas, monkeypatch):
+    """O `uso` do manifesto chega à IA, e o prompt manda seguir a ordem dos argumentos."""
+    from database import SessionLocal
+    from nucleo import manifestos, modulos
+    db = SessionLocal()
+    man = {"app": "rot", "versao": "9", "comandos": [
+        {"comando": "/somar", "descricao": "Registrar progresso numa meta",
+         "uso": "/somar <título> <valor>", "exemplo": "/rot somar água 500"}]}
+    manifestos.guardar(db, modulos.por_chave("rot"), man, "teste")
+    d = intencao._descrever(db, [modulos.por_chave("rot")])
+    db.close()
+    assert d[0]["comandos"][0]["uso"] == "/somar <título> <valor>"
+    assert "ORDEM dos argumentos" in intencao.PROMPT and '"/somar noite 25"' in intencao.PROMPT

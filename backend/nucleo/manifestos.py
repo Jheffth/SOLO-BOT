@@ -43,6 +43,7 @@ class Comando(BaseModel):
     comando: str
     descricao: str = Field(max_length=140)
     exemplo: Optional[str] = Field(default=None, max_length=140)
+    uso: Optional[str] = Field(default=None, max_length=140)   # a sintaxe exata: "/somar <título> <valor>"
     oculto: bool = False            # existe no sistema, mas não faz sentido pelo Solo Bot
 
     @field_validator("comando")
