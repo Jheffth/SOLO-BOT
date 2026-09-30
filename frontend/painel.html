@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solo Bot — Painel</title>
+<meta name="theme-color" content="#06060b">
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/solo.css">
+<link rel="stylesheet" href="/static/painel.css">
+</head>
+<body>
+<header class="topo">
+  <div class="dentro">
+    <a class="marca" href="/painel"><span class="logo"></span><b>Solo</b><span>Bot</span></a>
+    <nav id="nav"><a href="/painel" class="ativo">Painel</a></nav>
+    <div class="direita">
+      <button class="btn fantasma pequeno" id="tema" aria-label="Alternar tema"></button>
+      <div class="quem" id="quem"></div>
+      <button class="btn fantasma pequeno" id="sair" title="Sair"></button>
+    </div>
+  </div>
+</header>
+
+<main class="painel" id="painel">
+  <section class="saudacao entrar-animado">
+    <div>
+      <span class="eyebrow" id="data"></span>
+      <h1 id="ola">&nbsp;</h1>
+      <p class="muted" id="ola-sub">&nbsp;</p>
+    </div>
+    <div class="progresso vidro" id="progresso"></div>
+  </section>
+
+  <div class="grade">
+    <div class="coluna">
+      <section class="bloco entrar-animado" style="animation-delay:.05s">
+        <div class="bloco-topo"><h2>Canais</h2><p class="muted">Por onde você fala com o bot. Conecte uma vez; vale para todos os sistemas.</p></div>
+        <div class="cartoes dois" id="canais"><div class="esqueleto" style="height:190px"></div><div class="esqueleto" style="height:190px"></div></div>
+      </section>
+
+      <section class="bloco entrar-animado" style="animation-delay:.1s">
+        <div class="bloco-topo"><h2>Sistemas</h2><p class="muted">A conexão nasce dentro de cada sistema, na aba <b>Bots</b>.</p></div>
+        <div class="cartoes dois" id="sistemas"><div class="esqueleto" style="height:210px"></div><div class="esqueleto" style="height:210px"></div></div>
+      </section>
+
+      <section class="bloco entrar-animado" style="animation-delay:.15s">
+        <div class="bloco-topo"><h2>Conta</h2></div>
+        <div class="cartoes dois">
+          <form class="cartao vidro" id="form-nome">
+            <h3>Perfil</h3>
+            <p class="muted pequeno">É o nome que o bot usa para falar com você.</p>
+            <div class="campo"><label for="nome">Nome</label><div class="entrada"><span data-i="user"></span><input id="nome" autocomplete="name"></div></div>
+            <div class="campo"><label>E-mail</label><div class="entrada"><span data-i="mail"></span><input id="email" disabled></div></div>
+            <button class="btn pequeno">Salvar</button>
+          </form>
+          <form class="cartao vidro" id="form-senha">
+            <h3>Senha</h3>
+            <p class="muted pequeno">Só da Conta Solo. As senhas dos sistemas continuam lá.</p>
+            <div class="campo"><label for="atual">Senha atual</label><div class="entrada"><span data-i="lock"></span><input id="atual" type="password" autocomplete="current-password"></div></div>
+            <div class="campo"><label for="nova">Nova senha</label><div class="entrada"><span data-i="lock"></span><input id="nova" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"></div></div>
+            <button class="btn pequeno">Trocar senha</button>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <aside class="coluna lateral">
+      <section class="cartao vidro borda-viva entrar-animado conversa" style="animation-delay:.08s">
+        <div class="linha"><span class="icone-caixa" data-ic="chat"></span><div><h3>Como falar comigo</h3><p class="muted pequeno">Prefixo escolhe o sistema; depois é só conversar.</p></div></div>
+        <ul class="comandos">
+          <li><code>/fin</code><span>💰 entra no Finances</span></li>
+          <li><code>/rot</code><span>⚔️ entra no Rotinas</span></li>
+          <li><code>/sair</code><span>volta ao hub</span></li>
+          <li><code>/menu</code><span>cartão inicial</span></li>
+          <li><code>/conta</code><span>o que está ligado</span></li>
+        </ul>
+        <div class="exemplo">
+          <div class="b eu">/fin 60 uber</div>
+          <div class="b bot"><b class="fin">💰 Finances</b>✅ Despesa de R$ 60,00</div>
+          <div class="b eu">35 almoço</div>
+          <div class="b bot"><b class="fin">💰 Finances</b>✅ Despesa de R$ 35,00</div>
+        </div>
+        <p class="faint pequeno">O modo fica ativo por 30 min sem mensagem. Responder a um aviso cai no sistema dele.</p>
+      </section>
+
+      <section class="cartao vidro entrar-animado" style="animation-delay:.12s">
+        <div class="linha entre"><h3>Atividade</h3><span class="chip off" id="ativ-conta"></span></div>
+        <ol class="linha-tempo" id="atividade"></ol>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<script src="/static/solo.js"></script>
+<script src="/static/vendor/qrcode.js"></script>
+<script src="/static/topo.js"></script>
+<script src="/static/painel.js"></script>
+</body>
+</html>

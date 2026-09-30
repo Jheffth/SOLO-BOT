@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solo Bot — Conectar sistema</title>
+<meta name="theme-color" content="#06060b">
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/solo.css">
+<style>
+  main { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  .cartao-c { width: min(480px, 100%); padding: 36px 34px 30px; border-radius: 28px; text-align: center; }
+  .ponte { display: flex; align-items: center; justify-content: center; gap: 0; margin: 4px 0 28px; }
+  .no { width: 72px; height: 72px; border-radius: 22px; display: grid; place-items: center; font-size: 2rem; position: relative; }
+  .no.app { background: color-mix(in srgb, var(--c) 16%, transparent); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); box-shadow: 0 0 40px -8px color-mix(in srgb, var(--c) 70%, transparent); }
+  .no.solo svg { width: 72px; height: 72px; }
+  .feixe { width: 96px; height: 2px; position: relative; overflow: hidden; background: repeating-linear-gradient(90deg, var(--border-strong) 0 6px, transparent 6px 12px); }
+  .feixe::after { content: ""; position: absolute; top: -1px; left: -40%; width: 40%; height: 4px; border-radius: 4px; background: var(--brand); filter: blur(1px); animation: correr 1.6s ease-in-out infinite; }
+  .feixe.feito { background: var(--brand); }
+  .feixe.feito::after { display: none; }
+  @keyframes correr { to { left: 100%; } }
+  h1 { font-size: 1.5rem; line-height: 1.25; margin-bottom: 10px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .quem-c { display: flex; align-items: center; gap: .75rem; text-align: left; padding: .8rem .9rem; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); margin-bottom: 18px; }
+  .quem-c b { display: block; font-weight: 550; }
+  .quem-c small { color: var(--muted); }
+  .quem-c a { margin-left: auto; font-size: .84rem; color: var(--muted); }
+  .poderes { list-style: none; text-align: left; margin: 0 0 26px; padding: 0; display: grid; gap: .65rem; }
+  .poderes li { display: flex; gap: .7rem; align-items: flex-start; font-size: .92rem; color: var(--muted); }
+  .poderes li svg { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--emerald); }
+  .poderes li.nao svg { color: var(--faint); }
+  .acoes { display: grid; gap: .6rem; }
+  .erro-c { color: var(--danger); }
+  .marca-c { position: fixed; top: 22px; left: 24px; }
+  .selo-ok { width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--emerald) 16%, transparent); border: 1px solid var(--emerald); animation: estourar .5s cubic-bezier(.2,.9,.3,1.5); }
+  .selo-ok svg { width: 30px; height: 30px; color: var(--emerald); }
+  .selo-ok.mal { background: color-mix(in srgb, var(--danger) 14%, transparent); border-color: var(--danger); }
+  .selo-ok.mal svg { color: var(--danger); }
+  @keyframes estourar { from { transform: scale(.4); opacity: 0; } }
+  @media (max-width: 520px) { .cartao-c { padding: 28px 20px 22px; } .feixe { width: 56px; } .no, .no.solo svg { width: 60px; height: 60px; } .marca-c { position: static; margin-bottom: 18px; } main { place-items: start center; } }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <a class="marca marca-c" href="/painel"><span class="logo"></span><b>Solo</b><span>Bot</span></a>
+    <section class="cartao-c vidro borda-viva entrar-animado" id="cartao">
+      <div class="esqueleto" style="height:280px"></div>
+    </section>
+  </div>
+</main>
+<script src="/static/solo.js"></script>
+<script>
+(async function () {
+  const { icon, LOGO, api, esc } = Solo;
+  Solo.ceu();
+  document.querySelector(".logo").innerHTML = LOGO;
+  const el = document.getElementById("cartao");
+  const qs = new URLSearchParams(location.search);
+  const app = qs.get("app") || "", codigo = qs.get("codigo") || "";
+
+  const falha = (titulo, texto) => {
+    el.innerHTML = `<div class="selo-ok mal">${icon("x")}</div><h1>${esc(titulo)}</h1><p class="sub">${esc(texto)}</p>
+      <a class="btn bloco" href="/painel">Ir para o painel</a>`;
+  };
+  if (!app || !codigo) return falha("Link incompleto", "Abra a aba Bots do seu sistema e toque em “Conectar ao Solo Bot” de novo.");
+
+  let mod;
+  try { mod = await api("/api/conectar/" + encodeURIComponent(app)); }
+  catch (e) { return falha("Sistema desconhecido", "Este link não aponta para um sistema que o Solo Bot conheça."); }
+
+  let conta;
+  try { conta = await api("/api/auth/eu"); }
+  catch (e) { return location.replace("/entrar?proximo=" + encodeURIComponent(location.pathname + location.search)); }
+
+  const ponte = (feito) => `<div class="ponte"><span class="no app" style="--c:${esc(mod.cor)}">${esc(mod.emoji)}</span>
+    <span class="feixe ${feito ? "feito" : ""}"></span><span class="no solo">${LOGO}</span></div>`;
+
+  el.innerHTML = `${ponte(false)}
+    <h1>O <span class="grad">${esc(mod.nome)}</span> quer se conectar à sua Conta Solo</h1>
+    <p class="sub">Depois disso, você fala com ele pelo Telegram e pelo WhatsApp.</p>
+    <div class="quem-c"><span class="avatar">${esc(Solo.iniciais(conta.nome))}</span><div><b>${esc(conta.nome)}</b><small>${esc(conta.email)}</small></div>
+      <a href="#" id="trocar">Não é você?</a></div>
+    <ul class="poderes">
+      <li>${icon("check")}<span>O bot encaminha ao ${esc(mod.nome)} o que você mandar no modo <code class="mono">/${esc(mod.chave)}</code></span></li>
+      <li>${icon("check")}<span>O ${esc(mod.nome)} pode te mandar avisos pelos canais conectados</span></li>
+      <li class="nao">${icon("lock")}<span>Nenhuma senha passa de um sistema para o outro</span></li>
+    </ul>
+    <p class="erro-form erro-c" id="erro"></p>
+    <div class="acoes"><button class="btn primario bloco" id="sim">Conectar ${esc(mod.nome)} ${icon("arrow")}</button>
+      <a class="btn fantasma bloco" href="${esc(mod.painel || "/painel")}">Agora não</a></div>`;
+
+  document.getElementById("trocar").onclick = async e => {
+    e.preventDefault();
+    await api("/api/auth/sair", { method: "POST" });
+    location.replace("/entrar?proximo=" + encodeURIComponent(location.pathname + location.search));
+  };
+
+  document.getElementById("sim").onclick = async function () {
+    Solo.carregando(this, true);
+    try {
+      const r = await api("/api/conectar", { method: "POST", body: { app, codigo } });
+      history.replaceState(null, "", "/conectar?app=" + encodeURIComponent(app));   // o código já morreu; some da barra
+      const volta = r.retorno || "/painel";
+      el.innerHTML = `${ponte(true)}<div class="selo-ok">${icon("check")}</div>
+        <h1>Conectado!</h1>
+        <p class="sub">${r.nome_remoto ? `No ${esc(mod.nome)} você é <b style="color:var(--text)">${esc(r.nome_remoto)}</b>. ` : ""}Mande <code class="mono">/${esc(mod.chave)}</code> para o bot quando quiser.</p>
+        ${r.trocou_de_conta ? `<p class="sub" style="color:var(--warn)">Este usuário estava ligado a outra Conta Solo; o vínculo antigo foi desfeito.</p>` : ""}
+        <div class="acoes"><a class="btn primario bloco" href="${esc(volta)}">Voltar ao ${r.retorno ? esc(mod.nome) : "painel"} ${icon("arrow")}</a>
+        <a class="btn fantasma bloco" href="/painel">Ver meu painel</a></div>`;
+    } catch (err) {
+      Solo.carregando(this, false);
+      document.getElementById("erro").textContent = err.message;
+    }
+  };
+})();
+</script>
+</body>
+</html>

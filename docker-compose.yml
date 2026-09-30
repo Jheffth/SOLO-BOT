@@ -1,0 +1,24 @@
+name: solo-bot
+
+# O Solo Bot mora na mesma rede dos outros sistemas (`solo-network`):
+#   - fala com solo_finances:8000 e solo_routines:8000 pelo nome
+#   - usa a Evolution do Rotinas (evolution_api:8080) — a instância que ele assumiu
+#   - usa o Postgres solo_db, banco próprio `solo_bot_db`
+# Nenhuma porta exposta: o Caddy faz o proxy para solo_bot:8000.
+#
+# Todos os segredos vêm de ./.env (molde em .env.example). Sem SECRET_KEY o
+# contêiner se recusa a subir, de propósito.
+
+services:
+  solo-bot:
+    build: .
+    container_name: solo_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - solo-network
+
+networks:
+  solo-network:
+    external: true

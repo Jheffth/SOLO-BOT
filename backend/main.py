@@ -1,0 +1,69 @@
+# -*- coding: utf-8 -*-
+"""Solo Bot — um bot, vários sistemas."""
+import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+
+import config
+from database import criar_tabelas
+from routers import admin, auth, conectar, conta, interno, webhooks
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+FRONT = Path(__file__).resolve().parent.parent / "frontend"
+
+@asynccontextmanager
+async def _vida(_app):
+    criar_tabelas()
+    yield
+
+
+app = FastAPI(title="Solo Bot", lifespan=_vida, docs_url="/api/docs" if config.DEV else None, redoc_url=None)
+app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_credentials=True,
+                   allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def cabecalhos(request: Request, call_next):
+    r = await call_next(request)
+    r.headers.setdefault("X-Content-Type-Options", "nosniff")
+    r.headers.setdefault("Referrer-Policy", "same-origin")
+    r.headers.setdefault("X-Frame-Options", "DENY")
+    return r
+
+
+for r in (auth.router, conta.router, conectar.router, webhooks.router, interno.router, admin.router):
+    app.include_router(r)
+
+
+@app.get("/saude")
+def saude():
+    return {"ok": True}
+
+
+# ── Páginas ───────────────────────────────────────────────────────
+PAGINAS = {"/": "index.html", "/entrar": "index.html", "/cadastro": "index.html",
+           "/painel": "painel.html", "/conectar": "conectar.html", "/admin": "admin.html"}
+
+
+def _pagina(nome: str):
+    return lambda: FileResponse(FRONT / nome, headers={"Cache-Control": "no-cache"})
+
+
+for rota, arquivo in PAGINAS.items():
+    app.add_api_route(rota, _pagina(arquivo), include_in_schema=False)
+
+app.mount("/static", StaticFiles(directory=FRONT / "static"), name="static")
+
+
+@app.exception_handler(404)
+async def _nao_achou(request: Request, exc):
+    from fastapi.responses import JSONResponse
+    if request.url.path.startswith(("/api", "/interno")):
+        return JSONResponse({"detail": getattr(exc, "detail", "Não encontrado.")}, status_code=404)
+    return RedirectResponse("/")

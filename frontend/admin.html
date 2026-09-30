@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solo Bot — Administração</title>
+<meta name="theme-color" content="#06060b">
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/solo.css">
+<link rel="stylesheet" href="/static/painel.css">
+</head>
+<body>
+<header class="topo">
+  <div class="dentro">
+    <a class="marca" href="/painel"><span class="logo"></span><b>Solo</b><span>Bot</span></a>
+    <nav id="nav"></nav>
+    <div class="direita">
+      <button class="btn fantasma pequeno" id="tema" aria-label="Alternar tema"></button>
+      <div class="quem" id="quem"></div>
+      <button class="btn fantasma pequeno" id="sair" title="Sair"></button>
+    </div>
+  </div>
+</header>
+
+<main class="painel">
+  <section class="saudacao entrar-animado">
+    <div><span class="eyebrow">Administração</span><h1>Sala de <span class="grad">máquinas</span></h1>
+      <p class="muted">Canais, sistemas e a saúde do bot.</p></div>
+    <button class="btn pequeno" id="atualizar"><span data-i="activity"></span>Atualizar</button>
+  </section>
+
+  <div class="numeros" id="numeros"></div>
+
+  <div class="cartoes dois" style="margin-bottom:28px">
+    <article class="cartao vidro canal" style="--c:#229ed9" id="tg"></article>
+    <article class="cartao vidro canal" style="--c:#1faa59" id="wa"></article>
+  </div>
+
+  <section class="cartao vidro entrar-animado">
+    <div class="linha entre"><h2>Sistemas registrados</h2><span class="muted pequeno">em <code>SOLO_MODULOS</code></span></div>
+    <div style="overflow-x:auto"><table class="tabela" id="sistemas"></table></div>
+  </section>
+</main>
+
+<script src="/static/solo.js"></script>
+<script src="/static/topo.js"></script>
+<script>
+(async function () {
+  const { icon, api, esc, toast, carregando } = Solo;
+  const conta = await Solo.topo("admin");
+  if (!conta.admin) return location.replace("/painel");
+
+  const estado = (ok, sim, nao) => `<span class="chip ${ok ? "ok" : "aguarda"}">${ok ? '<span class="ponto"></span>' : ""}${ok ? sim : nao}</span>`;
+
+  async function carregar() {
+    const s = await api("/api/admin/status");
+    const n = (rotulo, valor) => `<div class="numero vidro"><small>${rotulo}</small><b>${valor ?? "—"}</b></div>`;
+    document.getElementById("numeros").innerHTML =
+      n("Contas Solo", s.contas) + n("Comandos em 24 h", s.mensagens_24h) +
+      n("No Telegram", s.telegram.contas) + n("No WhatsApp", s.whatsapp.contas);
+
+    const t = s.telegram;
+    const webhookOk = t.webhook && t.webhook.includes("/api/telegram/webhook");
+    document.getElementById("tg").innerHTML = `
+      <div class="linha entre"><span class="marca-canal">${icon("telegram")}</span>${estado(t.configurado && webhookOk, "Recebendo", t.configurado ? "Webhook desligado" : "Não configurado")}</div>
+      <h3>Telegram ${t.usuario ? `<span class="muted" style="font-weight:500">@${esc(t.usuario)}</span>` : ""}</h3>
+      <dl class="dl"><dt>Webhook</dt><dd class="mono pequeno">${esc(t.webhook || "—")}</dd>
+        <dt>Na fila</dt><dd>${t.pendentes ?? "—"}</dd><dt>Último erro</dt><dd>${esc(t.ultimo_erro || "nenhum")}</dd></dl>
+      <div class="rodape"><button class="btn pequeno primario" id="ligar-tg" ${t.configurado ? "" : "disabled"}>${icon("link")}${webhookOk ? "Religar webhook" : "Ligar webhook"}</button></div>`;
+
+    const w = s.whatsapp;
+    const aberto = w.estado === "open";
+    document.getElementById("wa").innerHTML = `
+      <div class="linha entre"><span class="marca-canal">${icon("whatsapp")}</span>${estado(aberto, "Conectado", w.configurado ? (w.estado || "Desconectado") : "Não configurado")}</div>
+      <h3>WhatsApp ${w.numero ? `<span class="muted" style="font-weight:500">+${esc(w.numero)}</span>` : ""}</h3>
+      ${w.qr && !aberto ? `<div class="qr" style="margin:0"><img alt="QR do WhatsApp" src="${esc(w.qr)}"></div><p class="muted pequeno">WhatsApp → Aparelhos conectados → Conectar aparelho.</p>`
+        : `<dl class="dl"><dt>Instância</dt><dd class="mono pequeno">Evolution</dd><dt>Estado</dt><dd>${esc(w.estado || "—")}</dd></dl>`}
+      <div class="rodape"><button class="btn pequeno ${aberto ? "" : "primario"}" id="ligar-wa" ${w.configurado ? "" : "disabled"}>${icon("qr")}${aberto ? "Reaplicar webhook" : "Gerar QR"}</button></div>`;
+
+    document.getElementById("sistemas").innerHTML = `<tr><th>Sistema</th><th>Endereço interno</th><th>Token</th><th>Contas</th></tr>` +
+      s.sistemas.map(m => `<tr><td><span class="linha" style="gap:.6rem"><span style="font-size:1.2rem">${esc(m.emoji)}</span><b style="font-weight:550">${esc(m.nome)}</b><code>/${esc(m.chave)}</code></span></td>
+        <td class="mono pequeno muted">${esc(m.url)}</td><td>${m.configurado ? '<span class="chip ok">definido</span>' : '<span class="chip aguarda">faltando</span>'}</td><td>${m.contas}</td></tr>`).join("");
+
+    document.getElementById("ligar-tg").onclick = async function () {
+      carregando(this, true);
+      try { const r = await api("/api/admin/telegram/webhook", { method: "POST" }); toast(r.ok ? "Webhook do Telegram ligado." : (r.description || "O Telegram recusou."), r.ok ? "ok" : "erro"); }
+      catch (e) { toast(e.message, "erro"); }
+      carregar();
+    };
+    document.getElementById("ligar-wa").onclick = async function () {
+      carregando(this, true);
+      try { await api("/api/admin/whatsapp/conectar", { method: "POST" }); toast("Webhook aplicado."); }
+      catch (e) { toast(e.message, "erro"); }
+      carregar();
+    };
+  }
+
+  document.getElementById("atualizar").onclick = () => carregar().then(() => toast("Atualizado."));
+  await carregar();
+  setInterval(() => { if (!document.hidden) carregar().catch(() => {}); }, 8000);
+})();
+</script>
+</body>
+</html>

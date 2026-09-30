@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solo Bot — Entrar</title>
+<meta name="description" content="Um bot, todos os seus sistemas Solo: Finances e Rotinas pelo Telegram e pelo WhatsApp.">
+<meta name="theme-color" content="#06060b">
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/solo.css">
+<style>
+  .palco { min-height: 100vh; max-width: 1180px; margin: 0 auto; padding: 28px 24px 40px; display: grid; grid-template-rows: auto 1fr auto; }
+  .cabeca { display: flex; align-items: center; justify-content: space-between; }
+  .corpo { display: grid; grid-template-columns: 1.1fr .9fr; gap: 64px; align-items: center; padding: 40px 0; }
+  .hero h1 { margin: 18px 0 18px; max-width: 13ch; }
+  .hero p.lead { font-size: 1.08rem; color: var(--muted); max-width: 46ch; margin: 0 0 30px; }
+  .pilulas { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 34px; }
+  .pilulas .chip { padding: .4rem .75rem; font-size: .82rem; color: var(--text); }
+
+  /* chat de demonstração */
+  .demo { max-width: 470px; padding: 18px; border-radius: 24px; }
+  .demo-topo { display: flex; align-items: center; gap: .7rem; padding: 2px 4px 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .demo-topo svg { width: 34px; height: 34px; }
+  .demo-topo b { display: block; font: 600 .95rem var(--display); }
+  .demo-topo small { color: var(--emerald); font-size: .76rem; }
+  .fala { display: grid; gap: 9px; min-height: 392px; align-content: start; justify-items: start; }
+  .bolha { max-width: 82%; padding: .6rem .85rem; border-radius: 16px; font-size: .9rem; line-height: 1.45; opacity: 0; transform: translateY(8px); animation: bolha .45s cubic-bezier(.2,.9,.3,1.1) forwards; }
+  .bolha.eu { justify-self: end; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; border-bottom-right-radius: 5px; }
+  .bolha.bot { background: var(--surface-2); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
+  .bolha .selo { display: block; font-size: .74rem; font-weight: 600; margin-bottom: 2px; }
+  .selo.fin { color: var(--emerald); } .selo.rot { color: var(--violet); }
+  .teclas { display: flex; gap: 6px; margin-top: 8px; }
+  .teclas span { flex: 1; text-align: center; font-size: .78rem; padding: .35rem; border-radius: 9px; background: var(--surface); border: 1px solid var(--border-strong); }
+  @keyframes bolha { to { opacity: 1; transform: none; } }
+  .digitando { display: inline-flex; gap: 4px; padding: .7rem .85rem; }
+  .digitando i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: pular 1s infinite; }
+  .digitando i:nth-child(2) { animation-delay: .15s; } .digitando i:nth-child(3) { animation-delay: .3s; }
+  @keyframes pular { 50% { transform: translateY(-4px); opacity: .5; } }
+
+  /* cartão de acesso */
+  .acesso { padding: 34px; border-radius: 26px; width: 100%; max-width: 440px; justify-self: end; }
+  .acesso h2 { font-size: 1.55rem; margin-bottom: 6px; }
+  .acesso .sub { color: var(--muted); margin: 0 0 24px; font-size: .95rem; }
+  .abas { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); margin-bottom: 26px; position: relative; }
+  .aba { position: relative; z-index: 1; height: 38px; border: 0; background: none; cursor: pointer; font-weight: 550; color: var(--muted); border-radius: 10px; transition: color .25s; }
+  .aba[aria-selected="true"] { color: var(--text); }
+  .abas .trilho { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border-strong); transition: transform .35s cubic-bezier(.3,.9,.3,1); }
+  .abas[data-aba="cadastro"] .trilho { transform: translateX(100%); }
+  .contexto { display: flex; gap: .7rem; align-items: center; padding: .75rem .9rem; margin-bottom: 20px; border-radius: 14px; background: var(--brand-soft); border: 1px solid var(--border); font-size: .88rem; }
+  .contexto svg { width: 20px; height: 20px; color: var(--cyan); flex: none; }
+  .rodape-acesso { margin-top: 18px; text-align: center; font-size: .82rem; color: var(--faint); display: flex; gap: .4rem; align-items: center; justify-content: center; }
+  .rodape-acesso svg { width: 15px; height: 15px; }
+  .base { display: flex; justify-content: space-between; color: var(--faint); font-size: .82rem; }
+
+  @media (max-width: 960px) {
+    .corpo { grid-template-columns: 1fr; gap: 36px; padding: 24px 0; }
+    .acesso { justify-self: stretch; max-width: none; order: -1; }
+    .hero h1 { max-width: none; }
+    .demo { max-width: none; }
+  }
+  @media (max-width: 520px) {
+    .palco { padding: 16px 16px 28px; }
+    .acesso { padding: 24px 20px; }
+    .demo { display: none; }
+    .hero p.lead { margin-bottom: 18px; }
+    .pilulas { margin-bottom: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="palco">
+  <header class="cabeca">
+    <a class="marca" href="/"><span id="logo"></span><b>Solo</b><span>Bot</span></a>
+    <button class="btn fantasma pequeno" id="tema" aria-label="Alternar tema"></button>
+  </header>
+
+  <main class="corpo">
+    <section class="hero entrar-animado">
+      <span class="eyebrow">Um bot · todos os sistemas</span>
+      <h1>Sua vida Solo em <span class="grad">uma conversa só.</span></h1>
+      <p class="lead">Lance gastos, conclua missões e receba avisos do Finances e do Rotinas pelo Telegram ou pelo WhatsApp, com uma única conta.</p>
+      <div class="pilulas">
+        <span class="chip">💰 Solo Finances</span>
+        <span class="chip">⚔️ Solo Rotinas</span>
+        <span class="chip" id="chip-tg"></span>
+        <span class="chip" id="chip-wa"></span>
+      </div>
+
+      <div class="demo vidro borda-viva" aria-hidden="true">
+        <div class="demo-topo"><span id="logo2"></span><div><b>Solo Bot</b><small>● online</small></div></div>
+        <div class="fala" id="fala"></div>
+      </div>
+    </section>
+
+    <section class="acesso vidro entrar-animado" style="animation-delay:.08s">
+      <div class="contexto oculto" id="contexto"></div>
+      <h2 id="titulo">Bem-vindo de volta</h2>
+      <p class="sub" id="sub">Entre na sua Conta Solo.</p>
+
+      <div class="abas" id="abas" role="tablist" data-aba="entrar">
+        <span class="trilho"></span>
+        <button class="aba" role="tab" aria-selected="true" data-aba="entrar">Entrar</button>
+        <button class="aba" role="tab" aria-selected="false" data-aba="cadastro">Criar conta</button>
+      </div>
+
+      <form id="form" novalidate>
+        <div class="campo oculto" id="campo-nome">
+          <label for="nome">Nome</label>
+          <div class="entrada"><span data-i="user"></span><input id="nome" autocomplete="name" placeholder="Como quer ser chamado"></div>
+        </div>
+        <div class="campo">
+          <label for="email">E-mail</label>
+          <div class="entrada"><span data-i="mail"></span><input id="email" type="email" autocomplete="email" placeholder="voce@exemplo.com" required></div>
+        </div>
+        <div class="campo">
+          <label for="senha">Senha</label>
+          <div class="entrada"><span data-i="lock"></span><input id="senha" type="password" autocomplete="current-password" placeholder="••••••••" required>
+            <button type="button" class="olho" id="olho" aria-label="Mostrar senha"></button></div>
+          <div class="forca oculto" id="forca"><i></i><i></i><i></i><i></i></div>
+        </div>
+        <p class="erro-form" id="erro" role="alert"></p>
+        <button class="btn primario bloco" id="enviar" type="submit">Entrar <span data-i="arrow"></span></button>
+      </form>
+      <p class="rodape-acesso"><span data-i="shield"></span> Sua senha dos sistemas nunca passa por aqui.</p>
+    </section>
+  </main>
+
+  <footer class="base"><span>Solo Bot</span><span>Brasília · 2026</span></footer>
+</div>
+
+<script src="/static/solo.js"></script>
+<script>
+(function () {
+  const { icon, LOGO, api, esc } = Solo;
+  Solo.ceu();
+  document.getElementById("logo").innerHTML = LOGO;
+  document.getElementById("logo2").innerHTML = LOGO;
+  document.querySelectorAll("[data-i]").forEach(el => el.outerHTML = icon(el.dataset.i));
+  document.getElementById("chip-tg").innerHTML = icon("telegram", 'style="width:15px;height:15px;color:#229ed9"') + " Telegram";
+  document.getElementById("chip-wa").innerHTML = icon("whatsapp", 'style="width:15px;height:15px;color:#1faa59"') + " WhatsApp";
+
+  const btnTema = document.getElementById("tema");
+  const pintarTema = () => { const claro = document.documentElement.dataset.theme === "light" || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: light)").matches); btnTema.innerHTML = icon(claro ? "moon" : "sun"); };
+  btnTema.onclick = () => { Solo.alternarTema(); pintarTema(); };
+  pintarTema();
+
+  // ── Para onde voltar depois de entrar (só caminhos locais) ──
+  const qs = new URLSearchParams(location.search);
+  let proximo = qs.get("proximo") || "/painel";
+  if (!proximo.startsWith("/") || proximo.startsWith("//")) proximo = "/painel";
+  if (proximo.startsWith("/conectar")) {
+    const ctx = document.getElementById("contexto");
+    ctx.classList.remove("oculto");
+    ctx.innerHTML = icon("link") + "<span>Entre ou crie sua Conta Solo para concluir a conexão.</span>";
+  }
+
+  // Já logado? segue direto.
+  api("/api/auth/eu").then(() => location.replace(proximo)).catch(() => {});
+
+  // ── Abas ──
+  const abas = document.getElementById("abas");
+  let modo = location.pathname === "/cadastro" || qs.get("aba") === "cadastro" ? "cadastro" : "entrar";
+  function trocar(novo) {
+    modo = novo;
+    abas.dataset.aba = novo;
+    abas.querySelectorAll(".aba").forEach(b => b.setAttribute("aria-selected", String(b.dataset.aba === novo)));
+    const cad = novo === "cadastro";
+    document.getElementById("campo-nome").classList.toggle("oculto", !cad);
+    document.getElementById("forca").classList.toggle("oculto", !cad);
+    document.getElementById("titulo").textContent = cad ? "Crie sua Conta Solo" : "Bem-vindo de volta";
+    document.getElementById("sub").textContent = cad ? "Uma conta para todos os seus sistemas." : "Entre na sua Conta Solo.";
+    document.getElementById("senha").autocomplete = cad ? "new-password" : "current-password";
+    document.getElementById("senha").placeholder = cad ? "Mínimo de 8 caracteres" : "••••••••";
+    document.getElementById("enviar").innerHTML = (cad ? "Criar conta " : "Entrar ") + icon("arrow");
+    document.getElementById("erro").textContent = "";
+    history.replaceState(null, "", (cad ? "/cadastro" : "/entrar") + location.search);
+  }
+  abas.addEventListener("click", e => { const b = e.target.closest(".aba"); if (b) trocar(b.dataset.aba); });
+  trocar(modo);
+
+  // ── Olho e força da senha ──
+  const senha = document.getElementById("senha"), olho = document.getElementById("olho");
+  olho.innerHTML = icon("eye");
+  olho.onclick = () => { const v = senha.type === "password"; senha.type = v ? "text" : "password"; olho.innerHTML = icon(v ? "eyeOff" : "eye"); };
+  const cores = ["#fb7185", "#fbbf24", "#22d3ee", "#34d399"];
+  senha.addEventListener("input", () => {
+    const s = senha.value;
+    const n = !s ? 0 : Math.min(4, (s.length >= 8) + (s.length >= 12) + (/[A-Z]/.test(s) && /[a-z]/.test(s)) + (/\d/.test(s) && /\W/.test(s)));
+    document.querySelectorAll("#forca i").forEach((i, k) => i.style.background = k < n ? cores[n - 1] : "");
+  });
+
+  // ── Envio ──
+  document.getElementById("form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const erro = document.getElementById("erro"), btn = document.getElementById("enviar");
+    const corpo = { email: document.getElementById("email").value.trim(), senha: senha.value };
+    if (modo === "cadastro") corpo.nome = document.getElementById("nome").value.trim();
+    if (modo === "cadastro" && corpo.nome.length < 2) return (erro.textContent = "Diga como quer ser chamado.");
+    if (!corpo.email.includes("@")) return (erro.textContent = "Confira o e-mail.");
+    if (modo === "cadastro" && corpo.senha.length < 8) return (erro.textContent = "A senha precisa de pelo menos 8 caracteres.");
+    erro.textContent = "";
+    Solo.carregando(btn, true);
+    try {
+      await api(modo === "cadastro" ? "/api/auth/cadastro" : "/api/auth/entrar", { method: "POST", body: corpo });
+      location.replace(proximo);
+    } catch (err) {
+      Solo.carregando(btn, false);
+      erro.textContent = err.message;
+    }
+  });
+
+  // ── A conversa de demonstração (em laço) ──
+  const roteiro = [
+    ["eu", "/fin gastei 42 no mercado"],
+    ["bot", '<span class="selo fin">💰 Finances</span>✅ Despesa de <b>R$ 42,00</b> · Mercado<br><span class="muted">Saldo Nubank: R$ 1.318,40</span>'],
+    ["eu", "/rot hoje"],
+    ["bot", '<span class="selo rot">⚔️ Rotinas</span>3 missões hoje · 1 concluída<div class="teclas"><span>▶️ Treino</span><span>✅ Leitura</span></div>'],
+    ["eu", "✅ Leitura"],
+    ["bot", '<span class="selo rot">⚔️ Rotinas</span>Missão concluída! <b>+40 XP</b> ⚡ corrente de 12 dias'],
+  ];
+  const fala = document.getElementById("fala");
+  const calmo = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  async function tocar() {
+    fala.innerHTML = "";
+    for (const [quem, html] of roteiro) {
+      if (quem === "bot" && !calmo) {
+        const d = document.createElement("div"); d.className = "bolha bot digitando"; d.innerHTML = "<i></i><i></i><i></i>";
+        fala.appendChild(d); await esperar(900); d.remove();
+      }
+      const b = document.createElement("div"); b.className = "bolha " + quem; b.innerHTML = html;
+      fala.appendChild(b);
+      await esperar(calmo ? 0 : quem === "eu" ? 700 : 1300);
+    }
+    if (!calmo) { await esperar(4200); tocar(); }
+  }
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  if (getComputedStyle(document.querySelector(".demo")).display !== "none") tocar();
+})();
+</script>
+</body>
+</html>
