@@ -190,3 +190,22 @@ code { font-family: var(--mono); font-size: .8rem; padding: .18rem .45rem; borde
   border: 1px solid color-mix(in srgb, #7c3aed 35%, var(--border));
   background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, #7c3aed 14%, transparent), transparent 60%), var(--surface); }
 .sussurro-caixa #sussurro-frase { font-style: italic; }
+
+/* Siri / Atalhos */
+.siri-icone { color: #a78bfa; }
+.siri-dados { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.siri-campo small { display: block; margin-bottom: 6px; }
+.siri-valor { margin-bottom: 0; font-size: .82rem; letter-spacing: 0; min-width: 0; }
+.siri-valor span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.siri-valor.url { font-family: inherit; }
+.siri-passos { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 10px; counter-reset: none; }
+.siri-passos li { display: flex; gap: 12px; align-items: flex-start; }
+.siri-passos li > b { flex: 0 0 26px; height: 26px; border-radius: 9px; display: grid; place-items: center; font-size: .8rem;
+  background: color-mix(in srgb, #a78bfa 16%, transparent); color: color-mix(in srgb, #8b5cf6 80%, var(--text)); }
+.siri-passos li strong { display: block; font-size: .9rem; }
+.siri-passos li span { display: block; color: var(--muted); font-size: .84rem; margin-top: 2px; }
+.siri-passos code, .siri-extra code { font-size: .8rem; padding: 1px 5px; border-radius: 6px; background: var(--surface-2); }
+.siri-extra { margin-top: 14px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); }
+.siri-extra summary { cursor: pointer; font-weight: 600; font-size: .88rem; }
+.siri-extra p { margin: 8px 0 0; }
+@media (max-width: 640px) { .siri-dados { grid-template-columns: 1fr; } }

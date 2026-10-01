@@ -172,6 +172,21 @@ Sem modo ativo e com dois sistemas conectados, o áudio é transcrito e o bot te
 o destino; se não conseguir, pergunta "para qual sistema?". O áudio não é guardado em lugar
 nenhum. O limite é de 90 segundos por áudio.
 
+### Siri (iPhone, Apple Watch, CarPlay)
+
+"Ei Siri, Solo" é **mais um canal** (`siri`), com o mesmo roteador, a mesma intenção e o mesmo modo
+ativo. O atalho do app Atalhos dita a fala, faz `POST /api/atalho` com a chave pessoal no cabeçalho
+`X-Solo-Chave` e fala o campo `falar` da resposta (ou toca `audio_base64`, a voz do Solo Bot, se
+pediu `voz: true`).
+
+- A **chave** nasce no painel (seção Siri), aparece uma vez só e fica guardada só como sha256.
+  Trocar invalida a anterior; revogar desliga.
+- Não existe vínculo de chat: a origem `siri:<conta>` só é criada depois de conferida a chave.
+- **Listas** voltam numeradas, e o próximo pedido "dois" (ou "opção 2") escolhe, com validade curta.
+- Avisos **não** passam pela Siri: o iPhone não recebe mensagens empurradas por um atalho.
+  Continuam no Telegram e no WhatsApp.
+- Freio: 30 pedidos por minuto por conta.
+
 ### O que fica para depois
 
 - **SSO nos sistemas** ("Entrar com Conta Solo"), que reaproveita o mesmo fluxo de conexão.

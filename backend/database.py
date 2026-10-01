@@ -30,6 +30,9 @@ class Conta(Base):
     avisos_silencio_de = Column(String(5), nullable=True)    # "22:00" — ver nucleo/avisos.py
     avisos_silencio_ate = Column(String(5), nullable=True)   # "07:00"
     avisos_voz = Column(String(10), nullable=True)           # sistema (padrão) | sempre | nunca
+    atalho_hash = Column(String(64), nullable=True, index=True)   # sha256 da chave da Siri — ver routers/atalho.py
+    atalho_criado_em = Column(DateTime, nullable=True)
+    atalho_usado_em = Column(DateTime, nullable=True)
     senha_hash = Column(String(200), nullable=False)
     admin = Column(Boolean, default=False, nullable=False)
     ativo = Column(Boolean, default=True, nullable=False)
@@ -214,6 +217,7 @@ def _migrar():
       · contas.voz      — preferência de resposta falada
       · contas.avisos_* — silêncio e voz dos avisos
       · avisos_pendentes.valido_ate — validade do aviso guardado
+      · contas.atalho_*  — a chave da Siri / Atalhos
     """
     from sqlalchemy import inspect, text
     insp = inspect(engine)
@@ -224,8 +228,11 @@ def _migrar():
         if "usuario" not in colunas:
             con.execute(text("ALTER TABLE contas ADD COLUMN usuario VARCHAR(50)"))
             con.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_contas_usuario ON contas (usuario)"))
+        data = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
         for nome, tipo in (("voz", "VARCHAR(10)"), ("avisos_silencio_de", "VARCHAR(5)"),
-                           ("avisos_silencio_ate", "VARCHAR(5)"), ("avisos_voz", "VARCHAR(10)")):
+                           ("avisos_silencio_ate", "VARCHAR(5)"), ("avisos_voz", "VARCHAR(10)"),
+                           ("atalho_hash", "VARCHAR(64)"), ("atalho_criado_em", data),
+                           ("atalho_usado_em", data)):
             if nome not in colunas:
                 con.execute(text(f"ALTER TABLE contas ADD COLUMN {nome} {tipo}"))
         if engine.dialect.name == "postgresql" and not colunas.get("email", {}).get("nullable", True):

@@ -37,6 +37,7 @@
     renderProgresso(nCanais > 0, nSist > 0);
     renderCanais();
     carregarAvisos();
+    if (!siri) carregarSiri();
     document.querySelectorAll("#voz-opcoes [data-voz]").forEach(b =>
       b.setAttribute("aria-checked", String(b.dataset.voz === (c.voz || "audio"))));
     renderSistemas();
@@ -164,6 +165,64 @@
     ["#sil-de", "#sil-ate"].forEach(id => el.querySelector(id).onchange = () =>
       salvar({ silencio: true, de: el.querySelector("#sil-de").value, ate: el.querySelector("#sil-ate").value }));
     el.querySelectorAll("[data-avvoz]").forEach(b => b.onclick = () => salvar({ voz: b.dataset.avvoz }));
+  }
+
+  // ── Siri / Atalhos ──
+  let siri = null, chaveNova = null;
+  async function carregarSiri() {
+    try { siri = await api("/api/conta/atalho"); } catch (e) { return; }
+    renderSiri();
+  }
+  const quando = iso => iso ? Solo.tempoRelativo(iso) : "nunca";
+  function renderSiri() {
+    const el = document.getElementById("siri");
+    if (!el || !siri) return;
+    const copia = (rotulo, valor, id, mono) => `
+      <div class="siri-campo"><small class="faint">${rotulo}</small>
+        <div class="codigo-grande siri-valor ${mono ? "" : "url"}"><span>${esc(valor)}</span>
+          <button class="btn fantasma pequeno" data-copiar="${id}" aria-label="Copiar ${rotulo}">${icon("copy")}</button></div></div>`;
+    const chave = chaveNova ? copia("Sua chave — aparece só agora", chaveNova, "chave", true) : "";
+    const passo = (n, titulo, corpo) => `<li><b>${n}</b><div><strong>${titulo}</strong>${corpo ? `<span>${corpo}</span>` : ""}</div></li>`;
+    const passos = `
+      <ol class="siri-passos">
+        ${passo(1, "Abra o app <i>Atalhos</i> e crie um atalho chamado <i>Solo</i>", "O nome é a frase: “Ei Siri, Solo”.")}
+        ${passo(2, "Ditar Texto", "Idioma: Português (Brasil). Parar de ouvir: Após Pausa.")}
+        ${passo(3, "Obter Conteúdo do URL", `URL: o endereço acima. Método: <b>POST</b>. Cabeçalho <code>X-Solo-Chave</code> = sua chave. Corpo: <b>JSON</b>, com <code>texto</code> = <i>Texto Ditado</i> e <code>voz</code> = Booleano <b>Falso</b>.`)}
+        ${passo(4, "Obter Valor do Dicionário", "Chave: <code>falar</code>.")}
+        ${passo(5, "Falar Texto", "Com o <i>Valor do Dicionário</i>. Pronto: “Ei Siri, Solo”.")}
+      </ol>
+      <details class="siri-extra"><summary>Quero a resposta na voz do Solo Bot</summary>
+        <p class="muted pequeno">No passo 3, <code>voz</code> = <b>Verdadeiro</b>. No lugar dos passos 4 e 5:
+        <b>Obter Valor do Dicionário</b> (<code>audio_base64</code>) → <b>Codificar Base64</b> (Decodificar) →
+        <b>Definir Nome</b> (<i>resposta.mp3</i>) → <b>Reproduzir Som</b>. Gasta créditos da ElevenLabs.</p></details>
+      <p class="faint pequeno" style="margin:10px 0 0">Listas voltam numeradas: diga “Ei Siri, Solo” de novo e “dois”. O modo ativo (/fin, /rot) vale entre um pedido e outro.</p>`;
+    el.innerHTML = `
+      <div class="linha entre" style="flex-wrap:wrap;gap:12px">
+        <div class="linha"><span class="icone-caixa siri-icone">${icon("mic")}</span>
+          <div><h3>${siri.ativo ? "Siri ligada" : "Ligar a Siri"}</h3>
+          <p class="muted pequeno" style="margin:2px 0 0">${siri.ativo ? `Chave criada ${quando(siri.criado_em)} · último uso: ${quando(siri.usado_em)}` : "Gere uma chave pessoal e monte o atalho em um minuto."}</p></div></div>
+        <div class="linha" style="gap:8px">
+          ${siri.ativo ? `<button class="btn pequeno" id="siri-gerar">Trocar chave</button><button class="btn pequeno fantasma" id="siri-revogar">Revogar</button>`
+                       : `<button class="btn pequeno primario" id="siri-gerar">Gerar chave</button>`}
+        </div>
+      </div>
+      ${siri.ativo || chaveNova ? `<div class="siri-dados">${copia("Endereço (URL)", siri.url, "url", false)}${chave}</div>
+        ${!chaveNova ? '<p class="faint pequeno" style="margin:0 0 12px">A chave só aparece quando é gerada. Perdeu? Troque a chave e atualize o atalho.</p>' : ""}
+        ${passos}` : ""}`;
+    el.querySelectorAll("[data-copiar]").forEach(b => b.onclick = () =>
+      navigator.clipboard.writeText(b.dataset.copiar === "url" ? siri.url : chaveNova).then(() => toast("Copiado.")));
+    el.querySelector("#siri-gerar").onclick = async function () {
+      if (siri.ativo && !confirm("Trocar a chave? O atalho atual para de funcionar até você colar a nova.")) return;
+      carregando(this, true);
+      try { const r = await api("/api/conta/atalho", { method: "POST" }); chaveNova = r.chave; await carregarSiri(); toast("Chave gerada. Copie agora: ela não aparece de novo."); }
+      catch (e) { carregando(this, false); toast(e.message, "erro"); }
+    };
+    const rev = el.querySelector("#siri-revogar");
+    if (rev) rev.onclick = async () => {
+      if (!confirm("Revogar a chave? O atalho da Siri para de funcionar.")) return;
+      try { await api("/api/conta/atalho", { method: "DELETE" }); chaveNova = null; await carregarSiri(); toast("Chave revogada."); }
+      catch (e) { toast(e.message, "erro"); }
+    };
   }
 
   // ── Conectar um canal ──

@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 import config
 from database import criar_tabelas
-from routers import admin, auth, conectar, conta, interno, webhooks
+from routers import admin, atalho, auth, conectar, conta, interno, webhooks
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -78,7 +78,8 @@ async def cabecalhos(request: Request, call_next):
     return r
 
 
-for r in (auth.router, conta.router, conectar.router, webhooks.router, interno.router, admin.router):
+for r in (auth.router, conta.router, conectar.router, webhooks.router, interno.router, admin.router,
+          atalho.router):
     app.include_router(r)
 
 

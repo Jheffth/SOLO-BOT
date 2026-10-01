@@ -39,7 +39,7 @@ SOLO BOT/
 │   │   ├── modulos.py     registro dos sistemas + cliente HTTP interno
 │   │   └── render.py      opções neutras → teclado Telegram / lista WhatsApp
 │   ├── canais/            telegram.py · evolution.py (só transporte)
-│   └── routers/           auth · conta · conectar · webhooks · interno · admin
+│   └── routers/           auth · conta · conectar · webhooks · interno · admin · atalho (Siri)
 ├── frontend/              entrar/cadastro · painel · conectar · admin (HTML/CSS/JS, sem build)
 ├── tests/                 pytest: fluxos de ponta a ponta + adaptadores
 ├── integracao/            o que encaixa em cada sistema (ver integracao/LEIA-ME.md)
