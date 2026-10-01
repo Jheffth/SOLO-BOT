@@ -185,17 +185,17 @@
     const passo = (n, titulo, corpo) => `<li><b>${n}</b><div><strong>${titulo}</strong>${corpo ? `<span>${corpo}</span>` : ""}</div></li>`;
     const passos = `
       <ol class="siri-passos">
-        ${passo(1, "Abra o app <i>Atalhos</i> e crie um atalho chamado <i>Solo</i>", "O nome é a frase: “Ei Siri, Solo”.")}
+        ${passo(1, "Abra o app <i>Atalhos</i> e crie um atalho chamado <i>Solo Bot</i>", "O nome é a frase: “E aí, Siri, Solo Bot”. Evite só “Solo”: a Siri entende como pesquisa na web.")}
         ${passo(2, "Ditar Texto", "Idioma: Português (Brasil). Parar de ouvir: Após Pausa.")}
         ${passo(3, "Obter Conteúdo do URL", `URL: o endereço acima. Método: <b>POST</b>. Cabeçalho <code>X-Solo-Chave</code> = sua chave. Corpo: <b>JSON</b>, com <code>texto</code> = <i>Texto Ditado</i> e <code>voz</code> = Booleano <b>Falso</b>.`)}
         ${passo(4, "Obter Valor do Dicionário", "Chave: <code>falar</code>.")}
-        ${passo(5, "Falar Texto", "Com o <i>Valor do Dicionário</i>. Pronto: “Ei Siri, Solo”.")}
+        ${passo(5, "Falar Texto", "Com o <i>Valor do Dicionário</i>. Pronto: “E aí, Siri, Solo Bot”.")}
       </ol>
       <details class="siri-extra"><summary>Quero a resposta na voz do Solo Bot</summary>
         <p class="muted pequeno">No passo 3, <code>voz</code> = <b>Verdadeiro</b>. No lugar dos passos 4 e 5:
         <b>Obter Valor do Dicionário</b> (<code>audio_base64</code>) → <b>Codificar Base64</b> (Decodificar) →
         <b>Definir Nome</b> (<i>resposta.mp3</i>) → <b>Reproduzir Som</b>. Gasta créditos da ElevenLabs.</p></details>
-      <p class="faint pequeno" style="margin:10px 0 0">Listas voltam numeradas: diga “Ei Siri, Solo” de novo e “dois”. O modo ativo (/fin, /rot) vale entre um pedido e outro.</p>`;
+      <p class="faint pequeno" style="margin:10px 0 0">Listas voltam numeradas: diga “E aí, Siri, Solo Bot” de novo e “dois”. O modo ativo (/fin, /rot) vale entre um pedido e outro.</p>`;
     el.innerHTML = `
       <div class="linha entre" style="flex-wrap:wrap;gap:12px">
         <div class="linha"><span class="icone-caixa siri-icone">${icon("mic")}</span>

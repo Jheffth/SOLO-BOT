@@ -174,7 +174,7 @@ nenhum. O limite é de 90 segundos por áudio.
 
 ### Siri (iPhone, Apple Watch, CarPlay)
 
-"Ei Siri, Solo" é **mais um canal** (`siri`), com o mesmo roteador, a mesma intenção e o mesmo modo
+"E aí, Siri, Solo Bot" é **mais um canal** (`siri`), com o mesmo roteador, a mesma intenção e o mesmo modo
 ativo. O atalho do app Atalhos dita a fala, faz `POST /api/atalho` com a chave pessoal no cabeçalho
 `X-Solo-Chave` e fala o campo `falar` da resposta (ou toca `audio_base64`, a voz do Solo Bot, se
 pediu `voz: true`).
@@ -186,6 +186,8 @@ pediu `voz: true`).
 - Avisos **não** passam pela Siri: o iPhone não recebe mensagens empurradas por um atalho.
   Continuam no Telegram e no WhatsApp.
 - Freio: 30 pedidos por minuto por conta.
+- O nome do atalho é a frase de ativação. "Solo" sozinho a Siri lê como pesquisa (solo = chão):
+  use "Solo Bot". Em português, a ativação é "E aí, Siri" (ou "Siri"), não "Ei Siri".
 
 ### O que fica para depois
 
