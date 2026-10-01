@@ -105,7 +105,8 @@ você: comprei pão 8            ← hub: "Para qual sistema?" [💰 Finances] [
    (`🧭 Entendi: Rotinas · /hoje`).
 
 O mesmo vale **dentro de um modo**. No Rotinas, frases viram comandos. No Finances, que entende texto
-livre, a IA só entra quando as palavras apontam para outro sistema. Com confiança alta, o bot **troca de
+livre, a IA só entra quando há palavras de outro sistema, mesmo que também haja termos financeiros.
+Com confiança alta (pelo menos 0,85), o bot **troca de
 sistema sozinho**: dizer "gastei 40 no mercado" no modo Rotinas vai para o Finances. Na dúvida (confiança
 abaixo de 0,6), ele pergunta como antes.
 
@@ -132,12 +133,16 @@ Os sistemas respondem no formato que o `conversa.py` já usa:
 
 A pessoa pode mandar áudio no Telegram ou no WhatsApp, e o Solo Bot escolhe um de dois caminhos:
 
-- **O sistema entende áudio** (`"audio": {"recebe": true}` no manifesto; hoje, o Finances): o Solo
+- **Há um único sistema conectado e ele entende áudio** (`"audio": {"recebe": true}` no manifesto; hoje, o Finances): o Solo
   Bot entrega os bytes, e o sistema ouve com o contexto dele. O Finances conhece as contas e pede
   "sim" antes de uma transferência ou de um valor alto.
-- **O sistema não entende áudio** (hoje, o Rotinas): o Solo Bot transcreve (Gemini, com o Grok de reserva)
+- **Há vários sistemas conectados, ou o único sistema não entende áudio:** o Solo Bot transcreve (Gemini, com o Grok de reserva)
   e segue como se a pessoa tivesse digitado. O que ele ouviu vai repetido no topo da resposta
   (`🎤 “terminei o treino”`).
+
+Com vários sistemas, a transcrição passa pela mesma análise de intenção do texto, inclusive no
+modo Finances. Pedidos de Rotinas podem trocar o modo automaticamente; pedidos financeiros
+seguem como texto original com `via_audio: true`, preservando valores e a origem por voz.
 
 **Resposta falada é do Solo Bot, para todos os sistemas** (ElevenLabs, `nucleo/fala.py`).
 A preferência é da Conta Solo: `/voz audio` (padrão: fala quando a pessoa mandou áudio),
@@ -163,8 +168,9 @@ Avisos respeitam o **horário de silêncio**: o que chega na janela espera numa 
 termina. Aviso com **validade** (`valido_ate`) que vence na fila é descartado, porque um "faltam 15 min"
 entregue às 7h da manhã só atrapalha.
 
-Sem modo ativo e com dois sistemas conectados, o áudio é transcrito, e o bot pergunta
-"para qual sistema?". O áudio não é guardado em lugar nenhum. O limite é de 90 segundos por áudio.
+Sem modo ativo e com dois sistemas conectados, o áudio é transcrito e o bot tenta identificar
+o destino; se não conseguir, pergunta "para qual sistema?". O áudio não é guardado em lugar
+nenhum. O limite é de 90 segundos por áudio.
 
 ### O que fica para depois
 

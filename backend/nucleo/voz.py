@@ -4,12 +4,13 @@ A VOZ DO SOLO BOT — ouvir uma vez, para todos os sistemas.
 
 DOIS CAMINHOS PARA UM ÁUDIO
 
-  · O sistema declara no manifesto que entende áudio (`"audio": {"recebe":
+  · Há um único sistema conectado e ele declara que entende áudio (`"audio": {"recebe":
     true}`) — caso do Finances, que interpreta a fala com o contexto das
     contas e pede "sim" antes de transferência. O Solo Bot só entrega os
     bytes; a inteligência é do sistema.
-  · O sistema não declara — caso do Rotinas. O Solo Bot TRANSCREVE aqui e
-    manda como texto. Todo sistema ganha voz sem uma linha de código.
+  · Há vários sistemas conectados, ou o único sistema não entende áudio.
+    O Solo Bot TRANSCREVE aqui e escolhe o destino pelo texto, permitindo
+    trocar de sistema mesmo durante o modo Finances.
 
 Transcrição: Gemini (principal e reserva) e Grok, na ordem em que houver
 chave. O áudio não é guardado em lugar nenhum.

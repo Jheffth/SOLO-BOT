@@ -85,6 +85,71 @@ def test_no_modo_finances_texto_livre_nao_chama_ia(dois, sistemas, monkeypatch):
     assert ch == [] and sistemas.recebidos[-1][2]["texto"] == "35 uber nubank"
 
 
+@pytest.mark.parametrize("audio", [False, True])
+@pytest.mark.parametrize("modo,frase,destino,comando", [
+    ("fin", "Crie a missão geral fazer a barba até meia-noite", "rot", "/criar barba"),
+    ("fin", "Some R$ 25 na rotina de R$ 50 no turno da noite", "rot", "/somar noite 25"),
+    ("rot", "Crie um novo banco chamado Conta 99, saldo R$ 62,53.", "fin", None),
+])
+def test_troca_entre_sistemas_por_texto_e_audio(dois, sistemas, caixa, monkeypatch,
+                                               audio, modo, frase, destino, comando):
+    from canais import telegram
+    from nucleo import voz
+    from test_audio import _voz_tg
+
+    dois.post("/interno/manifesto", headers={"X-Solo-Token": "tok-fin"},
+              json={**FIN, "audio": {"recebe": True}})
+    # Comandos de exemplo do sistema falso: a execução continua sendo do sistema.
+    dois.post("/interno/manifesto", headers={"X-Solo-Token": "tok-rot"}, json={
+        **ROT, "comandos": ROT["comandos"] + [
+            {"comando": "/criar", "descricao": "Criar missão"},
+            {"comando": "/somar", "descricao": "Somar progresso"}]})
+    _tg(dois, f"/{modo} ajuda")
+    ch = _ia(monkeypatch, {"app": destino, "mensagem": comando or frase, "confianca": 0.95})
+    antes = len(sistemas.recebidos)
+    if audio:
+        monkeypatch.setattr(telegram, "baixar", lambda fid: b"OGG-BYTES")
+        monkeypatch.setattr(voz, "transcrever", lambda conteudo, mime: frase)
+        _voz_tg(dois)
+    else:
+        _tg(dois, frase)
+    assert ch and len(sistemas.recebidos) == antes + 1
+    app, rota, corpo = sistemas.recebidos[-1]
+    assert (app, rota, corpo["texto"]) == (destino, "mensagem", comando or frase)
+    assert "audio_base64" not in corpo
+    assert corpo.get("via_audio", False) == audio
+    _tg(dois, "/hoje" if destino == "rot" else "/saldo")
+    assert sistemas.recebidos[-1][0] == destino
+
+
+@pytest.mark.parametrize("confianca", [0.3, 0.8])
+def test_termos_mistos_nao_trocam_sem_confianca_alta(dois, sistemas, monkeypatch, confianca):
+    _tg(dois, "/fin saldo")
+    ch = _ia(monkeypatch, {"app": "rot", "mensagem": "/hoje", "confianca": confianca})
+    frase = "minha meta de dinheiro"
+    _tg(dois, frase)
+    assert ch and sistemas.recebidos[-1][0] == "fin"
+    assert sistemas.recebidos[-1][2]["texto"] == frase
+
+
+def test_audio_financeiro_em_modo_finances_preserva_valor(dois, sistemas, monkeypatch):
+    from canais import telegram
+    from nucleo import voz
+    from test_audio import _voz_tg
+
+    dois.post("/interno/manifesto", headers={"X-Solo-Token": "tok-fin"},
+              json={**FIN, "audio": {"recebe": True}})
+    _tg(dois, "/fin saldo")
+    frase = "Paguei 123,67 da internet."
+    monkeypatch.setattr(telegram, "baixar", lambda fid: b"OGG-BYTES")
+    monkeypatch.setattr(voz, "transcrever", lambda conteudo, mime: frase)
+    ch = _ia(monkeypatch, None)
+    _voz_tg(dois)
+    assert ch == []
+    app, _, corpo = sistemas.recebidos[-1]
+    assert app == "fin" and corpo["texto"] == frase and corpo["via_audio"] is True
+
+
 def test_escolha_da_pergunta_tambem_traduz(dois, sistemas, caixa, monkeypatch):
     from test_fluxos import _toque
     _ia(monkeypatch, None)

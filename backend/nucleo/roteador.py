@@ -477,7 +477,7 @@ def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod) -> Res
 
       · Comando ("/..."): vai direto, como sempre.
       · O sistema entende texto livre (Finances): vai direto, A NÃO SER que as
-        palavras apontem claramente para outro sistema — aí a IA confirma e,
+        palavras também apontem para outro sistema — aí a IA confirma e,
         com confiança alta, troca de sistema.
       · O sistema só entende comandos (Rotinas): a IA traduz a frase para o
         comando ("o que tem pra hoje" → "/hoje").
@@ -489,7 +489,7 @@ def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod) -> Res
     if livre:
         outros = [m for m in ligados if m.chave != mod.chave]
         pontos = intencao.por_palavras(db, txt, [mod] + outros)
-        if not outros or pontos.get(mod.chave, 0) > 0 or not any(pontos.get(m.chave) for m in outros):
+        if not any(pontos.get(m.chave) for m in outros):
             return para_sistema(db, conta, canal, origem, mod, texto=txt, via_audio=via_audio)
     it = intencao.interpretar(db, txt, ligados or [mod], modo=mod.chave)
     if it.app and it.app != mod.chave and it.confianca >= intencao.CONFIANCA_TROCA and it.mensagem:
@@ -508,9 +508,9 @@ def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod) -> Res
 def atender_audio(db: Session, canal: str, origem: str, conteudo: bytes, mime: str,
                   rotulo: Optional[str] = None, segundos: int = 0) -> Resposta:
     """
-    Se o sistema da vez entende áudio (manifesto), recebe os bytes. Senão o
-    Solo Bot transcreve e segue como texto — com o que ouviu repetido no
-    topo da resposta, porque quem fala precisa saber o que foi entendido.
+    Com vários sistemas, transcreve antes de escolher o destino pelo texto.
+    Com um único sistema que entende áudio, entrega os bytes diretamente.
+    A transcrição aparece no topo da resposta para conferir o que foi ouvido.
     """
     from nucleo import manifestos, voz
     origem = str(origem)
@@ -526,7 +526,7 @@ def atender_audio(db: Session, canal: str, origem: str, conteudo: bytes, mime: s
     modo = _modo_valido(s)
     ligados = _sistemas_da_conta(db, conta)
     alvo = modulos.por_chave(modo) if modo else (ligados[0] if len(ligados) == 1 else None)
-    if alvo and _vinculo(conta, alvo.chave) and manifestos.recebe_audio(db, alvo.chave):
+    if len(ligados) == 1 and alvo and _vinculo(conta, alvo.chave) and manifestos.recebe_audio(db, alvo.chave):
         _entrar_modo(db, s, alvo.chave)
         return para_sistema(db, conta, canal, origem, alvo, audio=(conteudo, voz._limpo(mime)))
 
