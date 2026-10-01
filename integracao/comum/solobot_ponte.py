@@ -133,7 +133,7 @@ def _post(caminho: str, corpo: dict, timeout: float = 8.0) -> Optional[dict]:
 
 def avisar(usuario_id, texto: str, opcoes=None, falado: Optional[str] = None,
            voz: Optional[bool] = None, valido_ate=None, tom: Optional[str] = None,
-           formato: Optional[str] = None) -> bool:
+           formato: Optional[str] = None, referencia: Optional[str] = None) -> bool:
     """
     Manda um aviso ao usuário por todos os canais dele no Solo Bot.
 
@@ -142,6 +142,9 @@ def avisar(usuario_id, texto: str, opcoes=None, falado: Optional[str] = None,
               painel → Avisos → Voz nos avisos).
     `formato`: texto, audio ou ambos. Áudio exclusivo tem cópia escrita se
               a voz estiver indisponível. A preferência da Conta prevalece.
+    `referencia`: identificação opaca para revalidar avisos na fila pelo
+              endpoint do sistema /interno/bot/validar-aviso. Só envie se
+              o sistema implementar esse endpoint; sem ele a fila espera.
     `valido_ate`: até quando o aviso faz sentido (datetime COM fuso, ou texto
               ISO 8601 com fuso, ex. "2026-10-01T14:30:00-03:00"). Se a
               pessoa estiver no horário de silêncio e o aviso vencer na
@@ -169,6 +172,8 @@ def avisar(usuario_id, texto: str, opcoes=None, falado: Optional[str] = None,
         corpo["tom"] = str(tom)[:20]
     if formato in ("texto", "audio", "ambos"):
         corpo["formato"] = formato
+    if referencia:
+        corpo["referencia"] = str(referencia)[:160]
     if valido_ate is not None:
         corpo["valido_ate"] = valido_ate.isoformat() if hasattr(valido_ate, "isoformat") else str(valido_ate)
     r = _post("/interno/enviar", corpo)

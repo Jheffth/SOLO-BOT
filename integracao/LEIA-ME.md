@@ -57,6 +57,7 @@ contra sistemas de mentira em `tests/test_integracao.py`.
    | `falado` | roteiro para ouvido; sem ele o Solo Bot resume sozinho |
    | `voz` | `True` pede que o aviso seja falado (a Conta Solo decide: Personalizada / Sempre / Nunca) |
    | `formato` | `"texto"`, `"audio"` ou `"ambos"`. Áudio exclusivo usa texto como fallback se voz estiver indisponível/proibida; opções acionáveis preservam o texto. A preferência Sempre/Nunca da Conta Solo prevalece |
+   | `referencia` | Identificador opaco opcional, até 160 caracteres. Só usar se o sistema implementar `POST /interno/bot/validar-aviso`; recomenda-se `valido_ate`. Na fila, resposta `{valido: false}` descarta; `{valido: true, texto?: "estado atual"}` autoriza e atualiza o texto/voz; rede indisponível conserva até expirar |
    | `tom` | jeito de falar. `"sussurro"` = a voz do Sistema cobrando (os Ecos): voz própria, sussurrada, texto em itálico, frase falada literalmente. Tom desconhecido é ignorado |
    | `valido_ate` | `datetime` com fuso ou ISO 8601 com fuso. Se o aviso vencer enquanto espera o horário de silêncio, é descartado. Use em avisos de prazo |
 
@@ -103,3 +104,5 @@ vinculado. Ainda assim, com o número pessoal, um `/comando` digitado na convers
 outro usuário vinculado seria lido como dele. Um chip dedicado ao bot elimina esse caso.
 
 **01/10/2026:** contrato ampliado com `formato` para a Central de Avisos do Rotinas. Ponte sincronizada no Rotinas e Finances; Finances continua compatível com a assinatura anterior (novo parâmetro opcional). Publicar Solo Bot antes da central.
+
+**Fila revalidada (01/10/2026):** o Solo Bot consulta o endpoint autenticado do sistema a cada minuto para avisos identificados, inclusive durante o silêncio. O corpo é `{usuario_id, referencia}`, com hunter do vínculo atual; o endereço é o módulo registrado. Sem referência o contrato antigo permanece. Ponte sincronizada em Rotinas e Finances. Para esta extensão, publicar o endpoint no Rotinas e a revalidação no Solo Bot; a proteção só vale quando ambos estiverem atualizados.

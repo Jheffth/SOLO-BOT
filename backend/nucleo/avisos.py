@@ -106,7 +106,7 @@ def _entregar(db: Session, conta: Conta, canal: str, origem: str, app: str, mens
 def receber(db: Session, mod: modulos.Modulo, usuario_id: str, texto: str, opcoes=None,
             falado: Optional[str] = None, voz: Optional[bool] = None,
             valido_ate: Optional[datetime] = None, tom: Optional[str] = None,
-            formato: Optional[str] = None) -> dict:
+            formato: Optional[str] = None, referencia: Optional[str] = None) -> dict:
     """Um aviso de um sistema. Entrega agora, guarda para depois do silêncio ou descarta (vencido)."""
     v = db.query(VinculoSistema).filter(VinculoSistema.app == mod.chave,
                                         VinculoSistema.usuario_id == str(usuario_id)).first()
@@ -131,6 +131,8 @@ def receber(db: Session, mod: modulos.Modulo, usuario_id: str, texto: str, opcoe
     if formato in ("texto", "audio", "ambos"):
         msg["formato"] = formato
         voz = formato != "texto"
+    if referencia:
+        msg["referencia"] = referencia
     com_voz = quer_voz(conta, voz)
     entregues = adiados = 0
     silencioso = em_silencio(conta)
@@ -149,9 +151,45 @@ def receber(db: Session, mod: modulos.Modulo, usuario_id: str, texto: str, opcoe
     return {"entregues": entregues, "adiados": adiados, "descartados": 0, "vinculado": bool(canais) or None}
 
 
+def _revalidar(db, pendente, mensagens, cache):
+    """True válido, False revogado, None sistema indisponível: manter na fila."""
+    referencias = [m for m in mensagens if m.get("referencia")]
+    if not referencias:
+        return True  # contrato legado não faz callback
+    v = db.query(VinculoSistema).filter_by(conta_id=pendente.conta_id,app=pendente.app).first()
+    conta = db.get(Conta,pendente.conta_id)
+    if not v or not conta or not any(c.canal==pendente.canal and c.origem==pendente.origem and c.avisos for c in conta.canais):
+        return False
+    mod = modulos.por_chave(pendente.app)
+    if not mod:
+        return None
+    for m in referencias:
+        chave = (pendente.app,v.usuario_id,m["referencia"])
+        if chave not in cache:
+            try:
+                resp = modulos._post(f"{mod.url}/interno/bot/validar-aviso",mod.token,
+                    {"usuario_id":v.usuario_id,"referencia":m["referencia"]},3.0)
+                dados = resp.json() if resp.status_code==200 else None
+                cache[chave] = dados if isinstance(dados,dict) and type(dados.get("valido")) is bool else None
+            except Exception:  # a rede não autoriza entregar conteúdo desatualizado
+                cache[chave] = None
+        dados = cache[chave]
+        if dados is None:
+            return None
+        if not dados["valido"]:
+            return False
+        texto = dados.get("texto")
+        if isinstance(texto,str) and texto.strip():
+            m["texto"] = f"{mod.selo}\n{texto[:3800]}"
+            m["falado"] = texto[:900]
+            m.pop("audio",None)  # nunca reaproveitar síntese de um estado antigo
+    return True
+
+
 def despachar_pendentes(db: Session, agora: Optional[datetime] = None) -> int:
     """Entrega o que esperava o silêncio acabar (e descarta o que venceu). Chamado a cada minuto."""
     n = 0
+    cache = {}  # a mesma referência em dois canais exige só uma consulta
     for p in db.query(AvisoPendente).order_by(AvisoPendente.criado_em).all():
         conta = db.get(Conta, p.conta_id)
         if conta is None:
@@ -162,10 +200,21 @@ def despachar_pendentes(db: Session, agora: Optional[datetime] = None) -> int:
             roteador._registrar(db, conta, None, p.app, "aviso", "Aviso descartado (venceu no silêncio)")
             db.delete(p)
             continue
+        try:
+            mensagens = json.loads(p.mensagens)
+            valido = _revalidar(db,p,mensagens,cache)
+        except (ValueError,TypeError,AttributeError):
+            valido = False
+        if valido is None:
+            continue
+        if not valido:
+            db.delete(p)
+            continue
+        p.mensagens = json.dumps(mensagens,ensure_ascii=False)
         if em_silencio(conta, agora):
             continue
         try:
-            _entregar(db, conta, p.canal, p.origem, p.app, json.loads(p.mensagens), bool(p.voz))
+            _entregar(db, conta, p.canal, p.origem, p.app, mensagens, bool(p.voz))
             n += 1
         except Exception:  # noqa: BLE001
             log.exception("Falha ao despachar aviso guardado")
