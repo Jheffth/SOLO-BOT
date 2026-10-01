@@ -6,7 +6,7 @@ Só na rede interna, e só com o token do próprio sistema. O token diz QUEM
 está mandando: um sistema não consegue avisar em nome de outro.
 """
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -33,6 +33,7 @@ class Aviso(BaseModel):
     falado: Optional[str] = Field(default=None, max_length=1200)   # roteiro para ouvido, se o sistema tiver
     voz: Optional[bool] = None                                     # o sistema pede que este aviso seja falado
     valido_ate: Optional[datetime] = None                          # ISO com fuso; depois disso, não entregar
+    formato: Optional[Literal["texto", "audio", "ambos"]] = None
     tom: Optional[str] = Field(default=None, max_length=20)        # "sussurro"; desconhecido é ignorado
 
 
@@ -40,7 +41,7 @@ class Aviso(BaseModel):
 def enviar(a: Aviso, mod: modulos.Modulo = Depends(_modulo), db: Session = Depends(get_db)):
     """Entrega agora, ou guarda até o fim do horário de silêncio da pessoa."""
     from nucleo import avisos
-    return avisos.receber(db, mod, a.usuario_id, a.texto, a.opcoes, a.falado, a.voz, a.valido_ate, a.tom)
+    return avisos.receber(db, mod, a.usuario_id, a.texto, a.opcoes, a.falado, a.voz, a.valido_ate, a.tom, a.formato)
 
 
 @router.post("/manifesto")

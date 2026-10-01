@@ -26,15 +26,22 @@ def entregar(db: Session, canal: str, origem: str, resposta: "roteador.Resposta"
             logging.getLogger("solobot.entrega").exception("Falha ao preparar a voz")
     if canal == "telegram":
         for m in resposta.mensagens:
+            exclusivo = m.get("formato") == "audio" and not m.get("opcoes")
+            if exclusivo and _voz(canal, origem, m.get("audio")):
+                continue
             if m["texto"]:
                 telegram.enviar(origem, m["texto"], render.teclado_telegram(m.get("opcoes")))
-            _voz(canal, origem, m.get("audio"))
+            if not exclusivo:
+                _voz(canal, origem, m.get("audio"))
         return
 
     # WhatsApp: numeração CONTÍNUA entre as mensagens do mesmo lote, e uma
     # lista só guardada — a de agora substitui a anterior.
     itens_total = []
     for m in resposta.mensagens:
+        exclusivo = m.get("formato") == "audio" and not m.get("opcoes")
+        if exclusivo and _voz(canal, origem, m.get("audio")):
+            continue
         corpo = render.para_whatsapp(m["texto"])
         itens = render.plano(m.get("opcoes"))
         if itens:
@@ -42,21 +49,24 @@ def entregar(db: Session, canal: str, origem: str, resposta: "roteador.Resposta"
             itens_total += itens
         if corpo:
             evolution.enviar(origem, corpo)
-        _voz(canal, origem, m.get("audio"))
+        if not exclusivo:
+            _voz(canal, origem, m.get("audio"))
     if itens_total:
         roteador.guardar_escolhas(db, canal, origem, itens_total)
 
 
 def _voz(canal: str, origem: str, audio):
-    """A voz é um a mais: vai depois do texto, e falha aqui não derruba nada."""
+    """Confirma a entrega de voz; o chamador preserva texto quando necessário."""
     if not audio or not audio.get("base64"):
-        return
+        return False
     try:
         if canal == "telegram":
             import base64
-            telegram.enviar_voz(origem, base64.b64decode(audio["base64"]), audio.get("mime") or "audio/ogg")
+            return bool(telegram.enviar_voz(origem, base64.b64decode(audio["base64"]), audio.get("mime") or "audio/ogg"))
         else:
-            evolution.enviar_audio(origem, audio["base64"])
+            r = evolution.enviar_audio(origem, audio["base64"])
+            return bool(isinstance(r, dict) and (r.get("key") or {}).get("id") and not r.get("erro") and not r.get("error"))
     except Exception:  # noqa: BLE001
         import logging
         logging.getLogger("solobot.entrega").exception("Falha ao entregar voz")
+        return False

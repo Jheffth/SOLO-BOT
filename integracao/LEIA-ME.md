@@ -56,6 +56,7 @@ contra sistemas de mentira em `tests/test_integracao.py`.
    | `opcoes` | botões no formato neutro |
    | `falado` | roteiro para ouvido; sem ele o Solo Bot resume sozinho |
    | `voz` | `True` pede que o aviso seja falado (a Conta Solo decide: Personalizada / Sempre / Nunca) |
+   | `formato` | `"texto"`, `"audio"` ou `"ambos"`. Áudio exclusivo usa texto como fallback se voz estiver indisponível/proibida; opções acionáveis preservam o texto. A preferência Sempre/Nunca da Conta Solo prevalece |
    | `tom` | jeito de falar. `"sussurro"` = a voz do Sistema cobrando (os Ecos): voz própria, sussurrada, texto em itálico, frase falada literalmente. Tom desconhecido é ignorado |
    | `valido_ate` | `datetime` com fuso ou ISO 8601 com fuso. Se o aviso vencer enquanto espera o horário de silêncio, é descartado. Use em avisos de prazo |
 
@@ -100,3 +101,5 @@ O Rotinas já tratava o caso do número do bot ser o celular do próprio dono (m
 `SOLO 123456` ou número de uma lista que o bot acabou de oferecer, **e** se o chat estiver
 vinculado. Ainda assim, com o número pessoal, um `/comando` digitado na conversa com
 outro usuário vinculado seria lido como dele. Um chip dedicado ao bot elimina esse caso.
+
+**01/10/2026:** contrato ampliado com `formato` para a Central de Avisos do Rotinas. Ponte sincronizada no Rotinas e Finances; Finances continua compatível com a assinatura anterior (novo parâmetro opcional). Publicar Solo Bot antes da central.

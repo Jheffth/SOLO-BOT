@@ -105,7 +105,8 @@ def _entregar(db: Session, conta: Conta, canal: str, origem: str, app: str, mens
 
 def receber(db: Session, mod: modulos.Modulo, usuario_id: str, texto: str, opcoes=None,
             falado: Optional[str] = None, voz: Optional[bool] = None,
-            valido_ate: Optional[datetime] = None, tom: Optional[str] = None) -> dict:
+            valido_ate: Optional[datetime] = None, tom: Optional[str] = None,
+            formato: Optional[str] = None) -> dict:
     """Um aviso de um sistema. Entrega agora, guarda para depois do silêncio ou descarta (vencido)."""
     v = db.query(VinculoSistema).filter(VinculoSistema.app == mod.chave,
                                         VinculoSistema.usuario_id == str(usuario_id)).first()
@@ -127,6 +128,9 @@ def receber(db: Session, mod: modulos.Modulo, usuario_id: str, texto: str, opcoe
         msg["falado"] = str(falado)[:900]
     if tom:
         msg["tom"] = tom
+    if formato in ("texto", "audio", "ambos"):
+        msg["formato"] = formato
+        voz = formato != "texto"
     com_voz = quer_voz(conta, voz)
     entregues = adiados = 0
     silencioso = em_silencio(conta)
