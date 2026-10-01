@@ -108,10 +108,18 @@ Regras:
   - o título da missão vai em POUCAS palavras que a identifiquem (o sistema procura por trecho do nome);
     descarte palavras de ligação e o que for descrição da meta ("na rotina de R$ 50 no turno da noite" -> "noite");
   - nunca copie a frase inteira para dentro do comando.
+- O VERBO decide o comando; não confunda:
+  - concluir, terminei, terminar, finalizei, acabei, fiz, feito, cumpri, marca como feita/concluída -> o comando de CONCLUIR (/ok);
+  - começar, comecei, iniciar, inicia, dar a largada, vou fazer agora -> o comando de INICIAR (/iniciar);
+  - pausar, parar um pouco -> /pausar; voltar, continuar, retomar -> /retomar; desistir, cancelar -> /cancelar.
+  - "concluir" NUNCA vira /iniciar, mesmo que a missão esteja em andamento.
+  - tire "a missão", "a rotina", "a tarefa" do título: "concluir a missão leitura" -> "/ok leitura".
 - Exemplos:
   - "Some R$ 25 na rotina de R$ 50 no turno da noite" -> {"app":"rot","mensagem":"/somar noite 25","confianca":0.9}
   - "bebi meio litro de água" -> {"app":"rot","mensagem":"/somar água 500","confianca":0.85}
   - "comecei o treino" -> {"app":"rot","mensagem":"/iniciar treino","confianca":0.9}
+  - "concluir a missão de leitura" -> {"app":"rot","mensagem":"/ok leitura","confianca":0.9}
+  - "terminei o treino" -> {"app":"rot","mensagem":"/ok treino","confianca":0.9}
 - "confianca": de 0 a 1.
 - Nunca invente comando fora da lista."""
 
