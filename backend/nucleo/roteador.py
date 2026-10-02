@@ -214,6 +214,10 @@ def vincular_canal(db: Session, canal: str, origem: str, codigo: str,
 # 3. O HUB
 # ══════════════════════════════════════════════════════════════════════
 def _boas_vindas() -> Resposta:
+    """Para quem não tem conta. Por padrão, NADA: o bot não existe para estranhos
+    (config.RESPONDER_DESCONHECIDOS). Código de vínculo continua respondendo."""
+    if not config.RESPONDER_DESCONHECIDOS:
+        return Resposta()
     return Resposta().diz(
         "👋 Olá! Eu sou o *Solo Bot*.\n\n"
         "Falo por todos os seus sistemas Solo num lugar só. Para começar:\n\n"

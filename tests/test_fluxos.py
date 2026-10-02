@@ -82,7 +82,23 @@ def test_castigo_apos_cinco_erros(logado, caixa):
     assert "Muitas tentativas" in caixa[-1][2]
 
 
-def test_desconhecido_recebe_boas_vindas(cliente, caixa):
+def test_desconhecido_nao_recebe_nada(cliente, caixa):
+    """Quem não tem Conta Solo não arranca nem uma palavra do bot."""
+    _tg(cliente, "oi", chat=12345)
+    _tg(cliente, "/start", chat=12345)
+    _wa(cliente, "oi", jid="5599@s.whatsapp.net")
+    assert caixa == []
+
+
+def test_desconhecido_com_codigo_ainda_e_atendido(logado, caixa):
+    """O vínculo continua funcionando: quem manda código recebe resposta, certa ou errada."""
+    _wa(logado, "SOLO 000000", jid="5598@s.whatsapp.net")
+    assert caixa and "código" in caixa[-1][2].lower()
+
+
+def test_boas_vindas_pode_voltar_pelo_env(cliente, caixa, monkeypatch):
+    import config
+    monkeypatch.setattr(config, "RESPONDER_DESCONHECIDOS", True)
     _tg(cliente, "oi", chat=12345)
     assert "Crie sua Conta Solo" in caixa[-1][2]
 

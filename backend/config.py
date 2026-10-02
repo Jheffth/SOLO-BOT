@@ -94,6 +94,10 @@ MODULOS = _modulos()
 FUSO = _env("FUSO", "America/Sao_Paulo")   # para o horário de silêncio dos avisos
 
 MODO_MINUTOS = 30          # modo ativo expira
+# Quem não tem Conta Solo: o bot fica MUDO (padrão). Só responde a quem manda um
+# código de vínculo (/start CODIGO no Telegram, SOLO 123456 no WhatsApp).
+# RESPONDER_DESCONHECIDOS=1 volta a mandar a mensagem de boas-vindas.
+RESPONDER_DESCONHECIDOS = _env("RESPONDER_DESCONHECIDOS", "0").strip().lower() in ("1", "true", "sim", "yes")
 ESCOLHA_MINUTOS = 10       # lista numerada do WhatsApp expira
 CODIGO_MINUTOS = 10        # tokens de canal
 TENTATIVAS_MAX = 5         # erros por origem antes do castigo

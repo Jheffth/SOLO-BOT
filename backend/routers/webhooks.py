@@ -47,6 +47,9 @@ def _processar_telegram(update: dict):
             de = msg.get("from") or {}
             rotulo = ("@" + de["username"]) if de.get("username") else de.get("first_name")
             som = msg.get("voice") or msg.get("audio")
+            if (som or not texto) and not roteador.conta_de(db, "telegram", str(chat["id"])) \
+                    and not config.RESPONDER_DESCONHECIDOS:
+                return                       # estranho: nem baixa o áudio, nem responde
             if som:
                 r = roteador.atender_audio(db, "telegram", str(chat["id"]), telegram.baixar(som.get("file_id", "")),
                                            som.get("mime_type") or "audio/ogg", rotulo,
@@ -124,6 +127,8 @@ def _processar_whatsapp(evento: dict):
         if jid and audio and not chave.get("fromMe"):
             if roteador.ja_processada(db, "whatsapp", chave.get("id")):
                 return
+            if not roteador.conta_de(db, "whatsapp", jid) and not config.RESPONDER_DESCONHECIDOS:
+                return                       # estranho: nem baixa o áudio, nem responde
             conteudo, mime = _bytes_do_audio(data, mensagem, audio)
             r = roteador.atender_audio(db, "whatsapp", jid, conteudo, mime, data.get("pushName"),
                                        int(audio.get("seconds") or 0))

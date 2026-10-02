@@ -70,6 +70,12 @@ origem (15 min), a mesma defesa dos bots atuais.
 - Toda resposta de sistema vem com **selo** na primeira linha: `💰 Finances` ou
   `⚔️ Rotinas`. Quem lê sempre sabe com quem está falando.
 
+### Quem não tem conta
+
+O bot fica **mudo** para quem não tem Conta Solo: não responde, nem baixa áudio. A única exceção é
+quem manda um **código de vínculo** (`/start CODIGO` no Telegram, `SOLO 123456` no WhatsApp), que
+recebe a confirmação ou o erro. `RESPONDER_DESCONHECIDOS=1` no `.env` volta a mandar boas-vindas.
+
 ### Comandos do hub (valem em qualquer modo)
 
 | Comando | Faz |
