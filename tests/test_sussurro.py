@@ -14,7 +14,7 @@ def voz_tom(monkeypatch):
     ditos = []
 
     def sintetizar(texto, canal, id_voz=None, tom=None):
-        ditos.append({"texto": texto, "voz": id_voz, "tom": tom})
+        ditos.append({"texto": texto, "voz": id_voz or fala.voz_para(tom), "tom": tom})
         return {"base64": "Vk9a", "mime": "audio/ogg"}
     monkeypatch.setattr(fala, "sintetizar", sintetizar)
     monkeypatch.setattr(fala, "voz", lambda: "BOT")

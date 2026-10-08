@@ -137,6 +137,9 @@ code { font-family: var(--mono); font-size: .8rem; padding: .18rem .45rem; borde
 .segmentos button[aria-checked="true"] { background: var(--surface-2); color: var(--text); box-shadow: 0 0 0 1px var(--border-strong) inset; }
 
 /* admin · voz */
+#voz-conta { max-width: 100%; min-width: 180px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: inherit; }
+#voz-conta:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
+#voz-conta option { background: var(--bg); color: var(--text); }
 .saldos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 16px; }
 .saldo { padding: 16px 18px; border-radius: 16px; display: grid; gap: 8px; --tom: var(--emerald); }
 .saldo.medio { --tom: var(--warn); } .saldo.baixo { --tom: var(--danger); }

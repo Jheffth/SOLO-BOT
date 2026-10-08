@@ -123,6 +123,8 @@ def painel_voz(_: Conta = Depends(conta_admin)):
     sis = fala.voz_do_sistema()
     return {
         "disponivel": True,
+        "conta": {"atual": fala.conta_escolhida(),
+                  "opcoes": [{"id": c["id"], "nome": c["nome"]} for c in fala.contas()]},
         "creditos": fala.creditos(),
         "vozes": vozes,
         "voz": {"id": atual, "nome": nome, "origem": origem},
@@ -134,6 +136,7 @@ def painel_voz(_: Conta = Depends(conta_admin)):
 
 
 class AjusteVoz(BaseModel):
+    conta: Optional[str] = None
     voice_id: Optional[str] = None
     modelo: Optional[str] = None
     voice_id_sistema: Optional[str] = None        # a voz dos sussurros; "" volta a usar a voz do bot
@@ -143,6 +146,23 @@ class AjusteVoz(BaseModel):
 def ajustar_voz(dados: AjusteVoz, _: Conta = Depends(conta_admin), db: Session = Depends(get_db)):
     from database import gravar_config
     from nucleo import fala
+    if dados.conta is not None:
+        if dados.conta not in {"automatica"} | {c["id"] for c in fala.contas()}:
+            raise HTTPException(422, "Conta de voz não configurada.")
+        if any(x is not None for x in (dados.voice_id, dados.modelo, dados.voice_id_sistema)):
+            raise HTTPException(422, "Troque a conta antes de escolher a voz ou o modelo.")
+        if dados.conta != fala.conta_escolhida():
+            # As vozes clonadas podem não existir na outra conta.
+            from database import Configuracao
+            for chave, valor in ((fala.CHAVE_CONTA, dados.conta), (fala.CHAVE_VOZ, None),
+                                 (fala.CHAVE_VOZ_SISTEMA, None)):
+                registro = db.get(Configuracao, chave) or Configuracao(chave=chave)
+                registro.valor = valor
+                db.add(registro)
+            db.commit()
+            fala._estado["voz"] = None
+            fala._estado["ultimo_erro"] = None
+        return {"ok": True, "conta": fala.conta_escolhida()}
     if dados.voice_id is not None:
         if config.ELEVENLABS_VOICE_ID:
             raise HTTPException(409, "A voz está fixada no .env (ELEVENLABS_VOICE_ID). Tire de lá para escolher aqui.")

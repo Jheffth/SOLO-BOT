@@ -151,6 +151,20 @@ modo Finances. Pedidos de Rotinas podem trocar o modo automaticamente; pedidos f
 seguem como texto original com `via_audio: true`, preservando valores e a origem por voz.
 
 **Resposta falada é do Solo Bot, para todos os sistemas** (ElevenLabs, `nucleo/fala.py`).
+Na Administração → Voz do bot → **Conta de voz**, escolha **Automática** (padrão), **Principal**,
+**Secundária** ou outra conta configurada. A escolha é persistente e vale para todos os sistemas,
+incluindo avisos e amostras. Manual usa somente a conta escolhida; Automática tenta as contas em
+ordem a cada fala e passa à próxima se a anterior falhar, inclusive por falta de créditos.
+
+As chaves continuam apenas no servidor: `ELEVENLABS_API_KEY` (principal),
+`ELEVENLABS_API_KEY_SECONDARY` (secundária) e, para novas contas, `ELEVENLABS_API_KEY_3`,
+`ELEVENLABS_API_KEY_4`, etc. Após configurar novas chaves, recrie o contêiner para carregá-las.
+O painel mostra as contas e seus saldos, nunca as chaves. Ao mudar a seleção de conta, as vozes
+escolhidas no painel (bot e Sistema) são limpas, pois vozes clonadas podem pertencer só à conta anterior.
+Escolha novamente as vozes na lista da conta selecionada. Na troca automática, se a voz não existir
+na próxima conta, o bot escolhe uma voz disponível nela. Uma voz fixada no servidor ou solicitada
+explicitamente na amostra é preservada e precisa estar acessível na conta de destino.
+
 A preferência é da Conta Solo: `/voz audio` (padrão: fala quando a pessoa mandou áudio),
 `/voz sempre` ou `/voz nunca`, também no painel ("Resposta por voz"). O sistema pode mandar
 `falado`, uma versão da resposta feita para o ouvido; o Finances manda. Se não mandar:

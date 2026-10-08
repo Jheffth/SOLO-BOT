@@ -148,12 +148,15 @@
     try { v = await api("/api/admin/voz"); } catch (e) { alvo.innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
     if (!v.disponivel) { alvo.innerHTML = '<p class="muted" style="margin-top:14px">Defina <code>ELEVENLABS_API_KEY</code> no .env do Solo Bot para o bot falar.</p>'; return; }
 
+    const conta = v.conta || { atual: "automatica", opcoes: [] };
+    const contas = [{ id: "automatica", nome: "Automática" }, ...conta.opcoes];
+    if (!contas.some(c => c.id === conta.atual)) contas.push({ id: conta.atual, nome: "Conta indisponível — escolha outra" });
     const saldo = v.creditos.map(c => {
-      if (c.erro) return `<div class="saldo vidro"><div class="saldo-topo"><b>Chave ${esc(c.rotulo)}</b></div><p class="muted pequeno">${esc(c.erro)}</p></div>`;
+      if (c.erro) return `<div class="saldo vidro"><div class="saldo-topo"><b>${esc(c.nome || c.rotulo)}</b></div><p class="muted pequeno">${esc(c.erro)}</p></div>`;
       const pct = c.limite ? Math.min(100, Math.round(c.restantes / c.limite * 100)) : 0;
       const tom = pct < 10 ? "baixo" : pct < 30 ? "medio" : "ok";
       return `<div class="saldo vidro ${tom}">
-        <div class="saldo-topo"><b>Chave ${esc(c.rotulo)}</b><span class="chip">${esc(c.plano || "—")}</span></div>
+        <div class="saldo-topo"><b>${esc(c.nome || c.rotulo)}</b><span class="chip">${esc(c.plano || "—")}</span></div>
         <div class="saldo-num"><b>${fmt(c.restantes)}</b><span>de ${fmt(c.limite)} caracteres</span></div>
         <div class="saldo-barra"><i style="width:${pct}%"></i></div>
         <small class="faint">${pct}% restante${c.renova_em ? ` · renova em ${new Date(c.renova_em + "T12:00:00").toLocaleDateString("pt-BR")}` : ""}
@@ -184,6 +187,14 @@
       </div>`).join("") || '<p class="muted">Nenhuma voz na conta da ElevenLabs.</p>';
 
     alvo.innerHTML = `
+      <h3 style="margin:22px 0 10px">Conta de voz</h3>
+      <div class="linha" style="flex-wrap:wrap">
+        <label for="voz-conta">Usar conta</label>
+        <select id="voz-conta">${contas.map(c => `<option value="${esc(c.id)}" ${c.id === conta.atual ? "selected" : ""}>${esc(c.nome)}</option>`).join("")}</select>
+        <button class="btn pequeno primario" id="voz-conta-salvar">Aplicar conta</button>
+      </div>
+      <p class="muted pequeno">Automática tenta a principal, a secundária e as demais, nessa ordem, quando faltam créditos ou ocorre uma falha. Ao escolher uma conta, somente ela será usada em todos os sistemas.</p>
+      <p class="muted pequeno">Ao trocar, as vozes escolhidas no painel voltam à seleção automática da conta. Você pode escolhê-las novamente abaixo. Novas contas configuradas no servidor aparecem nesta lista.</p>
       <div class="saldos">${saldo || '<p class="muted">Sem chave para consultar.</p>'}</div>
       <div class="voz-grade">
         <div>
@@ -214,6 +225,14 @@
         </div>
       </div>`;
 
+    document.getElementById("voz-conta-salvar").onclick = async function () {
+      carregando(this, true);
+      try {
+        await api("/api/admin/voz", { method: "PUT", body: { conta: document.getElementById("voz-conta").value } });
+        toast("Conta de voz atualizada.");
+        await carregarVoz();
+      } catch (e) { carregando(this, false); toast(e.message, "erro"); }
+    };
     alvo.querySelectorAll("[data-preview]").forEach(b => b.onclick = () => tocar(b.dataset.preview, b));
     alvo.querySelectorAll("[data-usar]").forEach(b => b.onclick = async () => {
       carregando(b, true);

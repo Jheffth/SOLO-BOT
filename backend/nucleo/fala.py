@@ -40,7 +40,7 @@ _estado = {"voz": None, "ultimo_erro": None}
 
 
 def disponivel() -> bool:
-    return bool(config.ELEVENLABS_API_KEY or config.ELEVENLABS_API_KEY_SECONDARY)
+    return bool(contas())
 
 
 def ultimo_erro() -> Optional[str]:
@@ -87,8 +87,27 @@ def expressivo(modelo: str) -> bool:
 
 
 # ── A voz ────────────────────────────────────────────────────────
+CHAVE_CONTA = "conta_elevenlabs"
+
+
+def contas() -> list:
+    """Cadastro do servidor. Nunca devolver as chaves na API do painel."""
+    itens = [("principal", "Principal", config.ELEVENLABS_API_KEY),
+             ("reserva", "Secundária", config.ELEVENLABS_API_KEY_SECONDARY)]
+    itens += [(f"conta_{n}", f"Conta {n}", chave)
+              for n, chave in sorted(config.ELEVENLABS_CONTAS_EXTRAS.items(), key=lambda par: int(par[0]))]
+    return [{"id": id_, "nome": nome, "chave": chave} for id_, nome, chave in itens if chave]
+
+
+def conta_escolhida() -> str:
+    from database import ler_config
+    return ler_config(CHAVE_CONTA) or "automatica"
+
+
 def _chaves() -> list:
-    return [k for k in (config.ELEVENLABS_API_KEY, config.ELEVENLABS_API_KEY_SECONDARY) if k]
+    escolhida = conta_escolhida()
+    return list(dict.fromkeys(c["chave"] for c in contas()
+                             if escolhida == "automatica" or c["id"] == escolhida))
 
 
 MODELOS = [
@@ -129,13 +148,9 @@ def modelo() -> str:
     return config.ELEVENLABS_MODEL or ler_config(CHAVE_MODELO) or MODELO_RESERVA
 
 
-def _chave_para(rotulo: str) -> str:
-    return config.ELEVENLABS_API_KEY if rotulo == "principal" else config.ELEVENLABS_API_KEY_SECONDARY
-
-
-def listar_vozes() -> list:
-    """As vozes da conta ElevenLabs (tenta a chave principal, depois a reserva)."""
-    for chave in _chaves():
+def listar_vozes(chave: Optional[str] = None) -> list:
+    """Vozes da conta escolhida, ou das contas em ordem no modo automático."""
+    for chave in ([chave] if chave else _chaves()):
         try:
             with httpx.Client(timeout=15) as c:
                 r = c.get(f"{API}/voices", headers={"xi-api-key": chave})
@@ -162,10 +177,12 @@ def voz() -> Optional[str]:
     escolhida = ler_config(CHAVE_VOZ)
     if escolhida:
         return escolhida
-    if _estado["voz"]:
+    chaves = tuple(_chaves())
+    if _estado["voz"] and _estado.get("voz_chaves") == chaves:
         return _estado["voz"]
     vozes = [v for v in listar_vozes() if not v["biblioteca"]] or listar_vozes()
     _estado["voz"] = vozes[0]["voice_id"] if vozes else None
+    _estado["voz_chaves"] = chaves
     return _estado["voz"]
 
 
@@ -184,11 +201,9 @@ def creditos() -> list:
     """O saldo de caracteres de cada chave (GET /user/subscription; a chave precisa de "User: read")."""
     from datetime import datetime, timezone
     saida = []
-    for rotulo in ("principal", "reserva"):
-        chave = _chave_para(rotulo)
-        if not chave:
-            continue
-        item = {"rotulo": rotulo}
+    for conta in contas():
+        chave = conta["chave"]
+        item = {"rotulo": conta["id"], "nome": conta["nome"]}
         try:
             with httpx.Client(timeout=12) as c:
                 r = c.get(f"{API}/user/subscription", headers={"xi-api-key": chave})
@@ -216,10 +231,8 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
     if not disponivel() or not texto:
         return None
     tom = tom_valido(tom)
+    voz_explicita = id_voz
     id_voz = id_voz or voz_para(tom)
-    if not id_voz:
-        _estado["ultimo_erro"] = "nenhuma voz disponível na conta da ElevenLabs"
-        return None
     formato, mime = FORMATOS.get(canal, FORMATOS["whatsapp"])
     modelo_id = modelo()
 
@@ -234,12 +247,26 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
                 dito = f"{t['etiqueta']} {dito}"
         return {"text": dito, "model_id": m, "language_code": "pt", "voice_settings": ajustes}
 
-    for chave in _chaves():
+    chaves = _chaves()
+    if not chaves:
+        _estado["ultimo_erro"] = "A conta de voz escolhida não está configurada. Selecione outra conta ou Automática."
+        return None
+    for indice, chave in enumerate(chaves):
+        voz_atual = id_voz
+        if (indice or not voz_atual) and not voz_explicita and not config.ELEVENLABS_VOICE_ID:
+            # Vozes clonadas pertencem à conta. A reserva pode ter outro catálogo.
+            catalogo = listar_vozes(chave)
+            if catalogo and not any(v["voice_id"] == voz_atual for v in catalogo):
+                proprias = [v for v in catalogo if not v["biblioteca"]] or catalogo
+                voz_atual = proprias[0]["voice_id"]
+        if not voz_atual:
+            _estado["ultimo_erro"] = "nenhuma voz disponível na conta da ElevenLabs"
+            continue
         c_atual = corpo(modelo_id)
         for _ in range(3):
             try:
                 with httpx.Client(timeout=40) as c:
-                    r = c.post(f"{API}/text-to-speech/{id_voz}?output_format={formato}",
+                    r = c.post(f"{API}/text-to-speech/{voz_atual}?output_format={formato}",
                                json=c_atual, headers={"xi-api-key": chave})
             except Exception:  # noqa: BLE001
                 _estado["ultimo_erro"] = "ElevenLabs fora do alcance"
@@ -349,7 +376,7 @@ def falar_resposta(conta, canal: str, resposta, entrada_audio: bool, forcar: boo
         if not falado:
             audio = None
         elif tom:
-            audio = sintetizar(falado, canal, voz_para(tom), tom=tom)
+            audio = sintetizar(falado, canal, tom=tom)
         else:
             audio = sintetizar(falado, canal)
     except Exception:  # noqa: BLE001
