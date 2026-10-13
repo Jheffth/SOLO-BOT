@@ -79,9 +79,9 @@ def sessao_de(db: Session, canal: str, origem: str) -> Sessao:
 
 
 def conta_de(db: Session, canal: str, origem: str) -> Optional[Conta]:
-    if canal == "siri":
-        # A Siri não tem chat para vincular: a origem "siri:<conta>" só nasce em
-        # routers/atalho.py, DEPOIS de conferida a chave pessoal da conta.
+    if canal in ("siri", "bella"):
+        # Os canais diretos autenticam suas chaves antes de construir a
+        # origem "<canal>:<conta>" em routers/atalho.py e routers/bella.py.
         try:
             c = db.get(Conta, int(str(origem).split(":", 1)[1]))
         except (IndexError, ValueError):
@@ -442,7 +442,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
                               "para evitar registros indevidos.")
 
     # WhatsApp: um número responde à última lista
-    if canal in ("whatsapp", "siri") and txt.isdigit() and s.escolhas:
+    if canal in ("whatsapp", "siri", "bella") and txt.isdigit() and s.escolhas:
         escolhido = _resgatar_escolha(db, s, int(txt))
         if escolhido:
             return atender_toque(db, canal, origem, escolhido["dados"])

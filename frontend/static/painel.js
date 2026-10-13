@@ -38,6 +38,7 @@
     renderCanais();
     carregarAvisos();
     if (!siri) carregarSiri();
+    if (!bella) carregarBella();
     document.querySelectorAll("#voz-opcoes [data-voz]").forEach(b =>
       b.setAttribute("aria-checked", String(b.dataset.voz === (c.voz || "audio"))));
     renderSistemas();
@@ -168,6 +169,34 @@
   }
 
   // ── Siri / Atalhos ──
+  let bella = null, chaveBella = null;
+  async function carregarBella() {
+    const el = document.getElementById("bella");
+    try { bella = await api("/api/conta/bella"); }
+    catch (e) { el.textContent = e.message; return; }
+    el.innerHTML = `
+      <div class="linha entre" style="flex-wrap:wrap;gap:12px">
+        <p class="muted pequeno">${bella.ativo ? "Acesso da Bella ativo." : "Gere uma chave para conectar o aplicativo à sua Conta Solo."}</p>
+        <div class="linha"><button class="btn pequeno primario" id="bella-gerar">${bella.ativo ? "Trocar chave" : "Gerar chave"}</button>
+        ${bella.ativo ? '<button class="btn pequeno fantasma" id="bella-revogar">Revogar</button>' : ""}</div>
+      </div>
+      ${chaveBella ? `<div class="codigo-grande"><span style="overflow-wrap:anywhere">${esc(chaveBella)}</span><button class="btn pequeno" id="bella-copiar">Copiar</button></div><p class="faint pequeno">A chave aparece só agora. Cole no aplicativo Bella e clique em Salvar.</p>` : ""}
+      <p class="muted pequeno">No aplicativo, use o servidor <b>${esc(bella.servidor)}</b>. Ative a escuta e diga “Bella”, faça uma breve pausa e fale o pedido. Você também pode usar Ctrl + Alt + B ou digitar.</p>
+      <a class="btn pequeno" href="https://github.com/Jheffth/SOLO-BOT/tree/main/desktop/bella" target="_blank" rel="noopener">Aplicativo e instruções</a>`;
+    el.querySelector("#bella-gerar").onclick = async () => {
+      if (bella.ativo && !confirm("Trocar a chave? O aplicativo precisará da nova chave para continuar.")) return;
+      try { chaveBella = (await api("/api/conta/bella", { method: "POST" })).chave; await carregarBella(); }
+      catch (e) { toast(e.message, "erro"); }
+    };
+    const copiar = el.querySelector("#bella-copiar");
+    if (copiar) copiar.onclick = () => navigator.clipboard.writeText(chaveBella).then(() => toast("Copiado."));
+    const revogar = el.querySelector("#bella-revogar");
+    if (revogar) revogar.onclick = async () => {
+      try { await api("/api/conta/bella", { method: "DELETE" }); chaveBella = null; await carregarBella(); }
+      catch (e) { toast(e.message, "erro"); }
+    };
+  }
+
   let siri = null, chaveNova = null;
   async function carregarSiri() {
     try { siri = await api("/api/conta/atalho"); } catch (e) { return; }

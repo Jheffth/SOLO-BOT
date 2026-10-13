@@ -33,6 +33,9 @@ class Conta(Base):
     atalho_hash = Column(String(64), nullable=True, index=True)   # sha256 da chave da Siri — ver routers/atalho.py
     atalho_criado_em = Column(DateTime, nullable=True)
     atalho_usado_em = Column(DateTime, nullable=True)
+    bella_hash = Column(String(64), nullable=True, index=True)
+    bella_criado_em = Column(DateTime, nullable=True)
+    bella_usado_em = Column(DateTime, nullable=True)
     senha_hash = Column(String(200), nullable=False)
     admin = Column(Boolean, default=False, nullable=False)
     ativo = Column(Boolean, default=True, nullable=False)
@@ -232,7 +235,8 @@ def _migrar():
         for nome, tipo in (("voz", "VARCHAR(10)"), ("avisos_silencio_de", "VARCHAR(5)"),
                            ("avisos_silencio_ate", "VARCHAR(5)"), ("avisos_voz", "VARCHAR(10)"),
                            ("atalho_hash", "VARCHAR(64)"), ("atalho_criado_em", data),
-                           ("atalho_usado_em", data)):
+                           ("atalho_usado_em", data), ("bella_hash", "VARCHAR(64)"),
+                           ("bella_criado_em", data), ("bella_usado_em", data)):
             if nome not in colunas:
                 con.execute(text(f"ALTER TABLE contas ADD COLUMN {nome} {tipo}"))
         if engine.dialect.name == "postgresql" and not colunas.get("email", {}).get("nullable", True):

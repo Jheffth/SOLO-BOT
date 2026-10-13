@@ -222,6 +222,31 @@ pediu `voz: true`).
 - O nome do atalho é a frase de ativação. "Solo" sozinho a Siri lê como pesquisa (solo = chão):
   use "Solo Bot". Em português, a ativação é "E aí, Siri" (ou "Siri"), não "Ei Siri".
 
+### Bella (Windows)
+
+A Bella é um aplicativo portátil, com janela de conversa e ícone perto do relógio. Gere uma chave
+em **Painel → Bella no computador**, cole no aplicativo e salve. O acesso da Bella é independente
+da Siri; trocar ou revogar uma chave não afeta os outros canais. No computador, a chave é cifrada
+para o usuário Windows; no servidor, fica somente seu hash.
+
+- **Ativar escuta:** a chamada “Bella” é detectada localmente. Depois do aviso “Pode falar”, fale o pedido; a
+  pausa envia um WAV de até 30 segundos ao hub. O áudio ambiente de espera não é enviado.
+- **Ctrl + Alt + B** ou **Falar agora:** grava o pedido sem precisar da chamada. Também aceita texto.
+- **Pausar escuta:** desliga a captura e libera o microfone. Fechar a janela mantém o aplicativo
+  no ícone; **Sair** encerra. Iniciar com Windows é opcional, marcado pelo usuário.
+- **Resposta:** usa a voz ElevenLabs do Solo Bot; se não vier áudio, usa a voz instalada no Windows.
+  Durante processamento e reprodução, a escuta não gera pedidos. Interromper voz para a reprodução.
+- **Sessão:** o modo Finanças/Rotinas e as opções ficam no canal `bella`, separados do WhatsApp,
+  Telegram e Siri. “Dois” escolhe a segunda opção e “sim” responde a uma confirmação do sistema.
+- **Reentrega:** um identificador de pedido impede executar a mesma chamada duas vezes. Se a resposta
+  se perder, confira o resultado no sistema antes de repetir; o aplicativo não reenvia sozinho.
+
+A primeira versão oferece pedidos aos sistemas Solo e continuidade do modo ativo. Identificação
+de pessoa pela voz, memória geral de conversa e controle dos aplicativos do Windows ainda não
+fazem parte dela. A precisão da chamada deve ser ajustada ao microfone e ruído do ambiente.
+
+Instalação e compilação: [desktop/bella/LEIA-ME.md](desktop/bella/LEIA-ME.md).
+
 ### O que fica para depois
 
 - **SSO nos sistemas** ("Entrar com Conta Solo"), que reaproveita o mesmo fluxo de conexão.

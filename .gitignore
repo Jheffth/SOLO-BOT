@@ -3,6 +3,8 @@
 __pycache__/
 .pytest_cache/
 _cofre/
+desktop/bella/.cache/
+desktop/bella/dist/
 
 # capturas de tela salvas pelo app
 Claude outputs/

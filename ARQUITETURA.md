@@ -2,7 +2,8 @@
 
 Um bot só (Telegram + WhatsApp), com painel web próprio (cadastro, login,
 canais, sistemas), atendendo vários projetos Solo na mesma VPS (Contabo).
-Projetos iniciais: **Solo Finances** e **Solo Rotinas**.
+Projetos iniciais: **Solo Finances** e **Solo Rotinas**. O aplicativo **Bella** para Windows
+usa o mesmo hub como canal de conversa, com reconhecimento local da chamada e chave própria.
 
 Como ele conversa e como as contas se ligam: **[INTERACAO.md](INTERACAO.md)**.
 
@@ -41,6 +42,7 @@ SOLO BOT/
 │   ├── canais/            telegram.py · evolution.py (só transporte)
 │   └── routers/           auth · conta · conectar · webhooks · interno · admin · atalho (Siri)
 ├── frontend/              entrar/cadastro · painel · conectar · admin (HTML/CSS/JS, sem build)
+├── desktop/bella/         aplicativo Windows portátil · modelo local · compilação e testes
 ├── tests/                 pytest: fluxos de ponta a ponta + adaptadores
 ├── integracao/            o que encaixa em cada sistema (ver integracao/LEIA-ME.md)
 └── Dockerfile · docker-compose.yml · .env.example
@@ -129,6 +131,11 @@ Depois, crie a conta com o e-mail de `ADMIN_EMAILS` e abra **Administração**:
 *Ligar webhook* (Telegram) e *Gerar QR / Reaplicar webhook* (WhatsApp).
 
 ## Testes
+
+A Bella é compilada com `desktop/bella/Compilar.ps1`. A execução inclui testes locais sem microfone
+e gera um ZIP portátil. O workflow `Bella para Windows` publica esse ZIP como artefato do GitHub.
+O backend usa `/api/bella/mensagem` e o painel gera/revoga sua chave em `/api/conta/bella`.
+As chaves de provedor continuam exclusivamente no servidor.
 
 ```bash
 pip install -r requirements.txt pytest

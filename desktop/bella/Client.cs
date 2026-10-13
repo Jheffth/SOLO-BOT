@@ -1,0 +1,85 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
+using System.Web.Script.Serialization;
+
+namespace Bella {
+    public sealed class Settings {
+        public string Server="https://solobot.duckdns.org";
+        public string Key="";
+        public bool Startup;
+        public int Threshold=220;
+        static readonly string FilePath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Solo","Bella","acesso.dat");
+        public static Settings Load() {
+            if(!File.Exists(FilePath)) return new Settings();
+            try {
+                var bytes=ProtectedData.Unprotect(File.ReadAllBytes(FilePath),null,DataProtectionScope.CurrentUser);
+                return new JavaScriptSerializer().Deserialize<Settings>(Encoding.UTF8.GetString(bytes));
+            } catch { return new Settings(); }
+        }
+        public void Save() {
+            Validate(Server,Key);
+            var bytes=Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(this));
+            Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
+            File.WriteAllBytes(FilePath,ProtectedData.Protect(bytes,null,DataProtectionScope.CurrentUser));
+        }
+        public static void Validate(string server,string key) {
+            Uri uri;
+            if(!Uri.TryCreate(server,UriKind.Absolute,out uri) || !String.IsNullOrEmpty(uri.UserInfo)
+                || !String.IsNullOrEmpty(uri.Query) || !String.IsNullOrEmpty(uri.Fragment)
+                || (uri.Scheme!="https" && !(uri.Scheme=="http" && uri.IsLoopback)))
+                throw new InvalidOperationException("Use o endereço HTTPS do Solo Bot.");
+            if(!System.Text.RegularExpressions.Regex.IsMatch(key,"^bella_[A-Za-z0-9_-]{40,80}$"))
+                throw new InvalidOperationException("Cole a chave gerada na seção Bella do painel.");
+        }
+    }
+    public sealed class Reply {
+        public string texto { get; set; }
+        public string falar { get; set; }
+        public string ouvido { get; set; }
+        public string audio_base64 { get; set; }
+        public string mime { get; set; }
+    }
+    public sealed class Client : IDisposable {
+        readonly HttpClient http;
+        readonly string server,key;
+        public Client(string url,string credential) {
+            Settings.Validate(url,credential); server=url.TrimEnd('/'); key=credential;
+            // Não encaminha a chave a outro domínio por redirecionamento.
+            http=new HttpClient(new HttpClientHandler { AllowAutoRedirect=false });
+            http.Timeout=TimeSpan.FromSeconds(150);
+        }
+        public async Task<Reply> Send(string text,byte[] wave) {
+            var body=new Dictionary<string,object> { {"pedido_id",Guid.NewGuid().ToString()}, {"voz",true} };
+            if(wave!=null) body["audio_base64"]=Convert.ToBase64String(wave); else body["texto"]=text;
+            var request=new HttpRequestMessage(HttpMethod.Post,server+"/api/bella/mensagem");
+            request.Headers.Add("X-Bella-Chave",key);
+            request.Content=new StringContent(new JavaScriptSerializer().Serialize(body),Encoding.UTF8,"application/json");
+            try {
+                using(request) using(var response=await http.SendAsync(request)) {
+                    var json=await response.Content.ReadAsStringAsync();
+                    var parser=new JavaScriptSerializer { MaxJsonLength=16*1024*1024 };
+                    if(!response.IsSuccessStatusCode) {
+                        string detail="O Solo Bot respondeu HTTP "+(int)response.StatusCode+".";
+                        try {
+                            var data=parser.Deserialize<Dictionary<string,object>>(json);
+                            object value; if(data.TryGetValue("detail",out value) && value is string) detail=(string)value;
+                        } catch { }
+                        throw new InvalidOperationException(detail);
+                    }
+                    return parser.Deserialize<Reply>(json);
+                }
+            } catch(TaskCanceledException) {
+                throw new InvalidOperationException("A resposta demorou. Confira o resultado no sistema antes de repetir o pedido.");
+            } catch(HttpRequestException) {
+                throw new InvalidOperationException("A conexão falhou. Confira no sistema se o pedido foi executado antes de repetir.");
+            }
+        }
+        public void Dispose() { http.Dispose(); }
+    }
+}

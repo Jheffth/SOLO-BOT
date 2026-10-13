@@ -1,0 +1,19 @@
+name: Bella para Windows
+on:
+  push:
+    branches: [main]
+    paths: ['desktop/bella/**', '.github/workflows/bella-windows.yml']
+  workflow_dispatch:
+jobs:
+  compilar:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar e testar
+        shell: powershell
+        run: ./desktop/bella/Compilar.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bella-Windows
+          path: desktop/bella/dist/Bella-Windows.zip
+          retention-days: 30
