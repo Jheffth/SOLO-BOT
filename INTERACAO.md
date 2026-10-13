@@ -100,6 +100,13 @@ você: /sair
 você: comprei pão 8            ← hub: "Para qual sistema?" [💰 Finances] [⚔️ Rotinas]
 ```
 
+Com prefixo, o hub reconhece o primeiro termo pelo manifesto: `/fin saldo nubank` envia
+`/saldo nubank`, e `/rot hoje` envia `/hoje`. A barra explícita também funciona (`/fin /saldo`).
+Frases livres são preservadas, como `/fin recebi 92,60 Uber`. Se o manifesto ainda não estiver
+disponível, use a barra explícita para garantir o comando. Respostas completas copiadas do bot
+com selos, erros ou recibos são recusadas antes de chegar ao sistema, para que exemplos de ajuda
+não sejam executados como pedidos.
+
 **Antes de perguntar, o bot tenta entender** (`nucleo/intencao.py`):
 
 1. **Palavras:** o vocabulário de cada sistema, tirado do manifesto (comandos e exemplos) e de uma
@@ -151,6 +158,12 @@ modo Finances. Pedidos de Rotinas podem trocar o modo automaticamente; pedidos f
 seguem como texto original com `via_audio: true`, preservando valores e a origem por voz.
 
 **Resposta falada é do Solo Bot, para todos os sistemas** (ElevenLabs, `nucleo/fala.py`).
+Falhas de transcrição informam o serviço e uma categoria segura (limite de uso, acesso recusado,
+modelo indisponível, conexão, demora ou resposta inválida), sem expor chaves ou o conteúdo do áudio.
+Uma transcrição cortada é descartada e passa ao próximo serviço configurado. Falha de conexão com
+um sistema e demora na resposta têm mensagens distintas; na demora, confira o resultado no sistema
+antes de repetir, porque o pedido pode ter sido processado mesmo sem resposta ao hub.
+
 Na Administração → Voz do bot → **Conta de voz**, escolha **Automática** (padrão), **Principal**,
 **Secundária** ou outra conta configurada. A escolha é persistente e vale para todos os sistemas,
 incluindo avisos e amostras. Manual usa somente a conta escolhida; Automática tenta as contas em

@@ -42,6 +42,20 @@ class FalhaVoz(Exception):
     """Todos os motores falharam."""
 
 
+def _motivo(erro: Exception) -> str:
+    """Diagnóstico sem corpo da resposta, endereço, chave ou texto pessoal."""
+    if isinstance(erro, httpx.HTTPStatusError):
+        codigo = erro.response.status_code
+        return {429: "limite de uso atingido (HTTP 429)", 401: "chave recusada (HTTP 401)",
+                403: "acesso recusado (HTTP 403)", 404: "modelo indisponível (HTTP 404)",
+                400: "pedido de áudio recusado (HTTP 400)"}.get(codigo, f"serviço respondeu HTTP {codigo}")
+    if isinstance(erro, httpx.TimeoutException):
+        return "tempo de resposta esgotado"
+    if isinstance(erro, httpx.RequestError):
+        return "falha de conexão com o serviço"
+    return "resposta de transcrição inválida"
+
+
 def disponivel() -> bool:
     return bool(config.GEMINI_API_KEY or config.GEMINI_API_KEY_RESERVA or config.GROK_API_KEY)
 
@@ -61,6 +75,8 @@ def _gemini(chave: str, rotulo: str) -> Callable:
             r = c.post(url, json=corpo, headers={"x-goog-api-key": chave})
         r.raise_for_status()
         cand = r.json()["candidates"][0]
+        if cand.get("finishReason") not in (None, "STOP"):
+            raise ValueError("transcrição incompleta")
         return "".join(p.get("text", "") for p in cand["content"]["parts"] if not p.get("thought")).strip()
     ouvir.nome = f"gemini/{rotulo}"
     return ouvir
@@ -97,11 +113,15 @@ def transcrever(conteudo: bytes, mime: str) -> str:
     if not fila:
         raise SemVoz()
     mime = _limpo(mime)
+    falhas = []
     for motor in fila:
         try:
             texto = motor(conteudo, mime)
             log.info("Áudio transcrito via %s", motor.nome)
             return texto.strip().strip('"“”').strip()[:1000]
         except Exception as e:  # noqa: BLE001
-            log.warning("Transcrição via %s falhou: %s", getattr(motor, "nome", "?"), type(e).__name__)
-    raise FalhaVoz()
+            motivo = _motivo(e)
+            nome = getattr(motor, "nome", "serviço")
+            log.warning("Transcrição via %s falhou: %s", nome, motivo)
+            falhas.append(f"{nome}: {motivo}")
+    raise FalhaVoz("; ".join(falhas))

@@ -389,6 +389,35 @@ def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulo
 # ══════════════════════════════════════════════════════════════════════
 # A ENTRADA — texto
 # ══════════════════════════════════════════════════════════════════════
+def _pedido_com_prefixo(db: Session, mod: modulos.Modulo, texto: str) -> str:
+    """/fin saldo -> /saldo; frases livres e argumentos continuam intactos."""
+    from nucleo import manifestos
+    texto = texto.strip()
+    if not texto:
+        return "/ajuda"
+    palavra = texto.split(maxsplit=1)[0]
+    if palavra.startswith("/"):
+        return texto
+    comando = "/" + palavra.lower()
+    anunciados = {c["comando"] for c in (manifestos.de(db, mod.chave) or {}).get("comandos", [])}
+    if comando in anunciados or comando in {"/ajuda", "/help"}:
+        return comando + texto[len(palavra):]
+    return texto
+
+
+def _resposta_colada(texto: str) -> bool:
+    """Reconhece respostas copiadas, sem bloquear lançamentos com várias linhas."""
+    if "\n" not in texto:
+        return False
+    linhas = [_sem_acento(l.lower()).strip(" *_`⚠️❌✅💰⚔️") for l in texto.splitlines()]
+    selos = {_sem_acento(m.nome.replace("Solo ", "").lower()) for m in modulos.todos()}
+    return any(l in selos or l.startswith(("nao identifiquei o valor", "registrado com sucesso",
+                                           "errou? mande /desfazer"))
+               or l.startswith("nao consegui conectar ao solo ")
+               or (l.startswith("solo ") and any(e in l for e in ("nao respondeu", "demorou para responder")))
+               for l in linhas)
+
+
 def atender_texto(db: Session, canal: str, origem: str, texto: str,
                   rotulo: Optional[str] = None, via_audio: bool = False) -> Resposta:
     origem = str(origem)
@@ -406,6 +435,11 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     conta = conta_de(db, canal, origem)
     if not conta:
         return _boas_vindas()
+
+    if _resposta_colada(txt):
+        return Resposta().diz("📋 Isso parece uma resposta do bot copiada. "
+                              "Envie somente o seu comando ou lançamento, sem os exemplos da resposta, "
+                              "para evitar registros indevidos.")
 
     # WhatsApp: um número responde à última lista
     if canal in ("whatsapp", "siri") and txt.isdigit() and s.escolhas:
@@ -435,7 +469,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
             if not _vinculo(conta, mod.chave):
                 return _nao_conectado(mod)
             _entrar_modo(db, s, mod.chave)
-            return para_sistema(db, conta, canal, origem, mod, texto=resto.strip() or "/ajuda",
+            return para_sistema(db, conta, canal, origem, mod, texto=_pedido_com_prefixo(db, mod, resto),
                                 resumo=f"/{mod.chave}", via_audio=via_audio)
 
     modo = _modo_valido(s)
@@ -547,8 +581,9 @@ def atender_audio(db: Session, canal: str, origem: str, conteudo: bytes, mime: s
     except voz.SemVoz:
         return Resposta().diz("🎤 Ainda não entendo áudio: falta a chave de transcrição no servidor. "
                               "Mande por escrito.")
-    except voz.FalhaVoz:
-        return Resposta().diz("🎤 Não consegui ouvir agora. Tente de novo em instantes, ou mande por escrito.")
+    except voz.FalhaVoz as erro:
+        detalhe = f" Motivo: {erro}." if str(erro) else ""
+        return Resposta().diz("🎤 Não consegui ouvir agora." + detalhe + " Mande por escrito ou tente mais tarde.")
     if not texto:
         return Resposta().diz("🎤 Não entendi o áudio. Pode repetir, ou mandar por escrito?")
 

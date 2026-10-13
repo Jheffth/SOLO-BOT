@@ -118,6 +118,13 @@ def chamar(mod: Modulo, rota: str, corpo: dict) -> dict:
             r = _post(f"{mod.url}/interno/bot/{rota}", mod.token, corpo, TIMEOUT_AUDIO)
         else:
             r = _post(f"{mod.url}/interno/bot/{rota}", mod.token, corpo)
+    except httpx.ReadTimeout:
+        log.warning("Tempo de resposta esgotado com %s (%s)", mod.chave, rota)
+        raise ErroModulo(f"{mod.nome} demorou para responder. Não consegui confirmar o resultado; "
+                         "confira no sistema antes de repetir.")
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        log.warning("Falha de conexão com %s (%s)", mod.chave, rota)
+        raise ErroModulo(f"Não consegui conectar ao {mod.nome}. Tente de novo em instantes.")
     except httpx.HTTPError:
         log.exception("Falha de rede com %s (%s)", mod.chave, rota)
         raise ErroModulo(f"{mod.nome} não respondeu. Tente de novo em instantes.")

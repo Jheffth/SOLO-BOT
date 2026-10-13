@@ -106,3 +106,50 @@ def test_transcrever_cai_no_proximo_motor(monkeypatch):
     ruim.nome, bom.nome = "ruim", "bom"
     monkeypatch.setattr(voz, "motores", lambda: [ruim, bom])
     assert voz.transcrever(b"x", "audio/ogg; codecs=opus") == "gastei 45 no mercado"
+
+
+@pytest.mark.parametrize("codigo,motivo", [(429, "limite de uso"), (401, "chave recusada"),
+                                          (403, "acesso recusado"), (404, "modelo indisponível"),
+                                          (503, "HTTP 503")])
+def test_falha_transcricao_informa_status_sem_vazar_dados(monkeypatch, caplog, codigo, motivo):
+    import httpx
+    def falhar(c, m):
+        resposta = httpx.Response(codigo, text="SEGREDO E TEXTO PESSOAL",
+                                  request=httpx.Request("POST", "https://teste.invalid/?key=SEGREDO"))
+        resposta.raise_for_status()
+    falhar.nome = "gemini/principal"
+    monkeypatch.setattr(voz, "motores", lambda: [falhar])
+    with pytest.raises(voz.FalhaVoz) as erro:
+        voz.transcrever(b"audio pessoal", "audio/ogg")
+    assert motivo in str(erro.value) and motivo in caplog.text
+    assert "SEGREDO" not in str(erro.value) + caplog.text
+
+
+def test_gemini_incompleto_passa_para_reserva(monkeypatch):
+    import httpx
+    class Cliente:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def post(self, url, json, headers):
+            return httpx.Response(200, json={"candidates": [{"finishReason": "MAX_TOKENS",
+                "content": {"parts": [{"text": "recebi R$ 9"}]}}]}, request=httpx.Request("POST", url))
+    def reserva(c, m): return "recebi R$ 92,60 na conta Uber"
+    reserva.nome = "gemini/reserva"
+    monkeypatch.setattr(voz.httpx, "Client", Cliente)
+    monkeypatch.setattr(voz, "motores", lambda: [voz._gemini("chave", "principal"), reserva])
+    assert voz.transcrever(b"audio", "audio/ogg") == "recebi R$ 92,60 na conta Uber"
+
+
+def test_motivo_aparece_no_chat_sem_encaminhar_ao_sistema(logado, sistemas, caixa, monkeypatch):
+    import httpx
+    logado.post("/api/conectar", json={"app": "rot", "codigo": "CODROT1"})
+    _ligar_telegram(logado)
+    monkeypatch.setattr(telegram, "baixar", lambda fid: b"audio")
+    def falhar(c, m): raise httpx.ReadTimeout("segredo")
+    falhar.nome = "gemini/principal"
+    monkeypatch.setattr(voz, "motores", lambda: [falhar])
+    antes = len(sistemas.recebidos)
+    _voz_tg(logado)
+    assert len(sistemas.recebidos) == antes
+    assert "tempo de resposta esgotado" in caixa[-1][2] and "segredo" not in caixa[-1][2]
