@@ -57,12 +57,17 @@ _SELO = re.compile(r"^\S{1,3}\s*\*[^*]{2,30}\*$")          # "💰 *Finances*" s
 
 
 def _reais(m: re.Match) -> str:
-    inteiro, cent = m.group(1).replace(".", ""), m.group(2)
-    base = f"{int(inteiro)} {'real' if inteiro == '1' else 'reais'}"
-    return base if not cent or cent == "00" else f"{base} e {int(cent)} centavos"
+    inteiro, cent = m.group(1).replace(".", ""), int(m.group(2) or 0)
+    negativo = inteiro.startswith("-")
+    valor = abs(int(inteiro))
+    base = f"{valor} {'real' if valor == 1 else 'reais'}"
+    if cent:
+        centavos = f"{cent} {'centavo' if cent == 1 else 'centavos'}"
+        base = f"{base} e {centavos}" if valor else centavos
+    return ("menos " if negativo and (valor or cent) else "") + base
 
 
-def texto_falavel(texto: str, limite: Optional[int] = MAX_CARACTERES) -> Optional[str]:
+def texto_falavel(texto: str, limite: Optional[int] = MAX_CARACTERES, limpar_tecnico: bool = True) -> Optional[str]:
     linhas = []
     for linha in (texto or "").splitlines():
         l = linha.strip()
@@ -73,8 +78,12 @@ def texto_falavel(texto: str, limite: Optional[int] = MAX_CARACTERES) -> Optiona
         if _SELO.match(l):
             continue                            # "⚔️ *Rotinas*": o selo é para os olhos
         l = _EMOJI.sub(" ", l)
-        l = re.sub(r"[*_`~•▸]", " ", l).replace("→", " para ")
-        l = re.sub(r"R\$\s*([\d.]+)(?:,(\d{2}))?", _reais, l)
+        l = re.sub(r"[*_`~•▸]", " ", l).replace("→", " para ").strip()
+        if limpar_tecnico:
+            if re.fullmatch(r"ID\s*:\s*\d+", l, re.I) or re.fullmatch(r"[-–—=]{3,}", l):
+                continue
+            l = re.sub(r"(?<!\w)Disp\.?\s*:", "Disponível:", l, flags=re.I)
+        l = re.sub(r"R\$\s*(-?[\d.]+)(?:,(\d{2}))?", _reais, l)
         l = re.sub(r"\s+", " ", l).strip(" :-–—")
         if l:
             linhas.append(l)
@@ -365,6 +374,9 @@ Regras:
 - Tom natural e direto, na segunda pessoa ("você tem…"). Nada de "aqui está", nada de saudação longa.
 - Lista longa: diga quantos são e cite no máximo 3 itens, os mais importantes (pendentes antes de concluídos).
 - Sem emoji, sem markdown, sem ler comandos (/hoje), sem números de lista.
+- Não leia identificadores técnicos (ID), separadores ou abreviações de exibição como "Disp".
+- Distinga saldo de conta, limite disponível de cartão e fatura. Não some esses valores entre si.
+- Preserve sinais e centavos. Não adivinhe o significado de siglas nos nomes de contas e missões.
 - NUNCA invente nada que não esteja na resposta. Se não houver o que falar, responda vazio."""
 
 
@@ -408,7 +420,7 @@ def o_que_falar(mensagens: list) -> Optional[str]:
     if feitos:
         return " ".join(feitos)
     if any(tom_valido(m.get("tom")) for m in mensagens):      # frase com tom: literal, nunca resumida
-        literal = " ".join(t for t in (texto_falavel(m.get("texto") or "", None) for m in mensagens) if t)
+        literal = " ".join(t for t in (texto_falavel(m.get("texto") or "", None, limpar_tecnico=False) for m in mensagens) if t)
         return literal[:MAX_CARACTERES] or None
     limpos = [texto_falavel(m.get("texto") or "") for m in mensagens]
     tem_lista = any(m.get("opcoes") for m in mensagens)

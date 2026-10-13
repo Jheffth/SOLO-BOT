@@ -211,3 +211,18 @@ def test_migracao_acrescenta_campos_bella_em_banco_antigo(monkeypatch):
     colunas = {c["name"] for c in inspect(engine).get_columns("contas")}
     assert {"bella_hash", "bella_criado_em", "bella_usado_em"} <= colunas
     engine.dispose()
+
+
+def test_bella_fala_roteiro_natural_e_mantem_tabela_na_tela(acesso, monkeypatch):
+    from conftest import Resp
+    from nucleo import gemini, modulos
+    dito = 'O cartão Santander CC está sem limite disponível.'
+    sintetizados = []
+    monkeypatch.setattr(modulos, '_post', lambda *a, **k: Resp(200, {'mensagens':[
+        {'texto':'💳 Cartões\nSantander CC   Disp: R$ 0,00', 'falado':dito, 'opcoes':[]}]}))
+    monkeypatch.setattr(gemini, 'gerar', lambda *a, **k: pytest.fail('Roteiro pronto não pede IA'))
+    monkeypatch.setattr(fala, 'disponivel', lambda: True)
+    monkeypatch.setattr(fala, 'sintetizar', lambda t, c: sintetizados.append((t,c)) or {'base64':'SUQz','mime':'audio/mpeg'})
+    r = enviar(acesso, '/fin saldo Santander CC').json()
+    assert 'Disp:' in r['texto'] and r['falar'] == dito
+    assert sintetizados == [(dito, 'whatsapp')] and r['audio_base64'] == 'SUQz'

@@ -148,3 +148,25 @@ def test_falado_do_sistema_tem_prioridade(monkeypatch):
     from nucleo import gemini
     monkeypatch.setattr(gemini, "gerar", lambda *a, **k: pytest.fail("não precisava de IA"))
     assert fala.o_que_falar([{"texto": "longo " * 200, "falado": "Pronto."}]) == "Pronto."
+
+
+@pytest.mark.parametrize('texto,esperado', [
+    ('Santander CC   Disp: R$ 0,00', 'Santander CC Disponível: 0 reais.'),
+    ('Saldo: R$ -123,67', 'Saldo: menos 123 reais e 67 centavos.'),
+    ('Saldo: R$ -0,50', 'Saldo: menos 50 centavos.'),
+    ('Valor: R$ 1,01', 'Valor: 1 real e 1 centavo.'),
+    ('Valor: R$ 1.000,00', 'Valor: 1000 reais.'),
+])
+def test_limpeza_preserva_sinais_centavos_e_siglas_dos_nomes(texto, esperado):
+    assert fala.texto_falavel(texto) == esperado
+
+
+def test_metadados_e_separadores_ficam_so_na_tela():
+    texto = '✅ Registrado!\n---\n`ID: 2066`\nSaldo: R$ 92,60'
+    assert fala.texto_falavel(texto) == 'Registrado! Saldo: 92 reais e 60 centavos.'
+    assert fala.texto_falavel('ID: 12 é o título da minha missão') == 'ID: 12 é o título da minha missão.'
+
+
+def test_fala_literal_com_tom_nao_expande_termos_ou_remove_linhas():
+    texto = 'Disp: código.\nID: 12'
+    assert fala.o_que_falar([{'texto':texto, 'tom':'sussurro'}]) == 'Disp: código. ID: 12.'
