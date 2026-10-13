@@ -45,12 +45,9 @@ function Obter-DllWebView2($padrao, $nome) {
     }
     return $achado.FullName
 }
-$coreWebView2 = Obter-DllWebView2 '*\lib
-et4*\*' 'Microsoft.Web.WebView2.Core.dll'
-$formsWebView2 = Obter-DllWebView2 '*\lib
-et4*\*' 'Microsoft.Web.WebView2.WinForms.dll'
-$loaderWebView2 = Obter-DllWebView2 '*untimes\win-x64
-ative\*' 'WebView2Loader.dll'
+$coreWebView2 = Obter-DllWebView2 '*\lib\net4*' 'Microsoft.Web.WebView2.Core.dll'
+$formsWebView2 = Obter-DllWebView2 '*\lib\net4*' 'Microsoft.Web.WebView2.WinForms.dll'
+$loaderWebView2 = Obter-DllWebView2 '*\runtimes\win-x64\native\*' 'WebView2Loader.dll'
 Copy-Item -LiteralPath $coreWebView2, $formsWebView2, $loaderWebView2 -Destination $saidaBella -Force
 
 # A tela (HTML/CSS/JS) vai inteira, ao lado do Bella.exe.
