@@ -19,13 +19,14 @@ from sqlalchemy.orm import Session
 
 import config
 from database import Conta, get_db
-from nucleo import fala, render, roteador, voz
+from nucleo import fala, render, roteador, saudacoes, voz
 from routers.atalho import _numero_falado, _sem_marcacao
 from seguranca import conta_atual
 
 router = APIRouter(tags=["bella"])
 log = logging.getLogger("solobot.bella")
 _JANELAS = {}
+_JANELAS_SAUDACAO = {}
 RE_CHAMADA = re.compile(r"^(?:(?:ei|oi|ola|olá)\s+)?(?:bella|bela)\b[\s,:.!?—-]*", re.I)
 
 
@@ -70,6 +71,33 @@ class Pedido(BaseModel):
     texto: Optional[str] = Field(default=None, max_length=2000)
     audio_base64: Optional[str] = Field(default=None, max_length=4 * 1024 * 1024)
     voz: bool = True
+
+
+@router.get("/api/bella/saudacoes")
+def catalogo_saudacoes(x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    conta = _autenticar(db, x_bella_chave)
+    return saudacoes.catalogo(conta)
+
+
+class PedidoSaudacao(BaseModel):
+    id: int = Field(ge=0, lt=len(saudacoes.FRASES))
+
+
+@router.post("/api/bella/saudacao")
+def saudacao(p: PedidoSaudacao, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    conta = _autenticar(db, x_bella_chave)
+    agora = time.monotonic()
+    janela = [t for t in _JANELAS_SAUDACAO.get(conta.id, []) if agora - t < 60]
+    if len(janela) >= 30:
+        raise HTTPException(429, "Muitas chamadas. Espere um minuto.")
+    _JANELAS_SAUDACAO[conta.id] = janela + [agora]
+    try:
+        return saudacoes.preparar(conta, p.id)
+    except Exception:
+        log.warning("Bella: não consegui preparar a saudação em áudio")
+        atual = saudacoes.catalogo(conta)
+        texto = atual["saudacoes"][p.id]["texto"]
+        return {"id": p.id, "perfil": atual["perfil"], "texto": texto, "falar": texto}
 
 
 def _audio(dados):
@@ -120,9 +148,9 @@ def mensagem(p: Pedido, x_bella_chave: str = Header(""), db: Session = Depends(g
     if s.escolhas:
         texto = _numero_falado(texto) or texto
     if not texto:
-        r = roteador.Resposta().diz("Estou aqui. O que você precisa?", [])
-    else:
-        r = roteador.atender_texto(db, "bella", origem, texto, rotulo="Bella", via_audio=bool(conteudo))
+        saudacao = saudacoes.preparar(conta, secrets.randbelow(len(saudacoes.FRASES)), com_audio=p.voz)
+        return {"pedido_id": str(p.pedido_id), "ouvido": ouvido, "opcoes": [], **saudacao}
+    r = roteador.atender_texto(db, "bella", origem, texto, rotulo="Bella", via_audio=bool(conteudo))
     itens, blocos = [], []
     for m in r.mensagens:
         corpo = m.get("texto") or ""

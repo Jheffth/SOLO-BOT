@@ -16,9 +16,16 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      BELLA_AUDIO_DIR: /app/dados/bella-audios
+    volumes:
+      - bella-audios:/app/dados/bella-audios
     networks:
       - solo-network
 
 networks:
   solo-network:
     external: true
+
+volumes:
+  bella-audios:

@@ -1,8 +1,8 @@
-param([switch]$SemDownload)
+param([switch]$SemDownload, [switch]$PrepararAtualizacao)
 $ErrorActionPreference = 'Stop'
 $raizBella = $PSScriptRoot
 $cacheBella = Join-Path $raizBella '.cache'
-$saidaBella = Join-Path $raizBella 'dist\Bella'
+$saidaBella = Join-Path $raizBella $(if ($PrepararAtualizacao) { 'dist\atualizacao\Bella' } else { 'dist\Bella' })
 New-Item -ItemType Directory -Force -Path $cacheBella, $saidaBella | Out-Null
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 

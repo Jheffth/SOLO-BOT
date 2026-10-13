@@ -19,10 +19,14 @@ namespace Bella {
         public async Task Say(Reply reply) {
             Stop(); cancel=new CancellationTokenSource(); var token=cancel.Token;
             string path=null;
+            bool temporary=false;
             try {
-                if(!String.IsNullOrEmpty(reply.audio_base64) && reply.mime=="audio/mpeg") {
-                    path=Path.Combine(Path.GetTempPath(),"Bella-"+Guid.NewGuid()+".mp3");
-                    File.WriteAllBytes(path,Convert.FromBase64String(reply.audio_base64));
+                if(reply.mime=="audio/mpeg" && (!String.IsNullOrEmpty(reply.AudioPath) || !String.IsNullOrEmpty(reply.audio_base64))) {
+                    path=reply.AudioPath;
+                    if(String.IsNullOrEmpty(path)) {
+                        path=Path.Combine(Path.GetTempPath(),"Bella-"+Guid.NewGuid()+".mp3"); temporary=true;
+                        File.WriteAllBytes(path,Convert.FromBase64String(reply.audio_base64));
+                    }
                     if(mciSendString("open \""+path+"\" type mpegvideo alias BellaReply",null,0,IntPtr.Zero)==0
                         && mciSendString("play BellaReply",null,0,IntPtr.Zero)==0) {
                         while(true) {
@@ -46,7 +50,7 @@ namespace Bella {
                 } finally { speech.SpeakCompleted-=ended; }
             } finally {
                 mciSendString("close BellaReply",null,0,IntPtr.Zero);
-                if(path!=null && File.Exists(path)) File.Delete(path);
+                if(temporary && path!=null && File.Exists(path)) File.Delete(path);
             }
         }
         public void Stop() {

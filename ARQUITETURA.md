@@ -136,6 +136,11 @@ A Bella é compilada com `desktop/bella/Compilar.ps1`. A execução inclui teste
 e gera um ZIP portátil. O workflow `Bella para Windows` publica esse ZIP como artefato do GitHub.
 O backend usa `/api/bella/mensagem` e o painel gera/revoga sua chave em `/api/conta/bella`.
 As chaves de provedor continuam exclusivamente no servidor.
+As saudações usam `/api/bella/saudacoes` e `/api/bella/saudacao`, catálogo com 20 frases
+personalizadas pelo login e cache por voz em `nucleo/saudacoes.py` e `nucleo/audio_cache.py`.
+O volume `bella-audios` preserva os MP3 entre deploys; o cliente também guarda cópias locais.
+Os testes internos verificam saudação antes da captura, ausência de repetição no ciclo,
+reutilização do cache, troca de perfil e bloqueio após revogação da chave.
 
 ```bash
 pip install -r requirements.txt pytest

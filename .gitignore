@@ -5,6 +5,8 @@ __pycache__/
 _cofre/
 desktop/bella/.cache/
 desktop/bella/dist/
+dados/bella-audios/
+backend/dados/bella-audios/
 
 # capturas de tela salvas pelo app
 Claude outputs/

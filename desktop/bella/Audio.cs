@@ -72,10 +72,11 @@ namespace Bella {
 
     public interface IWake : IDisposable { bool Hear(byte[] pcm); void Reset(); }
     public sealed class Capture {
-        public enum Mode { Paused, Listening, Recording, Processing, Speaking }
+        public enum Mode { Paused, Listening, Greeting, Recording, Processing, Speaking }
         public Mode State { get; private set; }
         public event Action<byte[]> RequestReady;
         public event Action<Mode> Changed;
+        public event Action WakeDetected;
         readonly object gate = new object();
         readonly IWake wake;
         MemoryStream record=new MemoryStream();
@@ -86,7 +87,11 @@ namespace Bella {
         void Set(Mode mode) { State=mode; if(Changed!=null) Changed(mode); }
         public void Listen() { lock(gate) { record.SetLength(0); wake.Reset(); Set(Mode.Listening); } }
         public void Pause() { lock(gate) { record.SetLength(0); Set(Mode.Paused); } }
-        public void Begin() { lock(gate) { if(State==Mode.Processing) return; BeginInside(); } }
+        public void Begin() {
+            lock(gate) { if(State!=Mode.Listening) return; Set(Mode.Greeting); }
+            if(WakeDetected!=null) WakeDetected();
+        }
+        public void RecordAfterGreeting() { lock(gate) { if(State==Mode.Greeting) BeginInside(); } }
         public void Speaking() { lock(gate) Set(Mode.Speaking); }
         public void Processing() { lock(gate) Set(Mode.Processing); }
         void BeginInside() {
@@ -95,9 +100,10 @@ namespace Bella {
         }
         public void Feed(byte[] pcm) {
             byte[] ready=null;
+            bool called=false;
             lock(gate) {
                 if(State==Mode.Listening) {
-                    if(wake.Hear(pcm)) BeginInside();
+                    if(wake.Hear(pcm)) { Set(Mode.Greeting); called=true; }
                 } else if(State==Mode.Recording) {
                     record.Write(pcm,0,pcm.Length); elapsed+=(double)pcm.Length/32000;
                     if(Energy(pcm)>Threshold) { lastVoice=elapsed; heardVoice=true; }
@@ -106,6 +112,7 @@ namespace Bella {
                     } else if(!heardVoice && elapsed>=6) { record.SetLength(0); wake.Reset(); Set(Mode.Listening); }
                 }
             }
+            if(called && WakeDetected!=null) WakeDetected();
             if(ready!=null && RequestReady!=null) RequestReady(ready);
         }
         public static double Energy(byte[] pcm) {

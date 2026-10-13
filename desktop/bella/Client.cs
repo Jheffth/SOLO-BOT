@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Web.Script.Serialization;
 
 namespace Bella {
@@ -38,30 +39,39 @@ namespace Bella {
                 throw new InvalidOperationException("Cole a chave gerada na seção Bella do painel.");
         }
     }
-    public sealed class Reply {
+    public class Reply {
         public string texto { get; set; }
         public string falar { get; set; }
         public string ouvido { get; set; }
         public string audio_base64 { get; set; }
         public string mime { get; set; }
+        internal string AudioPath;
     }
     public sealed class Client : IDisposable {
         readonly HttpClient http;
         readonly string server,key;
-        public Client(string url,string credential) {
+        public Client(string url,string credential,HttpMessageHandler handler=null) {
             Settings.Validate(url,credential); server=url.TrimEnd('/'); key=credential;
             // Não encaminha a chave a outro domínio por redirecionamento.
-            http=new HttpClient(new HttpClientHandler { AllowAutoRedirect=false });
+            http=new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect=false });
             http.Timeout=TimeSpan.FromSeconds(150);
         }
         public async Task<Reply> Send(string text,byte[] wave) {
             var body=new Dictionary<string,object> { {"pedido_id",Guid.NewGuid().ToString()}, {"voz",true} };
             if(wave!=null) body["audio_base64"]=Convert.ToBase64String(wave); else body["texto"]=text;
-            var request=new HttpRequestMessage(HttpMethod.Post,server+"/api/bella/mensagem");
+            return await Request<Reply>(HttpMethod.Post,"/api/bella/mensagem",body,150);
+        }
+        public Task<GreetingSet> Greetings() { return Request<GreetingSet>(HttpMethod.Get,"/api/bella/saudacoes",null,8); }
+        public Task<GreetingReply> Greeting(int id) {
+            return Request<GreetingReply>(HttpMethod.Post,"/api/bella/saudacao",new Dictionary<string,object> { {"id",id} },100);
+        }
+        async Task<T> Request<T>(HttpMethod method,string path,object body,int seconds) {
+            var request=new HttpRequestMessage(method,server+path);
             request.Headers.Add("X-Bella-Chave",key);
-            request.Content=new StringContent(new JavaScriptSerializer().Serialize(body),Encoding.UTF8,"application/json");
+            if(body!=null) request.Content=new StringContent(new JavaScriptSerializer().Serialize(body),Encoding.UTF8,"application/json");
             try {
-                using(request) using(var response=await http.SendAsync(request)) {
+                using(var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(seconds)))
+                using(request) using(var response=await http.SendAsync(request,timeout.Token)) {
                     var json=await response.Content.ReadAsStringAsync();
                     var parser=new JavaScriptSerializer { MaxJsonLength=16*1024*1024 };
                     if(!response.IsSuccessStatusCode) {
@@ -70,9 +80,10 @@ namespace Bella {
                             var data=parser.Deserialize<Dictionary<string,object>>(json);
                             object value; if(data.TryGetValue("detail",out value) && value is string) detail=(string)value;
                         } catch { }
+                        if(response.StatusCode==HttpStatusCode.Unauthorized) throw new UnauthorizedAccessException(detail);
                         throw new InvalidOperationException(detail);
                     }
-                    return parser.Deserialize<Reply>(json);
+                    return parser.Deserialize<T>(json);
                 }
             } catch(TaskCanceledException) {
                 throw new InvalidOperationException("A resposta demorou. Confira o resultado no sistema antes de repetir o pedido.");

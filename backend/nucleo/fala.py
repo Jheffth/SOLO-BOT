@@ -20,8 +20,11 @@ O QUE FALA
     ElevenLabs é por caractere.
 """
 import base64
+import hashlib
+import json
 import logging
 import re
+from contextlib import nullcontext
 from typing import Optional
 
 import httpx
@@ -120,6 +123,44 @@ MODELOS = [
 ]
 CHAVE_VOZ, CHAVE_MODELO = "voz_elevenlabs", "modelo_elevenlabs"
 CHAVE_VOZ_SISTEMA = "voz_sistema_elevenlabs"
+CHAVE_VOZ_ATIVA = "voz_ativa_elevenlabs"
+
+
+def _assinatura_voz() -> str:
+    from database import ler_config
+    dados = [conta_escolhida(), config.ELEVENLABS_VOICE_ID, ler_config(CHAVE_VOZ), modelo(),
+             [(c["id"], hashlib.sha256(c["chave"].encode()).hexdigest()) for c in contas()]]
+    return hashlib.sha256(json.dumps(dados, sort_keys=True).encode()).hexdigest()
+
+
+def perfil_ativo() -> dict:
+    """Voz realmente usada, inclusive reserva automática; configuração nova invalida a anterior."""
+    from database import ler_config
+    assinatura = _assinatura_voz()
+    try:
+        salvo = json.loads(ler_config(CHAVE_VOZ_ATIVA) or "{}")
+    except (TypeError, ValueError):
+        salvo = {}
+    if salvo.get("assinatura") == assinatura and all(salvo.get(k) for k in ("conta", "voz", "modelo")):
+        return {k: salvo[k] for k in ("conta", "voz", "modelo")}
+    permitidas = [c for c in contas() if c["chave"] in _chaves()]
+    return {"conta": permitidas[0]["id"] if permitidas else None, "voz": voz() if permitidas else None,
+            "modelo": modelo()}
+
+
+def _guardar_perfil(chave: str, id_voz: str, modelo_id: str, assinatura: str):
+    from database import SessionLocal, gravar_config, ler_config
+    if assinatura != _assinatura_voz():
+        return  # Não atribuir uma resposta em andamento à configuração que mudou depois.
+    perfil = {"assinatura": assinatura, "conta": next(c["id"] for c in contas() if c["chave"] == chave),
+              "voz": id_voz, "modelo": modelo_id}
+    valor = json.dumps(perfil, sort_keys=True)
+    if ler_config(CHAVE_VOZ_ATIVA) != valor:
+        try:
+            with SessionLocal() as db:
+                gravar_config(db, CHAVE_VOZ_ATIVA, valor)
+        except Exception:
+            log.warning("Não consegui guardar o perfil da voz ativa")
 
 # ── Os TONS ──────────────────────────────────────────────────────
 # Um aviso pode pedir um jeito de falar (`tom`). O tom decide a voz, a
@@ -226,15 +267,17 @@ def creditos() -> list:
 
 
 def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
-               tom: Optional[str] = None) -> Optional[dict]:
+               tom: Optional[str] = None, guardar: bool = False) -> Optional[dict]:
     """{base64, mime} pronto para a entrega, ou None (sem chave, sem crédito, fora do ar)."""
     if not disponivel() or not texto:
         return None
     tom = tom_valido(tom)
     voz_explicita = id_voz
-    id_voz = id_voz or voz_para(tom)
+    assinatura = _assinatura_voz()
+    perfil = perfil_ativo() if guardar else None
+    id_voz = id_voz or (perfil["voz"] if perfil else voz_para(tom))
     formato, mime = FORMATOS.get(canal, FORMATOS["whatsapp"])
-    modelo_id = modelo()
+    modelo_id = perfil["modelo"] if perfil else modelo()
 
     def corpo(m: str) -> dict:
         exp = expressivo(m)
@@ -248,6 +291,10 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
         return {"text": dito, "model_id": m, "language_code": "pt", "voice_settings": ajustes}
 
     chaves = _chaves()
+    if perfil:
+        preferida = next((c["chave"] for c in contas() if c["id"] == perfil["conta"]), None)
+        if preferida in chaves:
+            chaves = [preferida] + [ch for ch in chaves if ch != preferida]
     if not chaves:
         _estado["ultimo_erro"] = "A conta de voz escolhida não está configurada. Selecione outra conta ou Automática."
         return None
@@ -264,16 +311,33 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
             continue
         c_atual = corpo(modelo_id)
         for _ in range(3):
+            from nucleo import audio_cache
+            cache_id = audio_cache.identidade(voz_atual, formato, c_atual) if guardar else None
             try:
-                with httpx.Client(timeout=40) as c:
-                    r = c.post(f"{API}/text-to-speech/{voz_atual}?output_format={formato}",
-                               json=c_atual, headers={"xi-api-key": chave})
+                with audio_cache.travar(cache_id) if guardar else nullcontext():
+                    audio = audio_cache.ler(cache_id, mime) if guardar else None
+                    if audio:
+                        _estado["ultimo_erro"] = None
+                        _guardar_perfil(chave, voz_atual, c_atual["model_id"], assinatura)
+                        return {**audio, "perfil_voz": {"conta": next(c["id"] for c in contas() if c["chave"] == chave),
+                                                       "voz": voz_atual, "modelo": c_atual["model_id"]}}
+                    with httpx.Client(timeout=40) as c:
+                        r = c.post(f"{API}/text-to-speech/{voz_atual}?output_format={formato}",
+                                   json=c_atual, headers={"xi-api-key": chave})
+                    if guardar and r.status_code == 200 and r.content:
+                        audio_cache.gravar(cache_id, r.content)
             except Exception:  # noqa: BLE001
                 _estado["ultimo_erro"] = "ElevenLabs fora do alcance"
                 break
             if r.status_code == 200 and r.content:
                 _estado["ultimo_erro"] = None
-                return {"base64": base64.b64encode(r.content).decode("ascii"), "mime": mime}
+                if not voz_explicita and not tom:
+                    _guardar_perfil(chave, voz_atual, c_atual["model_id"], assinatura)
+                audio = {"base64": base64.b64encode(r.content).decode("ascii"), "mime": mime}
+                if guardar:
+                    audio.update(cache_id=cache_id, perfil_voz={"conta": next(c["id"] for c in contas() if c["chave"] == chave),
+                                                              "voz": voz_atual, "modelo": c_atual["model_id"]})
+                return audio
             if r.status_code == 422 and "language_code" in c_atual:
                 c_atual.pop("language_code")          # modelo que não aceita o parâmetro
                 continue

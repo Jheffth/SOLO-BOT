@@ -22,6 +22,8 @@ namespace Bella {
         LocalWake wake;
         Capture capture;
         Microphone mic;
+        GreetingLibrary greetings;
+        string greetingConnection;
         bool listening, starting, busy, quitting;
         readonly bool preview;
         readonly Color surface=Color.FromArgb(27,29,43), ink=Color.FromArgb(232,234,245), accent=Color.FromArgb(170,150,245);
@@ -64,7 +66,7 @@ namespace Bella {
             control.Controls.Add(listen); control.Controls.Add(talk); control.Controls.Add(stop); layout.Controls.Add(control,0,3);
             conversation.Dock=DockStyle.Fill; conversation.ReadOnly=true; conversation.BackColor=surface; conversation.ForeColor=ink;
             conversation.BorderStyle=BorderStyle.FixedSingle;
-            conversation.Text="Olá, sou a Bella.\n\nGere sua chave na seção Bella do painel, cole acima e salve.\n\nAtive a escuta, diga ‘Bella’, espere aparecer ‘Pode falar’ e faça o pedido.\n\nCtrl + Alt + B também abre o microfone.\n\nAo fechar esta janela, continuo perto do relógio. Pelo ícone você pode pausar ou sair.\n".Replace("\n",Environment.NewLine);
+            conversation.Text="Olá, sou a Bella.\n\nGere sua chave na seção Bella do painel, cole acima e salve.\n\nAtive a escuta e diga ‘Bella’. Vou responder à chamada. Depois da saudação, faça o pedido.\n\nTenho 20 saudações com seu login. Guardo os áudios de cada voz para reutilizar.\n\nCtrl + Alt + B também me chama.\n\nAo fechar esta janela, continuo perto do relógio. Pelo ícone você pode pausar ou sair.\n".Replace("\n",Environment.NewLine);
             layout.Controls.Add(conversation,0,4);
             input.Dock=DockStyle.Fill; input.BackColor=surface; input.ForeColor=ink;
             input.KeyDown+=async(s,e)=>{ if(e.KeyCode==Keys.Enter) { e.SuppressKeyPress=true; await SendText(); } };
@@ -96,6 +98,7 @@ namespace Bella {
                 }
                 if(capture!=null) capture.Threshold=value.Threshold;
                 Note("Acesso salvo neste usuário do Windows.");
+                if(listening) WarmGreetings(value);
             } catch(Exception e) { Note(e.Message); }
         }
         void OpenPanel() {
@@ -111,16 +114,18 @@ namespace Bella {
                 if(wake==null) {
                     wake=await Task.Run(()=>new LocalWake(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"modelo")));
                     capture=new Capture(wake); capture.Changed+=mode=>Ui(()=>ShowMode(mode));
+                    capture.WakeDetected+=()=>Ui(async()=>await Greet());
                     capture.RequestReady+=audio=>Ui(async()=>{ if(capture.State==global::Bella.Capture.Mode.Processing && listening) await Send(null,audio); });
                 }
                 capture.Threshold=value.Threshold; capture.Listen(); listening=true;
                 mic=new Microphone(); mic.Start(capture.Feed,message=>Ui(()=>{ Pause(); Note(message); }));
                 listen.Text="Pausar escuta"; ShowMode(global::Bella.Capture.Mode.Listening);
+                WarmGreetings(value);
             } catch(Exception e) { Pause(); Note("Não consegui iniciar: "+e.Message); }
             finally { starting=false; }
         }
         void ShowMode(global::Bella.Capture.Mode mode) {
-            string text=mode==global::Bella.Capture.Mode.Listening?"Aguardando ‘Bella’ · escuta local":mode==global::Bella.Capture.Mode.Recording?"Pode falar · paro após uma pausa":mode==global::Bella.Capture.Mode.Processing?"Processando seu pedido…":mode==global::Bella.Capture.Mode.Speaking?"Respondendo · microfone não envia áudio":"Escuta pausada · microfone desligado";
+            string text=mode==global::Bella.Capture.Mode.Listening?"Aguardando ‘Bella’ · escuta local":mode==global::Bella.Capture.Mode.Greeting?"Respondendo à sua chamada…":mode==global::Bella.Capture.Mode.Recording?"Pode falar · paro após uma pausa":mode==global::Bella.Capture.Mode.Processing?"Processando seu pedido…":mode==global::Bella.Capture.Mode.Speaking?"Respondendo · microfone não envia áudio":"Escuta pausada · microfone desligado";
             status.Text=text; tray.Text=("Bella · "+text).Substring(0,Math.Min(63,("Bella · "+text).Length));
             if(mode==global::Bella.Capture.Mode.Recording && !preview) {
                 if(!Visible) tray.ShowBalloonTip(1200,"Bella","Pode falar seu pedido.",ToolTipIcon.Info);
@@ -137,6 +142,52 @@ namespace Bella {
             player.Stop();
             if(!listening) await StartListening();
             if(listening) capture.Begin();
+        }
+        GreetingLibrary GreetingsFor(Settings value) {
+            string connection=value.Server+"\n"+value.Key;
+            if(greetings==null || greetingConnection!=connection) {
+                greetings=new GreetingLibrary(value); greetingConnection=connection;
+            }
+            return greetings;
+        }
+        async void WarmGreetings(Settings value) {
+            try {
+                var library=GreetingsFor(value);
+                using(var client=new Client(value.Server,value.Key)) {
+                    await library.Warm(client,()=>!quitting && listening && greetingConnection==value.Server+"\n"+value.Key);
+                }
+            } catch(Exception) { /* A chamada usa o cache ou a voz do Windows se a preparação falhar. */ }
+        }
+        async Task Greet() {
+            if(busy || !listening || capture.State!=global::Bella.Capture.Mode.Greeting) return;
+            busy=true; ShowMode(global::Bella.Capture.Mode.Greeting);
+            try {
+                bool fallback=false;
+                try {
+                    var value=Current(); var library=GreetingsFor(value);
+                    using(var client=new Client(value.Server,value.Key)) {
+                        var reply=await library.Next(client);
+                        if(!listening || quitting || capture.State!=global::Bella.Capture.Mode.Greeting) return;
+                        Note("Bella: "+reply.texto);
+                        await player.Say(reply);
+                        WarmGreetings(value);
+                    }
+                }
+                catch(UnauthorizedAccessException e) { Pause(); if(!quitting) Note(e.Message); }
+                catch(OperationCanceledException) { }
+                catch(Exception e) {
+                    if(listening && !quitting) { Note("Não consegui buscar a saudação: "+e.Message); fallback=true; }
+                }
+                if(fallback) {
+                    try { await player.Say(new Reply { falar="Estou aqui. Pode falar." }); } catch(OperationCanceledException) { }
+                    catch(Exception e) { if(!quitting) Note("Não consegui reproduzir a voz: "+e.Message); }
+                }
+                await Task.Delay(180);
+            } finally {
+                // O detector ignora a saudação inteira; só depois captura o pedido.
+                busy=false;
+                if(!quitting && listening) { capture.RecordAfterGreeting(); ShowMode(capture.State); }
+            }
         }
         async Task SendText() {
             var text=input.Text.Trim(); if(text.Length==0 || busy) return;

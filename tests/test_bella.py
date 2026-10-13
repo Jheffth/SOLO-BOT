@@ -182,7 +182,7 @@ def test_gerenciar_exige_login_e_chave_trocada_invalida_antiga(cliente, acesso):
 
 def test_limite_de_pedidos_e_saudacao_sem_sistema(acesso, sistemas):
     r = enviar(acesso, "Bella")
-    assert r.status_code == 200 and "Estou aqui" in r.json()["texto"]
+    assert r.status_code == 200 and "jeff" in r.json()["texto"]
     conta_id = None
     with database.SessionLocal() as db:
         conta_id = db.query(database.Conta).first().id

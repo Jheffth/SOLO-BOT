@@ -237,7 +237,8 @@ em **Painel → Bella no computador**, cole no aplicativo e salve. O acesso da B
 da Siri; trocar ou revogar uma chave não afeta os outros canais. No computador, a chave é cifrada
 para o usuário Windows; no servidor, fica somente seu hash.
 
-- **Ativar escuta:** a chamada “Bella” é detectada localmente. Depois do aviso “Pode falar”, fale o pedido; a
+- **Ativar escuta:** a chamada “Bella” é detectada localmente. Ela responde com uma saudação falada;
+  quando terminar e aparecer “Pode falar”, fale o pedido; a
   pausa envia um WAV de até 30 segundos ao hub. O áudio ambiente de espera não é enviado.
 - **Ctrl + Alt + B** ou **Falar agora:** grava o pedido sem precisar da chamada. Também aceita texto.
 - **Pausar escuta:** desliga a captura e libera o microfone. Fechar a janela mantém o aplicativo
@@ -248,6 +249,26 @@ para o usuário Windows; no servidor, fica somente seu hash.
   Telegram e Siri. “Dois” escolhe a segunda opção e “sim” responde a uma confirmação do sistema.
 - **Reentrega:** um identificador de pedido impede executar a mesma chamada duas vezes. Se a resposta
   se perder, confira o resultado no sistema antes de repetir; o aplicativo não reenvia sozinho.
+
+**Saudações da chamada:** há 20 frases fixas com `conta.usuario` (o login Solo; se ausente,
+o primeiro nome cadastrado). O aplicativo embaralha e completa o ciclo antes de repetir.
+`GET /api/bella/saudacoes` devolve o catálogo da conta autenticada e o perfil da voz ativa;
+`POST /api/bella/saudacao` recebe apenas o ID de uma frase desse catálogo. Ambos exigem a
+chave da Bella, e a geração tem limite de chamadas. Saudar não altera modo ou opções pendentes.
+
+Na ativação, o cliente prepara os áudios que faltam em segundo plano. Cada frase é sintetizada
+uma vez por texto/login, voz, modelo, formato e ajustes de voz, sem Gemini. O MP3 é gravado
+atomicamente em `BELLA_AUDIO_DIR`, no volume Docker `bella-audios`, e copiado para o cache
+do usuário Windows. Os arquivos sobrevivem a reinícios e deploys; não vão ao Git.
+Uma trava impede duas sínteses simultâneas da mesma frase no processo do servidor.
+
+A voz ativa inclui a conta e voz que realmente responderam, inclusive após falta de crédito
+na principal. O último perfil bem-sucedido é guardado na configuração; mudar conta, voz,
+modelo ou chaves invalida esse perfil. Saudações procuram o cache dessa voz, e não o da voz
+anterior. Respostas normais continuam tentando a principal no modo automático; quando ela
+volta a responder, a próxima saudação acompanha. Amostras com voz explícita e sussurros não mudam a voz do bot.
+O cliente confere o catálogo a cada chamada; sem rede, usa o último perfil conhecido, e uma
+chave recusada impede usar o cache. A saudação inteira termina antes da gravação do pedido.
 
 A primeira versão oferece pedidos aos sistemas Solo e continuidade do modo ativo. Identificação
 de pessoa pela voz, memória geral de conversa e controle dos aplicativos do Windows ainda não
