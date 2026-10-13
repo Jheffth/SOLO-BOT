@@ -25,12 +25,45 @@ Get-ChildItem -LiteralPath (Join-Path $cacheBella 'motor\vosk-win64-0.3.45') -Fi
 New-Item -ItemType Directory -Force -Path (Join-Path $saidaBella 'modelo') | Out-Null
 Get-ChildItem -LiteralPath (Join-Path $cacheBella 'modelo\vosk-model-small-pt-0.3') | Copy-Item -Destination (Join-Path $saidaBella 'modelo') -Recurse -Force
 
+# WebView2 (desenha a tela da Bella). Pacote oficial da Microsoft no NuGet. Em vez de fixar
+# o SHA256, cada DLL precisa ter assinatura digital válida da própria Microsoft.
+$versaoWebView2 = '1.0.2903.40'
+$pacoteWebView2 = Join-Path $cacheBella "webview2-$versaoWebView2.zip"
+if (-not (Test-Path -LiteralPath $pacoteWebView2)) {
+    if ($SemDownload) { throw "Falta o pacote WebView2 $versaoWebView2 na pasta de compilação." }
+    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/$versaoWebView2" -OutFile $pacoteWebView2 -UseBasicParsing
+}
+$pastaWebView2 = Join-Path $cacheBella "webview2-$versaoWebView2"
+Expand-Archive -LiteralPath $pacoteWebView2 -DestinationPath $pastaWebView2 -Force
+function Obter-DllWebView2($padrao, $nome) {
+    $achado = Get-ChildItem -LiteralPath $pastaWebView2 -Recurse -Filter $nome |
+        Where-Object { $_.FullName -like $padrao } | Sort-Object FullName -Descending | Select-Object -First 1
+    if ($null -eq $achado) { throw "O pacote WebView2 não tem $nome." }
+    $assinatura = Get-AuthenticodeSignature -LiteralPath $achado.FullName
+    if ($assinatura.Status -ne 'Valid' -or $assinatura.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+        throw "$nome não tem assinatura válida da Microsoft. Compilação interrompida."
+    }
+    return $achado.FullName
+}
+$coreWebView2 = Obter-DllWebView2 '*\lib
+et4*\*' 'Microsoft.Web.WebView2.Core.dll'
+$formsWebView2 = Obter-DllWebView2 '*\lib
+et4*\*' 'Microsoft.Web.WebView2.WinForms.dll'
+$loaderWebView2 = Obter-DllWebView2 '*untimes\win-x64
+ative\*' 'WebView2Loader.dll'
+Copy-Item -LiteralPath $coreWebView2, $formsWebView2, $loaderWebView2 -Destination $saidaBella -Force
+
+# A tela (HTML/CSS/JS) vai inteira, ao lado do Bella.exe.
+$uiSaida = Join-Path $saidaBella 'ui'
+if (Test-Path -LiteralPath $uiSaida) { Remove-Item -LiteralPath $uiSaida -Recurse -Force }
+Copy-Item -LiteralPath (Join-Path $raizBella 'ui') -Destination $uiSaida -Recurse -Force
+
 $compiladorBella = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiladorBella)) { throw 'A Bella precisa de Windows 64 bits com .NET Framework 4.8.' }
 $fontesBella = (Get-ChildItem -LiteralPath $raizBella -Filter '*.cs').FullName
 $falaBella = [Reflection.Assembly]::LoadWithPartialName('System.Speech')
 if ($null -eq $falaBella) { throw 'O componente de voz do .NET Framework não está disponível.' }
-& $compiladorBella /nologo /target:winexe /platform:x64 /optimize+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Net.Http.dll /r:System.Web.Extensions.dll /r:System.Security.dll "/r:$($falaBella.Location)" "/out:$saidaBella\Bella.exe" $fontesBella
+& $compiladorBella /nologo /target:winexe /platform:x64 /optimize+ /codepage:65001 /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Net.Http.dll /r:System.Web.Extensions.dll /r:System.Security.dll "/r:$($falaBella.Location)" "/r:$coreWebView2" "/r:$formsWebView2" "/out:$saidaBella\Bella.exe" $fontesBella
 if ($LASTEXITCODE -ne 0) { throw 'Erro ao compilar a Bella.' }
 Copy-Item -LiteralPath (Join-Path $raizBella 'LEIA-ME.md'), (Join-Path $raizBella 'TERCEIROS.md') -Destination $saidaBella -Force
 $licencasBella = Join-Path $saidaBella 'licencas'

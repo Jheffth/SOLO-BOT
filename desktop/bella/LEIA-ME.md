@@ -1,21 +1,52 @@
 # Bella — assistente do Solo Bot para Windows
 
-Primeira versão portátil para Windows 10/11 de 64 bits e .NET Framework 4.8.
+Aplicativo portátil para Windows 10/11 de 64 bits, .NET Framework 4.8 e Microsoft Edge WebView2.
 O computador precisa de um microfone padrão e conexão ao Solo Bot para executar pedidos.
 
 ## Usar
 
 1. Extraia **todo** o `Bella-Windows.zip` numa pasta permanente. Abra `Bella/Bella.exe`.
-2. No painel da Conta Solo, seção **Bella no computador**, gere uma chave. Cole no aplicativo e clique em **Salvar acesso**.
-3. Clique em **Ativar escuta**. Diga **Bella** e aguarde a saudação falada com seu login. Quando ela terminar, fale o pedido. A pausa no fim da frase envia o pedido.
-4. Exemplos: “rotinas hoje”, “recebi 92,60 na conta Uber”, “terminei o treino”. Comandos exatos também podem ser digitados, como `/fin saldo`.
-5. Para responder a uma confirmação ou escolher uma opção, chame Bella novamente e diga “sim” ou “dois”. O modo do sistema fica ativo entre pedidos por até 30 minutos.
+2. Na primeira vez, a Bella mostra três passos. No painel da Conta Solo, seção **Bella no computador**,
+   gere uma chave, cole no campo e clique em **Começar**. Ela já começa a ouvir.
+3. Diga **Bella** e aguarde a saudação falada com seu login. Quando ela terminar, fale o pedido.
+   A pausa no fim da frase envia o pedido.
+4. Exemplos: “rotinas hoje”, “recebi 92,60 na conta Uber”, “terminei o treino”. Também dá para
+   escrever no campo de baixo, inclusive comandos exatos como `/fin saldo`.
+5. Quando a resposta trouxer uma lista, as opções aparecem como **botões**: clique, ou chame a
+   Bella e diga “dois”. Para uma confirmação, diga “sim”. O modo do sistema fica ativo por até 30 minutos.
 
-**Ctrl + Alt + B** chama Bella sem precisar dizer o nome. **Falar agora** faz o mesmo.
-Fechar a janela a mantém perto do relógio; o menu do ícone oferece abrir, falar, pausar e sair.
-**Pausar escuta** libera o microfone. **Interromper voz** para a reprodução da resposta.
-**Iniciar com Windows** é opcional: marque e salve para iniciar minimizada na próxima entrada.
-Para desativar, desmarque e salve. Mantenha a pasta no mesmo lugar se usar essa opção.
+### A tela
+
+- **No centro, a Bella**: a foto dela (ou o orbe colorido) com um **anel vivo** que mostra o estado:
+  apagado com a escuta pausada, girando devagar esperando o nome, **ciano e reagindo à sua voz**
+  enquanto ouve, girando rápido enquanto pensa, pulsando enquanto fala.
+- **O selo no alto** (“Ouvindo ‘Bella’”) liga e pausa a escuta. Pausada, o microfone fica livre.
+- **A conversa** vem em balões, com o sistema que respondeu (💰 Finances, ⚔️ Rotinas) e, em cinza,
+  o que a Bella entendeu (“🧭 Entendi: …”).
+- **🎤** (ou **Ctrl + Alt + B**) chama a Bella sem dizer o nome. **■** interrompe a voz.
+- **⚙ Configurações**: foto da Bella, iniciar com o Windows, Mini-Bella, sensibilidade do microfone
+  (com um medidor ao vivo: fale normalmente, a barra deve passar da marca amarela) e a chave.
+- Fechar a janela mantém a Bella perto do relógio. O ícone muda de cor com o estado; o menu dele
+  oferece abrir, falar, pausar e sair.
+
+### A foto da Bella
+
+Em **⚙ → Aparência**, clique em **Escolher foto** ou arraste uma imagem (JPG, PNG ou WEBP) para a
+área tracejada. Ajuste o recorte arrastando e aproximando, e clique em **Usar esta foto**.
+A foto aparece no centro, ao lado de cada resposta e na Mini-Bella. **Recortar** reabre o ajuste
+com a imagem original; **Remover** volta ao orbe; **Só orbe** esconde a foto sem apagá-la.
+A foto fica **só neste computador** (`%LOCALAPPDATA%\Solo\Bella\foto.jpg`) e nunca vai ao servidor.
+
+### Mini-Bella
+
+Com a janela fechada, quando você chama a Bella aparece uma pílula pequena acima da barra de
+tarefas, com a foto, o que ela ouviu e a resposta. Ela não rouba o foco de quem está digitando e
+some sozinha alguns segundos depois. Um clique abre a janela. Dá para desligar nas configurações.
+
+### Requisito: WebView2
+
+A tela é desenhada pelo **Microsoft Edge WebView2**, que já vem no Windows 11 e na maioria dos
+Windows 10 atualizados. Se faltar, a Bella avisa e abre a página oficial de download da Microsoft.
 
 ## Áudio e acesso
 
@@ -33,8 +64,8 @@ Para desativar, desmarque e salve. Mantenha a pasta no mesmo lugar se usar essa 
 - Falha de conexão **não** reenvia o pedido automaticamente. Confira o resultado no sistema antes de repetir uma operação financeira.
 
 O reconhecimento da chamada depende do microfone, pronúncia e ruído. Se não ativar,
-use o atalho. Se captar ruído como fala, aumente o valor de **Sensibilidade** e salve;
-se encerrar antes de você falar, diminua. A versão inicial mantém o modo de cada sistema,
+use o atalho. Se captar ruído como fala, leve a **Sensibilidade** para “ambiente barulhento”;
+se encerrar antes de você falar, para “silencioso”. O medidor ao vivo ajuda a achar o ponto. A versão inicial mantém o modo de cada sistema,
 mas ainda não oferece memória geral de conversa, identificação de pessoa pela voz ou
 controle de aplicativos do Windows.
 
@@ -47,9 +78,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\Compilar.ps1
 ```
 
 O script usa o compilador que acompanha o .NET Framework, baixa as bibliotecas oficiais
-para `.cache`, confere SHA256 e produz `dist/Bella` e `dist/Bella-Windows.zip`.
+para `.cache`, confere o SHA256 do Vosk e a assinatura digital da Microsoft nas DLLs do WebView2,
+copia a tela (`ui/`) e produz `dist/Bella` e `dist/Bella-Windows.zip`.
 Não instala Python, pacotes globais ou serviços. Os testes internos carregam o modelo real,
 verificam que silêncio não ativa, testam o ciclo de gravação, pausas e bloqueio de duplicação.
+Conferem também que a tela e as DLLs do WebView2 estão no pacote e que a foto só aceita imagem de verdade.
 Não abrem o microfone e não fazem operações financeiras.
 
 Com a Bella aberta, use `-PrepararAtualizacao` para gerar o pacote em `dist/atualizacao/Bella`, sem alterar o aplicativo em uso. Para aplicar, escolha **Sair** pelo ícone perto do relógio, extraia o ZIP na pasta permanente da Bella e abra novamente. O acesso salvo e a preferência de iniciar com Windows continuam no mesmo usuário.

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'none'; media-src 'self' data: blob:">
+<title>Bella</title>
+<link rel="stylesheet" href="bella.css">
+</head>
+<body>
+
+<!-- ═════════════ MINI-BELLA (janela flutuante) ═════════════ -->
+<section id="mini" class="mini" hidden>
+  <div class="mini-av" data-avatar="pequeno"></div>
+  <div class="mini-tx">
+    <em id="mini-ouvido"></em>
+    <p id="mini-resposta">Pode falar…</p>
+  </div>
+</section>
+
+<!-- ═════════════ JANELA PRINCIPAL ═════════════ -->
+<main id="app" class="app" hidden>
+
+  <header class="topo">
+    <button class="chip-estado" id="chip-escuta" type="button" title="Ligar ou pausar a escuta">
+      <i></i><span id="chip-texto">Escuta pausada</span>
+    </button>
+    <div class="topo-acoes">
+      <button class="icobtn" id="btn-parar" type="button" title="Interromper voz" hidden>
+        <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5"/></svg>
+      </button>
+      <button class="icobtn" id="btn-config" type="button" title="Configurações">
+        <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="palco" id="palco">
+    <div class="presenca" id="presenca" data-modo="pausada">
+      <div class="halo"></div>
+      <div class="onda-anel"></div>
+      <div class="anel"></div>
+      <div class="rosto" data-avatar="grande"></div>
+      <button class="trocar-foto" id="btn-trocar-foto" type="button" title="Trocar a foto da Bella">
+        <svg viewBox="0 0 24 24"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H8l1.3-1.7A1.5 1.5 0 0 1 10.5 4h3a1.5 1.5 0 0 1 1.2.6L16 6h1.5A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-8Z"/><circle cx="12" cy="12.5" r="3.2"/></svg>
+      </button>
+    </div>
+    <h1 class="nome">Bella</h1>
+    <div class="onda" id="onda" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="estado" id="estado"><b>Escuta pausada</b> · Ctrl + Alt + B para falar</p>
+  </section>
+
+  <section class="conversa" id="conversa" aria-live="polite"></section>
+
+  <form class="compositor" id="compositor" autocomplete="off">
+    <input id="entrada" maxlength="2000" placeholder="Escreva ou diga “Bella”…" aria-label="Mensagem para a Bella">
+    <span class="tecla">Ctrl Alt B</span>
+    <button class="enviar" id="btn-enviar" type="submit" title="Enviar">
+      <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+    </button>
+    <button class="mic" id="btn-falar" type="button" title="Falar agora (Ctrl + Alt + B)">
+      <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+    </button>
+  </form>
+  <p class="rodape"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>A escuta de espera fica no seu computador</p>
+
+  <!-- ─── Configurações ─── -->
+  <div class="veu" id="veu" hidden></div>
+  <aside class="gaveta" id="gaveta" aria-hidden="true">
+    <header class="gaveta-topo">
+      <h2>Configurações</h2>
+      <button class="icobtn" id="btn-fechar-config" type="button" title="Fechar">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <div class="gaveta-corpo">
+
+      <section class="grupo">
+        <h3>Aparência</h3>
+        <p class="ajuda">A foto da Bella aparece no centro, nas respostas e na Mini-Bella. Ela fica só neste computador.</p>
+        <label class="soltar" id="soltar">
+          <div class="soltar-prev"><i class="ring"></i><div class="rosto" data-avatar="medio"></div></div>
+          <div class="soltar-tx">
+            <b>Foto da Bella</b>
+            <small>Arraste uma imagem aqui ou escolha um arquivo.<br>JPG, PNG ou WEBP · de preferência quadrada.</small>
+            <span class="botoes">
+              <span class="btn pri" id="btn-escolher">Escolher foto</span>
+              <button class="btn" id="btn-recortar" type="button">Recortar</button>
+              <button class="btn" id="btn-remover" type="button">Remover</button>
+            </span>
+          </div>
+          <input type="file" id="arquivo" accept="image/png,image/jpeg,image/webp" hidden>
+        </label>
+        <div class="linha">
+          <span>Mostrar como</span>
+          <span class="seg" role="radiogroup" aria-label="Mostrar como">
+            <button type="button" role="radio" data-aparencia="foto">Foto + anel</button>
+            <button type="button" role="radio" data-aparencia="orbe">Só orbe</button>
+          </span>
+        </div>
+      </section>
+
+      <section class="grupo">
+        <h3>Escuta</h3>
+        <label class="linha"><span>Iniciar com o Windows<small>Abre escondida, já ouvindo.</small></span><input type="checkbox" class="sw" id="cfg-iniciar"></label>
+        <label class="linha"><span>Mini-Bella sobre a tela<small>Quando a janela estiver fechada.</small></span><input type="checkbox" class="sw" id="cfg-mini"></label>
+        <div class="linha col">
+          <span>Sensibilidade do microfone<small>Fale normalmente: a barra deve passar da marca. Ruído do ambiente, não.</small></span>
+          <div class="medidor"><i id="medidor-nivel"></i><b id="medidor-marca"></b></div>
+          <input type="range" id="cfg-sens" min="0" max="100" step="1" aria-label="Sensibilidade">
+          <div class="extremos"><span>Ambiente silencioso</span><span>Ambiente barulhento</span></div>
+        </div>
+      </section>
+
+      <section class="grupo">
+        <h3>Conexão</h3>
+        <label class="campo"><span>Chave da Bella</span>
+          <input id="cfg-chave" placeholder="bella_…" spellcheck="false" autocomplete="off">
+        </label>
+        <p class="ajuda">Gere a chave no painel do Solo Bot, seção <b>Bella no computador</b>. Ela fica cifrada neste usuário do Windows.</p>
+        <details class="avancado"><summary>Servidor</summary>
+          <label class="campo"><span>Endereço do Solo Bot</span><input id="cfg-servidor" spellcheck="false" autocomplete="off"></label>
+        </details>
+        <div class="botoes">
+          <button class="btn pri" id="btn-salvar" type="button">Salvar</button>
+          <button class="btn" id="btn-painel" type="button">Abrir painel</button>
+        </div>
+      </section>
+
+      <section class="grupo">
+        <h3>Atalhos</h3>
+        <dl class="atalhos">
+          <dt>“Bella”</dt><dd>chama por voz</dd>
+          <dt>Ctrl + Alt + B</dt><dd>fala sem dizer o nome</dd>
+          <dt>“dois”, “sim”</dt><dd>responde a uma lista ou confirmação</dd>
+        </dl>
+        <button class="btn perigo" id="btn-sair" type="button">Encerrar a Bella</button>
+      </section>
+    </div>
+  </aside>
+
+  <!-- ─── Recorte da foto ─── -->
+  <div class="modal" id="modal-recorte" hidden>
+    <div class="modal-caixa">
+      <h2>Ajustar a foto</h2>
+      <p class="ajuda">Arraste para centralizar o rosto. Use a barra para aproximar.</p>
+      <div class="recorte" id="recorte"><img id="recorte-img" alt=""><div class="recorte-mascara"></div></div>
+      <input type="range" id="recorte-zoom" min="100" max="400" value="100" aria-label="Aproximar">
+      <div class="botoes fim">
+        <button class="btn" id="btn-recorte-cancelar" type="button">Cancelar</button>
+        <button class="btn pri" id="btn-recorte-ok" type="button">Usar esta foto</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ═════════════ PRIMEIRO ACESSO ═════════════ -->
+<section id="boas-vindas" class="boas-vindas" hidden>
+  <div class="presenca grande-intro" data-modo="espera"><div class="halo"></div><div class="anel"></div><div class="rosto" data-avatar="grande"></div></div>
+  <h1>Olá, eu sou a Bella.</h1>
+  <p class="sub">Falo com o Finances e o Rotinas por você. Três passos e eu começo a ouvir.</p>
+  <ol class="passos">
+    <li><b>1</b><div><strong>Gere a chave no painel</strong><span>Seção “Bella no computador”.</span>
+      <button class="btn" id="bv-painel" type="button">Abrir o painel</button></div></li>
+    <li><b>2</b><div><strong>Cole a chave aqui</strong>
+      <input id="bv-chave" placeholder="bella_…" spellcheck="false" autocomplete="off"></div></li>
+    <li><b>3</b><div><strong>Diga “Bella”</strong><span>Ou aperte Ctrl + Alt + B quando quiser falar.</span></div></li>
+  </ol>
+  <button class="btn pri grande" id="bv-salvar" type="button">Começar</button>
+  <p class="erro" id="bv-erro" hidden></p>
+</section>
+
+<div class="toasts" id="toasts"></div>
+<script src="bella.js"></script>
+</body>
+</html>

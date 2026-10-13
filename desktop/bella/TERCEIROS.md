@@ -18,5 +18,12 @@ do modelo também permanece em `modelo`.
 - GCC source: https://gcc.gnu.org/git.html
 - MinGW-w64 source and licenses: https://www.mingw-w64.org/
 
+A tela usa o **Microsoft Edge WebView2**. O pacote inclui as DLLs do SDK
+`Microsoft.Web.WebView2` 1.0.2903.40 (`Microsoft.Web.WebView2.Core.dll`,
+`Microsoft.Web.WebView2.WinForms.dll` e `WebView2Loader.dll`), distribuídas pela Microsoft
+sob a licença do pacote: https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.2903.40/License
+O WebView2 Runtime em si já vem no Windows 11 e na maioria dos Windows 10 e não é
+redistribuído; se faltar, a Bella indica a página oficial de download da Microsoft.
+
 Windows, WinForms, WinMM, System.Speech e DPAPI são componentes do Windows/.NET
 Framework; não são redistribuídos neste pacote.

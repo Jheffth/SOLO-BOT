@@ -2,39 +2,52 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
+using Microsoft.Web.WebView2.Core;
 
 namespace Bella {
     static class Program {
+        [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+        const string BaixarWebView2="https://go.microsoft.com/fwlink/p/?LinkId=2124703";
+
         [STAThread] static int Main(string[] args) {
             ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;
-            if(args.Length==2 && args[0]=="--preview-image") {
-                Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
-                using(var form=new BellaForm(false,true)) using(var bitmap=new System.Drawing.Bitmap(form.Width,form.Height)) {
-                    form.ShowInTaskbar=false; form.StartPosition=FormStartPosition.Manual;
-                    form.Location=new System.Drawing.Point(-2000,-2000);
-                    form.Show(); Application.DoEvents(); form.PerformLayout();
-                    form.DrawToBitmap(bitmap,new System.Drawing.Rectangle(0,0,bitmap.Width,bitmap.Height));
-                    bitmap.Save(args[1],System.Drawing.Imaging.ImageFormat.Png);
-                    form.Hide();
-                }
-                return 0;
-            }
             if(args.Contains("--self-test")) {
                 try { SelfTest.Run(); File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"self-test.txt"),"OK"); return 0; }
                 catch(Exception e) { File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"self-test.txt"),e.ToString()); return 1; }
             }
+            // Nítida em telas com 125%/150%: o próprio app cuida da escala (Visual.Escala).
+            try { SetProcessDPIAware(); } catch { }
             bool created;
             using(var instance=new Mutex(true,@"Local\SoloBellaDesktop",out created)) {
                 if(!created) { MessageBox.Show("A Bella já está perto do relógio. Abra pelo ícone.","Bella"); return 0; }
                 Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
+                if(!TemWebView2()) return 1;
                 try {
-                    var form=new BellaForm(args.Contains("--minimized"),args.Contains("--preview"));
-                    Application.Run(form);
+                    Application.Run(new Janela(args.Contains("--minimized")));
                 } catch(Exception e) { MessageBox.Show("Não consegui abrir a Bella: "+e.Message,"Bella"); return 1; }
             }
             return 0;
+        }
+
+        // A tela da Bella é desenhada pelo Microsoft Edge WebView2. Ele já vem no Windows 11 e
+        // na maioria dos Windows 10; se faltar, mostramos de onde baixar (página oficial da Microsoft).
+        static bool TemWebView2() {
+            string versao=null;
+            try { versao=CoreWebView2Environment.GetAvailableBrowserVersionString(); }
+            catch(WebView2RuntimeNotFoundException) { versao=null; }
+            catch(DllNotFoundException) {
+                MessageBox.Show("Faltam arquivos da Bella (WebView2Loader.dll). Extraia o ZIP inteiro numa pasta e abra o Bella.exe de lá.","Bella",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+                return false;
+            }
+            catch(Exception) { versao=null; }
+            if(!String.IsNullOrEmpty(versao)) return true;
+            var r=MessageBox.Show("A Bella usa o Microsoft Edge WebView2 para desenhar a tela, e ele não está instalado neste computador.\n\n"
+                +"É gratuito e da própria Microsoft. Abrir a página de download agora?","Bella",MessageBoxButtons.YesNo,MessageBoxIcon.Information);
+            if(r==DialogResult.Yes) { try { System.Diagnostics.Process.Start(BaixarWebView2); } catch { } }
+            return false;
         }
     }
     static class SelfTest {
@@ -69,6 +82,22 @@ namespace Bella {
             }
             bool rejected=false; try { Settings.Validate("http://example.com","bella_"+new string('x',43)); } catch { rejected=true; }
             Check(rejected,"chave nunca enviada por HTTP publico");
+            // A tela e o WebView2 vão no pacote.
+            var raiz=AppDomain.CurrentDomain.BaseDirectory;
+            foreach(var arquivo in new[] { @"ui\index.html",@"ui\bella.css",@"ui\bella.js","Microsoft.Web.WebView2.Core.dll","Microsoft.Web.WebView2.WinForms.dll","WebView2Loader.dll" })
+                Check(File.Exists(Path.Combine(raiz,arquivo)),"pacote inclui "+arquivo);
+            // A foto: só imagem de verdade entra, e o recorte sobrevive ao reinício.
+            var pastaFoto=Path.Combine(raiz,"self-test-foto");
+            try {
+                var jpeg="data:image/jpeg;base64,"+Convert.ToBase64String(new byte[] { 0xFF,0xD8,0xFF,0xE0,0,0x10,(byte)'J',(byte)'F',(byte)'I',(byte)'F' });
+                Foto.Salvar(jpeg,jpeg,pastaFoto);
+                Check(Foto.Recorte(pastaFoto)==jpeg && Foto.Original(pastaFoto)==jpeg,"foto salva e lida de volta");
+                rejected=false; try { Foto.Salvar("data:image/png;base64,"+Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes("<script>")),null,pastaFoto); } catch { rejected=true; }
+                Check(rejected && Foto.Recorte(pastaFoto)==jpeg,"arquivo que nao e imagem e recusado");
+                rejected=false; try { Foto.Salvar("file:///C:/Windows/win.ini",null,pastaFoto); } catch { rejected=true; }
+                Check(rejected,"foto so aceita data URL de imagem");
+                Foto.Remover(pastaFoto); Check(Foto.Recorte(pastaFoto)==null,"remover apaga a foto");
+            } finally { if(Directory.Exists(pastaFoto)) Directory.Delete(pastaFoto,true); }
         }
     }
 }

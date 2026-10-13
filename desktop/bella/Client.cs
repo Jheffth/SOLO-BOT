@@ -15,6 +15,8 @@ namespace Bella {
         public string Key="";
         public bool Startup;
         public int Threshold=220;
+        public bool MiniBella=true;          // a pílula sobre a barra de tarefas quando a janela está fechada
+        public string Aparencia="foto";      // "foto" (foto com o anel) ou "orbe"
         static readonly string FilePath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Solo","Bella","acesso.dat");
         public static Settings Load() {
             if(!File.Exists(FilePath)) return new Settings();
@@ -45,7 +47,13 @@ namespace Bella {
         public string ouvido { get; set; }
         public string audio_base64 { get; set; }
         public string mime { get; set; }
+        public Opcao[] opcoes { get; set; }
         internal string AudioPath;
+    }
+    public sealed class Opcao {
+        public int numero { get; set; }
+        public string rotulo { get; set; }
+        public string titulo { get; set; }
     }
     public sealed class Client : IDisposable {
         readonly HttpClient http;

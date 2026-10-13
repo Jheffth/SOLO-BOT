@@ -232,8 +232,11 @@ pediu `voz: true`).
 
 ### Bella (Windows)
 
-A Bella é um aplicativo portátil, com janela de conversa e ícone perto do relógio. Gere uma chave
-em **Painel → Bella no computador**, cole no aplicativo e salve. O acesso da Bella é independente
+A Bella é um aplicativo portátil, com janela de conversa e ícone perto do relógio. A tela é HTML/CSS
+(`desktop/bella/ui`) num WebView2: a foto da Bella (ou o orbe) com um anel que mostra o estado, a conversa
+em balões com opções clicáveis, as configurações numa gaveta e a Mini-Bella sobre a barra de tarefas.
+A foto fica só no computador. Gere uma chave
+em **Painel → Bella no computador**, cole no aplicativo e clique em **Começar**. O acesso da Bella é independente
 da Siri; trocar ou revogar uma chave não afeta os outros canais. No computador, a chave é cifrada
 para o usuário Windows; no servidor, fica somente seu hash.
 

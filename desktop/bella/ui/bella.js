@@ -1,0 +1,445 @@
+/* Bella — a tela. Quem ouve, fala e guarda a chave é o C# (BellaApp.cs);
+   aqui só se desenha e se pedem ações pela ponte do WebView2.
+
+   C# → tela  {tipo: "config" | "estado" | "nivel" | "msg" | "aviso" | "foto_original" | "erro_salvar" | "salvo"}
+   tela → C#  {acao: "pronto" | "escuta" | "falar" | "parar_voz" | "enviar" | "salvar" | "preferencias"
+                     | "foto" | "foto_original" | "abrir_painel" | "abrir" | "sair"}
+   Fora do aplicativo (abrindo o arquivo no navegador) entra o modo demonstração. */
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const MINI = new URLSearchParams(location.search).has("mini");
+  const ponteReal = !!(window.chrome && window.chrome.webview);
+
+  let config = { temChave: false, servidor: "", chaveFinal: "", iniciar: false, mini: true, sensibilidade: 220, aparencia: "foto", foto: null };
+  let estado = { modo: "pausada", escutando: false, ocupada: false };
+  let primeiraMensagem = true;
+  let ultimoOuvido = "", ultimaResposta = "";
+
+  // ── Ponte ──────────────────────────────────────────────────
+  function enviar(acao, dados) {
+    const msg = Object.assign({ acao: acao }, dados || {});
+    if (ponteReal) window.chrome.webview.postMessage(msg);
+    else demo.acao(msg);
+  }
+  function receber(m) {
+    if (!m || typeof m !== "object") return;
+    switch (m.tipo) {
+      case "config": aplicarConfig(m); break;
+      case "estado": aplicarEstado(m); break;
+      case "nivel": aplicarNivel(m.v, m.limiar); break;
+      case "msg": mensagem(m); break;
+      case "aviso": aviso(m.texto, m.erro); break;
+      case "toast": toast(m.texto, m.erro); break;
+      case "salvo": toast(m.texto || "Salvo."); break;
+      case "erro_salvar": erroSalvar(m.texto); break;
+      case "foto_original": if (m.dataUrl) abrirRecorte(m.dataUrl); else toast("A foto original não está mais aqui. Escolha a foto de novo.", true); break;
+    }
+  }
+  if (ponteReal) window.chrome.webview.addEventListener("message", e => receber(e.data));
+
+  // ── Escalas do microfone (energia RMS 50…4000, logarítmica) ──
+  const MIN = 50, MAX = 4000, L = Math.log(MAX / MIN);
+  const paraPct = e => Math.max(0, Math.min(100, 100 * Math.log(Math.max(e, MIN) / MIN) / L));
+  const deSlider = p => Math.round(MIN * Math.exp(L * p / 100));
+
+  // ── Config ─────────────────────────────────────────────────
+  function aplicarAvatar() {
+    const comFoto = !!config.foto && config.aparencia === "foto";
+    document.body.classList.toggle("sem-foto", !comFoto);
+    document.querySelectorAll("[data-avatar]").forEach(el => {
+      el.style.backgroundImage = comFoto ? 'url("' + config.foto + '")' : "";
+      el.classList.toggle("orbe", !comFoto);
+    });
+    // a prévia nas configurações mostra a foto mesmo em "Só orbe"
+    document.querySelectorAll(".soltar [data-avatar]").forEach(el => {
+      el.style.backgroundImage = config.foto ? 'url("' + config.foto + '")' : "";
+      el.classList.toggle("orbe", !config.foto);
+    });
+  }
+  function aplicarConfig(c) {
+    config = Object.assign(config, c);
+    aplicarAvatar();
+    if (MINI) return;
+    $("btn-recortar").disabled = !config.foto;
+    $("btn-remover").disabled = !config.foto;
+    document.querySelectorAll("[data-aparencia]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.aparencia === config.aparencia)));
+    $("cfg-iniciar").checked = !!config.iniciar;
+    $("cfg-mini").checked = !!config.mini;
+    const p = paraPct(config.sensibilidade || 220);
+    $("cfg-sens").value = p; $("cfg-sens").style.setProperty("--p", p + "%");
+    $("medidor-marca").style.left = p + "%";
+    $("cfg-servidor").value = config.servidor || "";
+    $("cfg-chave").value = "";
+    $("cfg-chave").placeholder = config.temChave ? "Chave salva · termina em " + (config.chaveFinal || "…") : "bella_…";
+    const naBoasVindas = !config.temChave;
+    $("boas-vindas").hidden = !naBoasVindas;
+    $("app").hidden = naBoasVindas;
+    if (naBoasVindas) setTimeout(() => $("bv-chave").focus(), 50);
+  }
+
+  // ── Estado (o que a Bella está fazendo) ────────────────────
+  const TEXTOS = {
+    pausada: ["Escuta pausada", "Ctrl + Alt + B para falar"],
+    espera: ["Esperando “Bella”", "a escuta fica no seu computador"],
+    saudando: ["Respondendo à chamada…", ""],
+    ouvindo: ["Pode falar", "eu paro quando você fizer uma pausa"],
+    pensando: ["Pensando…", ""],
+    falando: ["Respondendo", ""]
+  };
+  function aplicarEstado(s) {
+    estado = Object.assign(estado, s);
+    const modo = estado.modo;
+    if (MINI) { $("mini").dataset.modo = modo; atualizarMini(); return; }
+    $("presenca").dataset.modo = modo;
+    const t = TEXTOS[modo] || TEXTOS.pausada;
+    const el = $("estado"); el.textContent = "";
+    const b = document.createElement("b"); b.textContent = t[0]; el.appendChild(b);
+    if (t[1]) el.appendChild(document.createTextNode(" · " + t[1]));
+    const onda = $("onda");
+    onda.classList.toggle("ativa", modo === "falando" || modo === "saudando" || modo === "ouvindo");
+    onda.classList.toggle("falando", modo === "falando" || modo === "saudando");
+    if (modo !== "ouvindo") document.documentElement.style.setProperty("--nivel", 0);
+    const chip = $("chip-escuta");
+    chip.classList.toggle("ativa", !!estado.escutando);
+    $("chip-texto").textContent = estado.escutando ? "Ouvindo “Bella”" : "Escuta pausada";
+    chip.title = estado.escutando ? "Pausar a escuta e liberar o microfone" : "Ligar a escuta";
+    $("btn-parar").hidden = !(modo === "falando" || modo === "saudando");
+    $("btn-falar").disabled = !!estado.ocupada && modo !== "ouvindo";
+    $("btn-falar").classList.toggle("gravando", modo === "ouvindo");
+    $("btn-enviar").disabled = !!estado.ocupada;
+    digitando(modo === "pensando");
+  }
+
+  let ultimaOnda = 0;
+  function aplicarNivel(v, limiar) {
+    const lim = limiar || config.sensibilidade || 220;
+    if (!MINI && $("gaveta").classList.contains("aberta")) $("medidor-nivel").style.width = paraPct(v) + "%";
+    if (estado.modo !== "ouvindo") return;
+    // 0 = bem abaixo do limiar, 1 = voz forte
+    const n = Math.max(0, Math.min(1, (Math.log(Math.max(v, 1)) - Math.log(lim * .5)) / (Math.log(lim * 6) - Math.log(lim * .5))));
+    document.documentElement.style.setProperty("--nivel", n.toFixed(3));
+    if (MINI) return;
+    const agora = performance.now();
+    if (agora - ultimaOnda > 70) {
+      ultimaOnda = agora;
+      document.querySelectorAll("#onda span").forEach((s, i) => {
+        const k = .25 + n * (.55 + .45 * Math.abs(Math.sin(agora / 140 + i * 1.3)));
+        s.style.transform = "scaleY(" + Math.min(1, k).toFixed(2) + ")";
+      });
+    }
+  }
+
+  // ── Conversa ───────────────────────────────────────────────
+  const RE_SELO = /^(\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*)\s+([A-ZÀ-Ú][\wÀ-ú]{2,20})$/u;
+  const RE_ITEM = /^\*?\d+\.\*?\s/;
+  const CLASSE = { Finances: "fin", Rotinas: "rot" };
+
+  function hora() { return new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }); }
+  function rolar() { const c = $("conversa"); requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; }); }
+  function prepararConversa() {
+    const c = $("conversa");
+    const vazio = c.querySelector(".vazio"); if (vazio) vazio.remove();
+    if (primeiraMensagem) {
+      primeiraMensagem = false;
+      const d = document.createElement("div"); d.className = "dia"; d.textContent = "Hoje · " + hora(); c.appendChild(d);
+    }
+    return c;
+  }
+  function digitando(sim) {
+    if (MINI) return;
+    const c = $("conversa"); let el = c.querySelector(".digitando");
+    if (sim && !el) {
+      prepararConversa();
+      el = document.createElement("div"); el.className = "digitando";
+      el.innerHTML = '<div class="rosto av" data-avatar="pequeno"></div><div class="pontos"><i></i><i></i><i></i></div>';
+      el.querySelector(".av").style.cssText = "width:28px;height:28px;border-radius:50%;border:1.5px solid rgba(167,139,250,.55)";
+      c.appendChild(el); aplicarAvatar(); rolar();
+    } else if (!sim && el) el.remove();
+  }
+
+  function mensagem(m) {
+    if (m.de === "eu") ultimoOuvido = m.texto || ""; else if (m.de === "bella") ultimaResposta = resumoDe(m.texto || "");
+    if (MINI) { atualizarMini(); return; }
+    digitando(false);
+    const c = prepararConversa();
+    if (m.de === "eu") {
+      const b = document.createElement("div"); b.className = "eu"; b.textContent = m.texto || "";
+      if (m.via === "voz") { const s = document.createElement("small"); s.textContent = "🎤 por voz"; b.appendChild(s); }
+      c.appendChild(b);
+    } else {
+      const linha = document.createElement("div"); linha.className = "fala-ela";
+      const av = document.createElement("div"); av.className = "rosto av"; av.setAttribute("data-avatar", "pequeno");
+      const bolha = document.createElement("div"); bolha.className = "ela";
+      montarResposta(bolha, m.texto || "", m.opcoes || []);
+      linha.appendChild(av); linha.appendChild(bolha); c.appendChild(linha);
+      aplicarAvatar();
+    }
+    rolar();
+  }
+
+  function montarResposta(bolha, texto, opcoes) {
+    let corpo = [];
+    const fecharCorpo = () => {
+      const t = corpo.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+      if (t) { const p = document.createElement("div"); p.className = "corpo"; p.textContent = t; bolha.appendChild(p); }
+      corpo = [];
+    };
+    texto.split(/\r?\n/).forEach(l => {
+      const s = l.trim();
+      const selo = s.match(RE_SELO);
+      if (selo && !s.includes(":")) {
+        fecharCorpo();
+        const chip = document.createElement("span"); chip.className = "selo " + (CLASSE[selo[2]] || "");
+        chip.textContent = selo[1] + " " + selo[2]; bolha.appendChild(chip); bolha.appendChild(document.createElement("br"));
+        return;
+      }
+      if (s.startsWith("🧭")) {
+        fecharCorpo();
+        const n = document.createElement("span"); n.className = "nota"; n.textContent = s; bolha.appendChild(n);
+        return;
+      }
+      if (opcoes.length && RE_ITEM.test(s)) return;      // a lista vira botões
+      corpo.push(l);
+    });
+    fecharCorpo();
+    // tira o <br> sobrando no fim
+    if (bolha.lastChild && bolha.lastChild.nodeName === "BR") bolha.removeChild(bolha.lastChild);
+    if (opcoes.length) {
+      const ops = document.createElement("div"); ops.className = "ops";
+      opcoes.forEach(o => {
+        const b = document.createElement("button"); b.type = "button";
+        const n = document.createElement("b"); n.textContent = o.numero;
+        b.appendChild(n); b.appendChild(document.createTextNode([o.rotulo, o.titulo].filter(Boolean).join(" ")));
+        b.title = "Escolher " + o.numero;
+        b.onclick = () => {
+          if (estado.ocupada) return toast("Espere eu terminar o pedido anterior.");
+          ops.querySelectorAll("button").forEach(x => x.disabled = true);
+          enviar("enviar", { texto: String(o.numero) });
+        };
+        ops.appendChild(b);
+      });
+      bolha.appendChild(ops);
+    }
+  }
+  function resumoDe(texto) {
+    return texto.split(/\r?\n/).map(s => s.trim())
+      .filter(s => s && !RE_SELO.test(s) && !s.startsWith("🧭") && !RE_ITEM.test(s)).join(" ").slice(0, 220);
+  }
+
+  function aviso(texto, erro) {
+    if (MINI) return;
+    digitando(false);
+    const c = prepararConversa();
+    const d = document.createElement("div"); d.className = "sistema-linha" + (erro ? " erro" : ""); d.textContent = texto;
+    c.appendChild(d); rolar();
+  }
+  function toast(texto, erro) {
+    if (MINI) return;
+    const t = document.createElement("div"); t.className = "toast" + (erro ? " erro" : ""); t.textContent = texto;
+    $("toasts").appendChild(t);
+    setTimeout(() => { t.classList.add("sai"); setTimeout(() => t.remove(), 350); }, 3200);
+  }
+
+  // ── Mini-Bella ─────────────────────────────────────────────
+  function atualizarMini() {
+    const t = TEXTOS[estado.modo] || TEXTOS.pausada;
+    const resposta = (estado.modo === "falando" || estado.modo === "espera" || estado.modo === "pausada") && ultimaResposta ? ultimaResposta : t[0];
+    $("mini-ouvido").textContent = ultimoOuvido ? "“" + ultimoOuvido + "”" : "Bella";
+    $("mini-resposta").textContent = resposta;
+  }
+
+  // ── Ações da janela ────────────────────────────────────────
+  function ligarJanela() {
+    $("chip-escuta").onclick = () => enviar("escuta");
+    $("btn-falar").onclick = () => enviar("falar");
+    $("btn-parar").onclick = () => enviar("parar_voz");
+    $("compositor").onsubmit = e => {
+      e.preventDefault();
+      const t = $("entrada").value.trim(); if (!t) return;
+      if (estado.ocupada) return toast("Espere eu terminar o pedido anterior.");
+      $("entrada").value = ""; enviar("enviar", { texto: t });
+    };
+    // Configurações
+    const abrir = () => { $("veu").hidden = false; $("gaveta").classList.add("aberta"); $("gaveta").setAttribute("aria-hidden", "false"); enviar("medidor", { ligado: true }); };
+    const fechar = () => { $("gaveta").classList.remove("aberta"); $("gaveta").setAttribute("aria-hidden", "true"); setTimeout(() => $("veu").hidden = true, 250); enviar("medidor", { ligado: false }); };
+    $("btn-config").onclick = abrir;
+    $("btn-fechar-config").onclick = fechar; $("veu").onclick = fechar;
+    $("btn-trocar-foto").onclick = () => { abrir(); setTimeout(() => $("arquivo").click(), 320); };
+    document.addEventListener("keydown", e => {
+      if (e.key !== "Escape") return;
+      if (!$("modal-recorte").hidden) fecharRecorte(); else if ($("gaveta").classList.contains("aberta")) fechar();
+    });
+    document.querySelectorAll("[data-aparencia]").forEach(b => b.onclick = () => {
+      aplicarConfig({ aparencia: b.dataset.aparencia }); enviar("preferencias", { aparencia: b.dataset.aparencia });
+    });
+    $("cfg-iniciar").onchange = e => enviar("preferencias", { iniciar: e.target.checked });
+    $("cfg-mini").onchange = e => enviar("preferencias", { mini: e.target.checked });
+    let espera;
+    $("cfg-sens").oninput = e => {
+      const p = +e.target.value; e.target.style.setProperty("--p", p + "%"); $("medidor-marca").style.left = p + "%";
+      config.sensibilidade = deSlider(p);
+      clearTimeout(espera); espera = setTimeout(() => enviar("preferencias", { sensibilidade: config.sensibilidade }), 350);
+    };
+    $("btn-salvar").onclick = () => {
+      const chave = $("cfg-chave").value.trim();
+      enviar("salvar", { servidor: $("cfg-servidor").value.trim(), chave: chave });
+    };
+    $("btn-painel").onclick = () => enviar("abrir_painel", { servidor: $("cfg-servidor").value.trim() });
+    $("btn-sair").onclick = () => enviar("sair");
+    // Foto
+    $("btn-escolher").onclick = e => { e.preventDefault(); $("arquivo").click(); };
+    $("soltar").onclick = e => { if (e.target === $("soltar") || e.target.closest(".soltar-prev")) $("arquivo").click(); };
+    $("arquivo").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) lerArquivo(f); };
+    $("btn-recortar").onclick = e => { e.preventDefault(); enviar("foto_original"); };
+    $("btn-remover").onclick = e => { e.preventDefault(); enviar("foto", { dataUrl: null }); };
+    const zona = $("soltar");
+    ["dragenter", "dragover"].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); zona.classList.add("sobre"); }));
+    ["dragleave", "drop"].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); zona.classList.remove("sobre"); }));
+    zona.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) lerArquivo(f); });
+    // a janela inteira aceita soltar uma foto (sem o navegador "abrir" o arquivo)
+    window.addEventListener("dragover", e => e.preventDefault());
+    window.addEventListener("drop", e => e.preventDefault());
+    // Boas-vindas
+    $("bv-painel").onclick = () => enviar("abrir_painel", {});
+    $("bv-salvar").onclick = () => {
+      const chave = $("bv-chave").value.trim();
+      if (!chave) return erroSalvar("Cole a chave gerada no painel.");
+      $("bv-erro").hidden = true; enviar("salvar", { chave: chave, servidor: config.servidor });
+    };
+    $("bv-chave").addEventListener("keydown", e => { if (e.key === "Enter") $("bv-salvar").click(); });
+  }
+  function erroSalvar(texto) {
+    if (!$("boas-vindas").hidden) { $("bv-erro").textContent = texto; $("bv-erro").hidden = false; }
+    else toast(texto, true);
+  }
+
+  // ── Foto: ler, reduzir e recortar ──────────────────────────
+  function lerArquivo(f) {
+    if (!/^image\/(png|jpeg|webp)$/.test(f.type)) return toast("Use uma imagem JPG, PNG ou WEBP.", true);
+    if (f.size > 25 * 1024 * 1024) return toast("Essa imagem é grande demais (máximo 25 MB).", true);
+    const leitor = new FileReader();
+    leitor.onload = () => reduzir(leitor.result, 1600, .92).then(abrirRecorte).catch(() => toast("Não consegui abrir essa imagem.", true));
+    leitor.readAsDataURL(f);
+  }
+  function carregar(src) {
+    return new Promise((ok, falha) => { const i = new Image(); i.onload = () => ok(i); i.onerror = falha; i.src = src; });
+  }
+  function reduzir(src, lado, q) {
+    return carregar(src).then(img => {
+      const k = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", q);
+    });
+  }
+
+  const rc = { img: null, x: 0, y: 0, base: 1, zoom: 1, lado: 0, original: null };
+  function abrirRecorte(dataUrl) {
+    rc.original = dataUrl;
+    $("modal-recorte").hidden = false;
+    carregar(dataUrl).then(img => {
+      const el = $("recorte-img"); el.src = dataUrl;
+      rc.img = img; rc.lado = $("recorte").clientWidth;
+      rc.base = rc.lado / Math.min(img.naturalWidth, img.naturalHeight);
+      rc.zoom = 1; $("recorte-zoom").value = 100; $("recorte-zoom").style.setProperty("--p", "0%");
+      rc.x = (rc.lado - img.naturalWidth * rc.base) / 2;
+      rc.y = (rc.lado - img.naturalHeight * rc.base) / 2 * .35;   // rostos costumam estar no alto
+      desenharRecorte();
+    });
+  }
+  function limitar() {
+    const s = rc.base * rc.zoom, w = rc.img.naturalWidth * s, h = rc.img.naturalHeight * s;
+    rc.x = Math.min(0, Math.max(rc.lado - w, rc.x)); rc.y = Math.min(0, Math.max(rc.lado - h, rc.y));
+  }
+  function desenharRecorte() {
+    limitar();
+    $("recorte-img").style.transform = "translate(" + rc.x + "px," + rc.y + "px) scale(" + (rc.base * rc.zoom) + ")";
+  }
+  function fecharRecorte() { $("modal-recorte").hidden = true; rc.img = null; }
+  function ligarRecorte() {
+    const area = $("recorte"); let arrasto = null;
+    area.addEventListener("pointerdown", e => { if (!rc.img) return; arrasto = { x: e.clientX - rc.x, y: e.clientY - rc.y }; area.setPointerCapture(e.pointerId); });
+    area.addEventListener("pointermove", e => { if (!arrasto) return; rc.x = e.clientX - arrasto.x; rc.y = e.clientY - arrasto.y; desenharRecorte(); });
+    area.addEventListener("pointerup", () => arrasto = null);
+    area.addEventListener("wheel", e => { e.preventDefault(); const z = $("recorte-zoom"); z.value = Math.max(100, Math.min(400, +z.value - Math.sign(e.deltaY) * 12)); z.oninput(); }, { passive: false });
+    $("recorte-zoom").oninput = () => {
+      if (!rc.img) return;
+      const z = $("recorte-zoom"); const antes = rc.base * rc.zoom; rc.zoom = z.value / 100;
+      z.style.setProperty("--p", ((z.value - 100) / 3) + "%");
+      const depois = rc.base * rc.zoom, m = rc.lado / 2;           // aproxima pelo centro
+      rc.x = m - (m - rc.x) * depois / antes; rc.y = m - (m - rc.y) * depois / antes;
+      desenharRecorte();
+    };
+    $("btn-recorte-cancelar").onclick = fecharRecorte;
+    $("btn-recorte-ok").onclick = () => {
+      if (!rc.img) return;
+      const s = rc.base * rc.zoom, c = document.createElement("canvas"); c.width = c.height = 512;
+      const g = c.getContext("2d"); g.imageSmoothingQuality = "high";
+      g.drawImage(rc.img, -rc.x / s, -rc.y / s, rc.lado / s, rc.lado / s, 0, 0, 512, 512);
+      enviar("foto", { dataUrl: c.toDataURL("image/jpeg", .9), original: rc.original });
+      fecharRecorte();
+    };
+  }
+
+  // ── Modo demonstração (fora do aplicativo) ─────────────────
+  const demo = {
+    acao(m) {
+      const r = x => setTimeout(() => receber(x), 0);
+      if (m.acao === "salvar") { r({ tipo: "config", temChave: true, chaveFinal: (m.chave || "Zq4x").slice(-4) }); r({ tipo: "salvo", texto: "Acesso salvo neste usuário do Windows." }); demo.escutar(true); }
+      if (m.acao === "escuta") demo.escutar(!estado.escutando);
+      if (m.acao === "preferencias") r(Object.assign({ tipo: "config" }, m));
+      if (m.acao === "foto") r({ tipo: "config", foto: m.dataUrl || null, aparencia: "foto" });
+      if (m.acao === "foto_original") r({ tipo: "foto_original", dataUrl: config.foto });
+      if (m.acao === "falar") demo.pedido("o que eu tenho para hoje", true);
+      if (m.acao === "enviar") demo.pedido(m.texto, false);
+      if (m.acao === "parar_voz") r({ tipo: "estado", modo: "espera", ocupada: false });
+    },
+    escutar(sim) { receber({ tipo: "estado", modo: sim ? "espera" : "pausada", escutando: sim, ocupada: false }); },
+    pedido(texto, voz) {
+      const passo = (ms, x) => setTimeout(() => receber(x), ms);
+      if (voz) { passo(0, { tipo: "estado", modo: "ouvindo", ocupada: true, escutando: true }); }
+      passo(voz ? 1400 : 0, { tipo: "msg", de: "eu", texto: texto, via: voz ? "voz" : "texto" });
+      passo(voz ? 1400 : 0, { tipo: "estado", modo: "pensando", ocupada: true });
+      passo(voz ? 2600 : 1200, { tipo: "msg", de: "bella", texto: "⚔️ Rotinas\nVocê tem 4 missões hoje. O treino já foi; faltam leitura, banho frio e a meta da noite.\n\n1. ✅ — Leitura\n2. ✅ — Banho frio\n3. 📈 — Meta noite\n\n🧭 Entendi: Rotinas · /hoje",
+        opcoes: [{ numero: 1, rotulo: "✅", titulo: "Leitura" }, { numero: 2, rotulo: "✅", titulo: "Banho frio" }, { numero: 3, rotulo: "📈", titulo: "Meta noite" }] });
+      passo(voz ? 2600 : 1200, { tipo: "estado", modo: "falando", ocupada: true });
+      passo(voz ? 6200 : 4800, { tipo: "estado", modo: "espera", ocupada: false });
+    },
+    iniciar() {
+      const q = new URLSearchParams(location.search), cena = q.get("demo") || "conversa";
+      const foto = q.get("foto");
+      receber({ tipo: "config", temChave: cena !== "boasvindas", chaveFinal: "Zq4x", servidor: "https://solobot.duckdns.org", iniciar: true, mini: true, sensibilidade: 260, aparencia: "foto", foto: foto || null });
+      const modo = q.get("modo") || "falando";
+      receber({ tipo: "estado", modo: modo, escutando: modo !== "pausada", ocupada: modo !== "espera" && modo !== "pausada" });
+      if (cena === "conversa" || cena === "config" || cena === "mini") {
+        receber({ tipo: "msg", de: "bella", texto: "Oi, Jefferson. Estou aqui. Pode falar." });
+        receber({ tipo: "msg", de: "eu", texto: "Bella, o que eu tenho para hoje?", via: "voz" });
+        receber({ tipo: "msg", de: "bella", texto: "⚔️ Rotinas\nVocê tem 4 missões hoje. O treino já foi; faltam leitura, banho frio e a meta da noite.\n\n1. ✅ — Leitura\n2. ✅ — Banho frio\n3. 📈 — Meta noite\n\n🧭 Entendi: Rotinas · /hoje",
+          opcoes: [{ numero: 1, rotulo: "✅", titulo: "Leitura" }, { numero: 2, rotulo: "✅", titulo: "Banho frio" }, { numero: 3, rotulo: "📈", titulo: "Meta noite" }] });
+        receber({ tipo: "msg", de: "eu", texto: "Recebi 92,60 na conta Uber", via: "voz" });
+        receber({ tipo: "msg", de: "bella", texto: "💰 Finances\nReceita de R$ 92,60 lançada na conta Uber. Saldo da conta: R$ 418,30." });
+        receber({ tipo: "msg", de: "eu", texto: "Concluí a leitura", via: "texto" });
+        receber({ tipo: "msg", de: "bella", texto: "⚔️ Rotinas\nLeitura concluída. +40 XP · 🔥 12 dias" });
+        if (modo === "pensando") receber({ tipo: "estado", modo: "pensando" });
+      }
+      if (cena === "config") { $("btn-config").click(); let k = 0; setInterval(() => receber({ tipo: "nivel", v: 180 + 900 * Math.abs(Math.sin(k++ / 4)) }), 80); }
+      if (cena === "ouvindo") { receber({ tipo: "msg", de: "bella", texto: "Oi, Jefferson. Pode falar." }); let k = 0; setInterval(() => receber({ tipo: "nivel", v: 300 + 1600 * Math.abs(Math.sin(k++ / 3)) }), 80); }
+      if (cena === "recorte" && foto) abrirRecorte(foto);
+      if (cena === "erro") aviso("A conexão falhou. Confira no sistema se o pedido foi executado antes de repetir.", true);
+    }
+  };
+
+  // ── Início ─────────────────────────────────────────────────
+  if (MINI) {
+    document.body.classList.add("modo-mini");
+    $("mini").hidden = false;
+    $("mini").onclick = () => enviar("abrir");
+  } else {
+    ligarJanela(); ligarRecorte();
+    const v = document.createElement("div"); v.className = "vazio";
+    v.innerHTML = "Diga <b>“Bella”</b> ou aperte <b>Ctrl + Alt + B</b>.<br>Também dá para escrever aqui embaixo.";
+    $("conversa").appendChild(v);
+  }
+  if (ponteReal) enviar("pronto"); else demo.iniciar();
+})();
