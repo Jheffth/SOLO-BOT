@@ -15,6 +15,7 @@
   let estado = { modo: "pausada", escutando: false, ocupada: false };
   let primeiraMensagem = true;
   let ultimoOuvido = "", ultimaResposta = "";
+  let comandoEmEdicao = null;
 
   // ── Ponte ──────────────────────────────────────────────────
   function enviar(acao, dados) {
@@ -33,6 +34,8 @@
       case "toast": toast(m.texto, m.erro); break;
       case "salvo": toast(m.texto || "Salvo."); break;
       case "erro_salvar": erroSalvar(m.texto); break;
+      case "comando_caminho": $("comando-caminho").value = m.caminho; break;
+      case "comando_salvo": if (!m.removido) limparComando(); toast(m.removido ? "Comando removido. A pasta foi preservada." : "Comando salvo. Já pode falar a frase cadastrada."); break;
       case "foto_original": if (m.dataUrl) abrirRecorte(m.dataUrl); else toast("A foto original não está mais aqui. Escolha a foto de novo.", true); break;
     }
   }
@@ -81,10 +84,33 @@
       linha.appendChild(nome); linha.appendChild(remover); pastas.appendChild(linha);
     });
     if (!(config.pastasArquivos || []).length) pastas.textContent = "Nenhuma pasta escolhida.";
+    desenharComandos();
     const naBoasVindas = !config.temChave;
     $("boas-vindas").hidden = !naBoasVindas;
     $("app").hidden = naBoasVindas;
     if (naBoasVindas) setTimeout(() => $("bv-chave").focus(), 50);
+  }
+
+  function limparComando() {
+    comandoEmEdicao = null; $("form-comando").reset();
+    $("btn-comando-salvar").textContent = "Salvar comando"; $("btn-comando-cancelar").hidden = true;
+  }
+  function desenharComandos() {
+    const lista = $("lista-comandos"); lista.textContent = "";
+    const comandos = config.comandosPastas || [];
+    if (comandoEmEdicao && !comandos.some(c => c.Id === comandoEmEdicao)) limparComando();
+    if (!comandos.length) { const p = document.createElement("p"); p.className = "ajuda"; p.textContent = "Nenhum comando salvo. Cadastre sua primeira pasta acima."; lista.appendChild(p); }
+    comandos.forEach(c => {
+      const card = document.createElement("div"); card.className = "comando-salvo";
+      const frase = document.createElement("b"); frase.textContent = c.Frase;
+      const caminho = document.createElement("p"); caminho.textContent = c.Caminho;
+      const acoes = document.createElement("div"); acoes.className = "botoes";
+      const botao = (rotulo, acao) => { const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = rotulo; b.onclick = acao; acoes.appendChild(b); };
+      botao("Testar", () => { if (estado.ocupada) return toast("Espere o pedido atual terminar.", true); $("btn-fechar-config").click(); enviar("enviar", { texto: c.Frase }); });
+      botao("Editar", () => { comandoEmEdicao = c.Id; $("comando-frase").value = c.Frase; $("comando-caminho").value = c.Caminho; $("btn-comando-salvar").textContent = "Salvar alterações"; $("btn-comando-cancelar").hidden = false; $("comando-frase").focus(); });
+      botao("Remover", () => enviar("comando_pasta", { id: c.Id, remover: true }));
+      card.appendChild(frase); card.appendChild(caminho); card.appendChild(acoes); lista.appendChild(card);
+    });
   }
 
   // ── Estado (o que a Bella está fazendo) ────────────────────
@@ -270,9 +296,17 @@
       $("entrada").value = ""; enviar("enviar", { texto: t });
     };
     // Configurações
-    const abrir = () => { $("veu").hidden = false; $("gaveta").classList.add("aberta"); $("gaveta").setAttribute("aria-hidden", "false"); enviar("medidor", { ligado: true }); };
+    const aba = nome => {
+      $("cfg-geral").hidden = nome !== "geral"; $("cfg-comandos").hidden = nome !== "comandos";
+      $("gaveta-titulo").textContent = nome === "comandos" ? "Comandos" : "Configurações";
+      document.querySelectorAll("[data-aba]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.aba === nome)));
+      enviar("medidor", { ligado: nome === "geral" });
+    };
+    const abrir = (nome = "geral") => { aba(nome); $("veu").hidden = false; $("gaveta").classList.add("aberta"); $("gaveta").setAttribute("aria-hidden", "false"); };
     const fechar = () => { $("gaveta").classList.remove("aberta"); $("gaveta").setAttribute("aria-hidden", "true"); setTimeout(() => $("veu").hidden = true, 250); enviar("medidor", { ligado: false }); };
-    $("btn-config").onclick = abrir;
+    $("btn-config").onclick = () => abrir();
+    $("btn-comandos").onclick = () => abrir("comandos");
+    document.querySelectorAll("[data-aba]").forEach(b => b.onclick = () => aba(b.dataset.aba));
     $("btn-fechar-config").onclick = fechar; $("veu").onclick = fechar;
     $("btn-trocar-foto").onclick = () => { abrir(); setTimeout(() => $("arquivo").click(), 320); };
     document.addEventListener("keydown", e => {
@@ -297,6 +331,12 @@
     $("btn-painel").onclick = () => enviar("abrir_painel", { servidor: $("cfg-servidor").value.trim() });
     $("btn-sair").onclick = () => enviar("sair");
     $("btn-pasta").onclick = () => enviar("pasta_arquivos");
+    $("btn-comando-pasta").onclick = () => enviar("comando_escolher_pasta");
+    $("btn-comando-cancelar").onclick = limparComando;
+    $("form-comando").onsubmit = e => {
+      e.preventDefault();
+      enviar("comando_pasta", { id: comandoEmEdicao, frase: $("comando-frase").value.trim(), caminho: $("comando-caminho").value.trim() });
+    };
     $("btn-arquivos-ajuda").onclick = () => { fechar(); enviar("enviar", { texto: "/arquivos ajuda" }); };
     // Foto
     $("btn-escolher").onclick = e => { e.preventDefault(); $("arquivo").click(); };

@@ -290,6 +290,14 @@ Há reconferência do item e do acesso antes da ação; colisões não substitue
 O Windows faz a exclusão pela Lixeira, podendo pedir sua confirmação nativa.
 Links de pasta não são seguidos; arquivos locais de nuvem usam apenas tags reconhecidas.
 
+Na aba **Comandos**, o usuário cadastra uma frase e o caminho de uma pasta para abrir
+diretamente. `ComandosPastas.cs` valida os cadastros; `Arquivos.cs` reconhece a frase
+antes da busca geral e reconfere a pasta na abertura. Os cadastros são locais, cifrados
+nas preferências, e aceitam edição, teste e remoção. Eles permitem somente abrir a pasta
+escolhida; não ampliam as raízes de busca nem concedem acesso para alterar seus arquivos.
+Maiúsculas, acentos, pontuação e os verbos “abra/abre/abrir” são equivalentes; frases
+duplicadas, respostas de confirmação e números de escolhas não podem ser cadastrados.
+
 Áudio no cliente novo vai primeiro a `POST /api/bella/transcrever` (chave Bella, UUID e WAV).
 Essa rota **não roteia, não executa comandos e não altera modo ou escolhas dos sistemas**.
 `PedidosWindows` decide localmente: um pedido Solo segue uma vez, como texto original com

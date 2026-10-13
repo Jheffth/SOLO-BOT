@@ -18,6 +18,7 @@ namespace Bella {
         public bool MiniBella=true;          // a pílula sobre a barra de tarefas quando a janela está fechada
         public string Aparencia="foto";      // "foto" (foto com o anel) ou "orbe"
         public string[] PastasArquivos=Arquivos.PastasPadrao();
+        public ComandoPasta[] ComandosPastas=new ComandoPasta[0];
         static readonly string FilePath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Solo","Bella","acesso.dat");
         public static Settings Load() {
             if(!File.Exists(FilePath)) return new Settings();

@@ -5,6 +5,23 @@ O computador precisa de um microfone padrão e conexão ao Solo Bot para executa
 
 ## Arquivos no Windows
 
+### Comandos para abrir suas pastas
+
+Clique em **Comandos**, no topo da janela, ou na aba **Comandos** das configurações.
+Preencha **Frase do comando** (por exemplo, `Abrir minha pasta de Projetos`) e **Caminho
+da pasta** (`C:\JEFFERSON\PROJETOS`), ou use **Escolher pasta**, e clique em **Salvar comando**.
+Diga a frase ou escreva na conversa: a Bella abre o caminho cadastrado diretamente.
+“Abra” e “abrir”, letras maiúsculas, acentos e pontuação são equivalentes.
+
+Cada cadastro tem **Testar**, **Editar** e **Remover**. Remover apaga apenas o comando.
+As associações ficam cifradas junto das preferências e continuam disponíveis depois de
+reiniciar. Frases duplicadas e caminhos inexistentes são recusados. É possível cadastrar
+até 50 comandos. O cadastro permite apenas abrir aquela pasta; buscar e alterar seus
+arquivos continuam dependendo do acesso concedido abaixo. A pasta é conferida novamente
+a cada abertura; o comando não executa programas, scripts ou instruções do servidor.
+
+### Buscar e cuidar dos arquivos
+
 A Bella busca, lista e abre arquivos e pastas, cria pastas e pode mover, renomear ou excluir
 itens **depois de você confirmar**. Em **Configurações → Arquivos deste computador**, escolha
 as pastas de acesso. Documentos, Downloads e Área de Trabalho são as escolhas iniciais.

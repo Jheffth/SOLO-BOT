@@ -26,6 +26,7 @@
       <i></i><span id="chip-texto">Escuta pausada</span>
     </button>
     <div class="topo-acoes">
+      <button class="btn" id="btn-comandos" type="button" title="Cadastrar comandos para abrir pastas">Comandos</button>
       <button class="icobtn" id="btn-parar" type="button" title="Interromper voz" hidden>
         <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5"/></svg>
       </button>
@@ -68,13 +69,17 @@
   <div class="veu" id="veu" hidden></div>
   <aside class="gaveta" id="gaveta" aria-hidden="true">
     <header class="gaveta-topo">
-      <h2>Configurações</h2>
+      <h2 id="gaveta-titulo">Configurações</h2>
       <button class="icobtn" id="btn-fechar-config" type="button" title="Fechar">
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
     </header>
+    <nav class="abas-config" role="tablist" aria-label="Preferências da Bella">
+      <button id="aba-geral" type="button" role="tab" aria-selected="true" aria-controls="cfg-geral" data-aba="geral">Configurações</button>
+      <button id="aba-comandos" type="button" role="tab" aria-selected="false" aria-controls="cfg-comandos" data-aba="comandos">Comandos</button>
+    </nav>
     <div class="gaveta-corpo">
-
+      <div id="cfg-geral" role="tabpanel" aria-labelledby="aba-geral">
       <section class="grupo">
         <h3>Aparência</h3>
         <p class="ajuda">A foto da Bella aparece no centro, nas respostas e na Mini-Bella. Ela fica só neste computador.</p>
@@ -146,6 +151,31 @@
         </dl>
         <button class="btn perigo" id="btn-sair" type="button">Encerrar a Bella</button>
       </section>
+      </div>
+      <div id="cfg-comandos" role="tabpanel" aria-labelledby="aba-comandos" hidden>
+        <section class="grupo">
+          <h3>Abrir minhas pastas</h3>
+          <p class="ajuda">Cadastre o que você quer dizer e qual pasta abrir. Funciona por voz ou texto e fica salvo neste computador.</p>
+          <form id="form-comando" autocomplete="off">
+            <label class="campo"><span>Frase do comando</span>
+              <input id="comando-frase" maxlength="200" required placeholder="Abrir minha pasta de Projetos">
+            </label>
+            <label class="campo"><span>Caminho da pasta</span>
+              <input id="comando-caminho" required placeholder="C:\JEFFERSON\PROJETOS" spellcheck="false">
+            </label>
+            <div class="botoes"><button class="btn" id="btn-comando-pasta" type="button">Escolher pasta</button></div>
+            <p class="ajuda">O comando abre somente a pasta cadastrada. Para buscar ou alterar arquivos nela, adicione também o acesso nas Configurações.</p>
+            <div class="botoes">
+              <button class="btn pri" id="btn-comando-salvar" type="submit">Salvar comando</button>
+              <button class="btn" id="btn-comando-cancelar" type="button" hidden>Cancelar edição</button>
+            </div>
+          </form>
+        </section>
+        <section class="grupo">
+          <h3>Comandos salvos</h3>
+          <div id="lista-comandos" class="lista-comandos"></div>
+        </section>
+      </div>
     </div>
   </aside>
 

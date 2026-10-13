@@ -117,6 +117,7 @@ namespace Bella {
                     r=files.Atender("/arquivos buscar arquivo externo em "+Aspas(permitida));
                     Check(r.CodigoVoz=="vazio","busca nao segue links");
                 }
+                Comandos(files,permitida,fora,link,linkCriado);
                 Rede(files,permitida).GetAwaiter().GetResult();
             } finally {
                 string full=Path.GetFullPath(raiz), baseFull=Path.GetFullPath(baseDirectory).TrimEnd(Path.DirectorySeparatorChar);
@@ -124,6 +125,48 @@ namespace Bella {
                 if(linkCriado && Directory.Exists(link)) Directory.Delete(link,false);
                 if(Directory.Exists(full)) Directory.Delete(full,true);
             }
+        }
+        static void Recusa(Action acao,string mensagem) {
+            bool recusou=false; try { acao(); } catch(InvalidOperationException) { recusou=true; }
+            Check(recusou,mensagem);
+        }
+        static void Comandos(Arquivos files,string permitida,string fora,string link,bool linkCriado) {
+            var abertos=new List<string>();
+            var comandos=ComandosPastas.Atualizar(null,null,"Abrir minha pasta de Projetos",fora);
+            string id=comandos[0].Id;
+            var local=new Arquivos(()=>new[] {permitida},p=>abertos.Add(p),commands:()=>comandos);
+            foreach(string frase in new[] {"Abrir minha pasta de Projetos","Abra minha pasta de projetos.","Bella, por favor, abra minha pasta de Projetos!"})
+                Check(local.Processar(frase).GetAwaiter().GetResult().CodigoVoz=="aberto" && abertos.Last()==fora,"comando personalizado abre diretamente fora das raizes de busca: "+frase);
+            Check(local.Atender("excluir pasta "+Aspas(fora)).CodigoVoz=="erro","cadastro de abertura nao concede acesso para exclusao");
+            Check(local.Atender("listar "+Aspas(fora)).CodigoVoz=="erro","cadastro de abertura nao amplia raizes de busca");
+            Recusa(()=>ComandosPastas.Atualizar(comandos,null,"Abra minha pasta de projetos!",permitida),"frases equivalentes nao podem ter destinos diferentes");
+            Recusa(()=>ComandosPastas.Atualizar(comandos,null,"sim",permitida),"comando nao captura confirmacao");
+            Recusa(()=>ComandosPastas.Atualizar(comandos,null,"dois",permitida),"comando nao captura escolha numerica");
+            Recusa(()=>ComandosPastas.Atualizar(comandos,null,"/saldo",permitida),"comando nao captura comando com barra");
+            Recusa(()=>ComandosPastas.Atualizar(comandos,null,"Pasta invalida",Path.Combine(fora,"inexistente")),"caminho inexistente nao e salvo");
+            Recusa(()=>ComandosPastas.Atualizar(comandos,null,"Abrir arquivo",Path.Combine(permitida,"perigoso.cmd")),"somente pastas podem ser cadastradas");
+            if(linkCriado) Recusa(()=>ComandosPastas.Atualizar(comandos,null,"Abrir atalho",link),"link nao e salvo como pasta");
+            var anterior=comandos;
+            comandos=ComandosPastas.Atualizar(comandos,id,"Hora de programar",permitida);
+            Check(anterior[0].Frase=="Abrir minha pasta de Projetos" && comandos.Length==1 && comandos[0].Id==id,"edicao preserva identidade e nao altera configuracao anterior");
+            Check(local.Processar("Hora de programar").GetAwaiter().GetResult().CodigoVoz=="aberto" && abertos.Last()==permitida,"edicao muda frase e caminho imediatamente");
+            var serializer=new JavaScriptSerializer();
+            var config=serializer.Deserialize<Settings>(serializer.Serialize(new Settings {ComandosPastas=comandos}));
+            Check(config.ComandosPastas.Length==1 && config.ComandosPastas[0].Caminho==permitida && config.ComandosPastas[0].Frase=="Hora de programar","comandos sobrevivem serializacao das preferencias");
+            Check(serializer.Deserialize<Settings>("{}").ComandosPastas.Length==0,"configuracao antiga inicia sem comandos");
+            comandos=ComandosPastas.Atualizar(comandos,id,null,null,true);
+            Check(local.Atender("Hora de programar")==null && Directory.Exists(permitida),"remover so apaga associacao, preservando a pasta");
+            Recusa(()=>ComandosPastas.Atualizar(comandos,id,"Frase antiga",permitida),"edicao antiga nao recria comando removido");
+            string temporaria=Path.Combine(permitida,"comando-temporario"); Directory.CreateDirectory(temporaria);
+            comandos=ComandosPastas.Atualizar(comandos,null,"Pasta temporaria",temporaria);
+            Directory.Delete(temporaria); int antes=abertos.Count;
+            Check(local.Atender("Pasta temporaria").CodigoVoz=="erro" && abertos.Count==antes,"pasta e reconferida a cada abertura");
+            comandos=ComandosPastas.Atualizar(null,null,"Hora de programar",fora);
+            var pedidos=new List<string>(); var fila=new PedidosWindows();
+            Func<Client> cliente=()=>new Client("https://test.invalid","bella_"+new string('x',43),new Servidor(pedidos,"Hora de programar",false));
+            var r=fila.Enviar(null,new byte[] {1},local,cliente,null).GetAwaiter().GetResult();
+            Check(r.CodigoVoz=="aberto" && abertos.Last()==fora && pedidos.Count==2 && pedidos[1].StartsWith("/api/bella/voz-local "),"comando personalizado por voz executa localmente sem passar pelo hub");
+            Check(!pedidos[1].Contains(fora) && !pedidos[1].Contains("Hora de programar"),"sintese nao recebe cadastro nem caminho");
         }
         sealed class Servidor : HttpMessageHandler {
             readonly List<string> pedidos;

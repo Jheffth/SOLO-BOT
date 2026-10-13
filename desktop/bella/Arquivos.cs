@@ -15,14 +15,16 @@ namespace Bella {
     // Somente ações locais e explícitas. Nada recebido do hub vira ação do Windows.
     public sealed class Arquivos {
         readonly Func<IEnumerable<string>> pastas;
+        readonly Func<IEnumerable<ComandoPasta>> comandos;
         readonly Action<string> abrir, reciclar;
         readonly Func<DateTime> agora;
         Dictionary<int,Func<Reply>> escolhas;
         string identidade;
         DateTime validade;
         bool confirmacao;
-        public Arquivos(Func<IEnumerable<string>> roots,Action<string> open=null,Action<string> recycle=null,Func<DateTime> clock=null) {
+        public Arquivos(Func<IEnumerable<string>> roots,Action<string> open=null,Action<string> recycle=null,Func<DateTime> clock=null,Func<IEnumerable<ComandoPasta>> commands=null) {
             pastas=roots; abrir=open ?? Abrir; reciclar=recycle ?? Reciclar; agora=clock ?? (()=>DateTime.UtcNow);
+            comandos=commands ?? (()=>new ComandoPasta[0]);
         }
         public void Cancelar() { escolhas=null; identidade=null; confirmacao=false; }
         public bool TemEscolha { get { return escolhas!=null; } }
@@ -110,6 +112,14 @@ namespace Bella {
                     Func<Reply> acao;
                     if(!escolhas.TryGetValue(n,out acao)) return Resposta("erro","Diga um dos números da lista ou “cancelar”.");
                     Cancelar(); return acao(); // A escolha é consumida antes de mexer no arquivo.
+                }
+                var cadastrados=(comandos() ?? new ComandoPasta[0]).Where(c=>ComandosPastas.Chave(c.Frase)==ComandosPastas.Chave(text)).ToList();
+                if(cadastrados.Count>0) {
+                    Cancelar();
+                    if(cadastrados.Count!=1) return Resposta("erro","Há mais de um comando com essa frase. Corrija os cadastros na aba Comandos.");
+                    // O cadastro autoriza abrir apenas esta pasta. Não concede acesso geral aos arquivos.
+                    string p=ComandosPastas.ConferirPasta(cadastrados[0].Caminho);
+                    abrir(p); return Resposta("aberto","Abri:\n"+p);
                 }
                 bool explicito=Regex.IsMatch(f,@"^/?arquivos\b");
                 if(explicito) text=Regex.Replace(text,@"^/?arquivos\s*","",RegexOptions.IgnoreCase);

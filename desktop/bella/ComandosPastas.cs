@@ -1,0 +1,46 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+namespace Bella {
+    public sealed class ComandoPasta {
+        public string Id=Guid.NewGuid().ToString("N");
+        public string Frase;
+        public string Caminho;
+    }
+    public static class ComandosPastas {
+        public static string Chave(string frase) {
+            string f=Arquivos.Dobrar(frase).Trim();
+            f=Regex.Replace(f,@"^(?:(?:ei|oi|ola)\s+)?(?:bella|bela)\b[\s,:.!?—-]*","");
+            f=Regex.Replace(f,@"[^\p{L}\p{Nd}\s]"," ");
+            f=Regex.Replace(f,@"\s+"," ").Trim();
+            for(int i=0;i<2;i++) f=Regex.Replace(f,@"^(?:por favor\s+|(?:(?:voce)\s+)?(?:pode|poderia)\s+)","");
+            return Regex.Replace(f,@"^(?:abra|abre|abrir)\b","abrir");
+        }
+        public static string ConferirPasta(string caminho) {
+            string p=Arquivos.Canonico((caminho ?? "").Trim().Trim('"'));
+            Arquivos.ConferirAtalhos(p);
+            if(!Directory.Exists(p)) throw new InvalidOperationException("Essa pasta não está disponível. Confira o caminho ou use Escolher pasta.");
+            return p;
+        }
+        public static ComandoPasta[] Atualizar(IEnumerable<ComandoPasta> atuais,string id,string frase,string caminho,bool remover=false) {
+            var lista=(atuais ?? new ComandoPasta[0]).Select(c=>new ComandoPasta {Id=c.Id,Frase=c.Frase,Caminho=c.Caminho}).ToList();
+            int i=String.IsNullOrEmpty(id) ? -1 : lista.FindIndex(c=>c.Id==id);
+            if(!String.IsNullOrEmpty(id) && i<0) throw new InvalidOperationException("Esse comando mudou. Escolha-o novamente na lista.");
+            if(remover) {
+                if(i<0) throw new InvalidOperationException("Escolha o comando que deseja remover.");
+                lista.RemoveAt(i); return lista.ToArray();
+            }
+            frase=(frase ?? "").Trim(); string chave=Chave(frase);
+            if(frase.Length>200 || chave.Length<3 || frase.StartsWith("/") || Arquivos.EhResposta(frase))
+                throw new InvalidOperationException("Use uma frase de 3 a 200 caracteres, como Abrir minha pasta de Projetos. Números e respostas de confirmação não podem ser comandos.");
+            if(lista.Any(c=>c.Id!=id && Chave(c.Frase)==chave)) throw new InvalidOperationException("Essa frase já está cadastrada. Edite o comando existente ou escolha outra frase.");
+            var novo=new ComandoPasta {Id=i<0 ? Guid.NewGuid().ToString("N") : id,Frase=frase,Caminho=ConferirPasta(caminho)};
+            if(i<0) lista.Add(novo); else lista[i]=novo;
+            if(lista.Count>50) throw new InvalidOperationException("Você pode cadastrar até 50 comandos de pastas.");
+            return lista.ToArray();
+        }
+    }
+}

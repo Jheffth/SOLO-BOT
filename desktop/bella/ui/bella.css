@@ -188,6 +188,15 @@ input { font: inherit; color: inherit; }
 .gaveta.aberta { transform: none; }
 .gaveta-topo { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 8px 20px; }
 .gaveta-topo h2 { font: 650 18px var(--fonte-titulo); }
+.abas-config { display: flex; gap: 8px; padding: 8px 20px; }
+.abas-config button { flex: 1; padding: 9px; border-radius: 9px; color: var(--suave); border: 1px solid var(--linha); }
+.abas-config button[aria-selected="true"] { color: var(--violeta); background: rgba(139,92,246,.12); border-color: rgba(167,139,250,.35); }
+.lista-comandos { display: grid; gap: 12px; }
+.comando-salvo { padding: 12px; border: 1px solid var(--linha2); border-radius: 12px; background: var(--sup); }
+.comando-salvo b, .comando-salvo p { display: block; overflow-wrap: anywhere; user-select: text; }
+.comando-salvo p { color: var(--suave); font-size: 12px; margin: 6px 0 10px; }
+#form-comando .campo { margin-bottom: 12px; }
+#form-comando .ajuda { margin-top: 12px; }
 .gaveta-corpo { overflow-y: auto; padding: 4px 20px 24px; }
 .gaveta-corpo::-webkit-scrollbar { width: 8px; } .gaveta-corpo::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 8px; }
 .grupo { padding: 16px 0; border-bottom: 1px solid var(--linha); }

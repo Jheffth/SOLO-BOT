@@ -114,6 +114,17 @@ namespace Bella {
                     case "medidor": medidor=Vista.Logico(d,"ligado")==true; break;
                     case "abrir_painel": AbrirPainel(Vista.Texto(d,"servidor")); break;
                     case "sair": Sair(); break;
+                    case "comando_pasta":
+                        try {
+                            bella.ComandoPasta(Vista.Texto(d,"id"),Vista.Texto(d,"frase"),Vista.Texto(d,"caminho"),Vista.Logico(d,"remover")==true);
+                            PostarConfig(); tela.Postar(new {tipo="comando_salvo", removido=Vista.Logico(d,"remover")==true});
+                        } catch(Exception e) { tela.Postar(new {tipo="toast",texto=e.Message,erro=true}); }
+                        break;
+                    case "comando_escolher_pasta":
+                        using(var pastaComando=new FolderBrowserDialog {Description="Escolha a pasta para este comando abrir.",ShowNewFolderButton=false}) {
+                            if(pastaComando.ShowDialog(this)==DialogResult.OK) tela.Postar(new {tipo="comando_caminho",caminho=pastaComando.SelectedPath});
+                        }
+                        break;
                     case "pasta_arquivos":
                         if(bella.Ocupada) throw new InvalidOperationException("Espere o pedido atual terminar.");
                         var remover=Vista.Inteiro(d,"remover");
@@ -158,7 +169,8 @@ namespace Bella {
             var c=bella.Config;
             string final=String.IsNullOrEmpty(c.Key) || c.Key.Length<4 ? "" : c.Key.Substring(c.Key.Length-4);
             return new { tipo="config", temChave=bella.TemChave, servidor=c.Server, chaveFinal=final, iniciar=c.Startup,
-                         mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto, pastasArquivos=c.PastasArquivos };
+                         mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto, pastasArquivos=c.PastasArquivos,
+                         comandosPastas=c.ComandosPastas };
         }
         void PostarConfig() { var c=Config(); tela.Postar(c); if(mini!=null) mini.Postar(c); }
 

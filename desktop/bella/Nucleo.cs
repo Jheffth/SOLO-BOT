@@ -43,7 +43,8 @@ namespace Bella {
         public Nucleo(Control ui,Settings inicial) {
             dono=ui; Config=inicial ?? new Settings();
             if(Config.PastasArquivos==null) Config.PastasArquivos=Arquivos.PastasPadrao();
-            arquivos=new Arquivos(()=>Config.PastasArquivos);
+            if(Config.ComandosPastas==null) Config.ComandosPastas=new ComandoPasta[0];
+            arquivos=new Arquivos(()=>Config.PastasArquivos,commands:()=>Config.ComandosPastas);
         }
 
         void Ui(Action action) { if(!dono.IsDisposed && dono.IsHandleCreated) dono.BeginInvoke(action); }
@@ -83,7 +84,14 @@ namespace Bella {
 
         Settings Copia() {
             return new Settings { Server=Config.Server, Key=Config.Key, Startup=Config.Startup, Threshold=Config.Threshold,
-                                  MiniBella=Config.MiniBella, Aparencia=Config.Aparencia, PastasArquivos=(string[])Config.PastasArquivos.Clone() };
+                                  MiniBella=Config.MiniBella, Aparencia=Config.Aparencia, PastasArquivos=(string[])Config.PastasArquivos.Clone(),
+                                  ComandosPastas=(ComandoPasta[])Config.ComandosPastas.Clone() };
+        }
+
+        public void ComandoPasta(string id,string frase,string caminho,bool remover) {
+            if(busy) throw new InvalidOperationException("Espere o pedido atual terminar antes de editar os comandos.");
+            var novo=Copia(); novo.ComandosPastas=Bella.ComandosPastas.Atualizar(novo.ComandosPastas,id,frase,caminho,remover);
+            novo.Save(); Config=novo; arquivos.Cancelar(); pedidos.Cancelar();
         }
 
         public void Pastas(string adicionar,int? remover) {
