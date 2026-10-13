@@ -1,5 +1,6 @@
 """Áudio: o Solo Bot ouve uma vez, para todos os sistemas."""
 import pytest
+import httpx
 
 from canais import evolution, telegram
 from nucleo import voz
@@ -153,3 +154,98 @@ def test_motivo_aparece_no_chat_sem_encaminhar_ao_sistema(logado, sistemas, caix
     _voz_tg(logado)
     assert len(sistemas.recebidos) == antes
     assert "tempo de resposta esgotado" in caixa[-1][2] and "segredo" not in caixa[-1][2]
+
+
+@pytest.fixture()
+def gemini_audio(monkeypatch):
+    """REST simulado; usa a recuperação real e confere áudio/chave/modelo."""
+    import config
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "chave-teste")
+    monkeypatch.setattr(config, "GEMINI_API_KEY_RESERVA", "")
+    monkeypatch.setattr(config, "GROK_API_KEY", "")
+    monkeypatch.setattr(config, "GEMINI_AUDIO_MODEL", "principal")
+    monkeypatch.setattr(config, "GEMINI_AUDIO_MODEL_RESERVA", "alternativo")
+    pausas, pedidos, resultados = [], [], []
+    monkeypatch.setattr(voz.time, "sleep", pausas.append)
+    monkeypatch.setattr(voz.random, "uniform", lambda a, b: 0)
+    class Cliente:
+        def __init__(self, **kwargs):
+            assert 0 < kwargs["timeout"] <= voz.TEMPO_PEDIDO
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def post(self, url, json, headers):
+            pedidos.append((url, json, headers))
+            resultado = resultados.pop(0)
+            if isinstance(resultado, Exception):
+                raise resultado
+            codigo = resultado if isinstance(resultado, int) else 200
+            corpo = {"candidates": [{"finishReason": "STOP",
+                "content": {"parts": [{"text": resultado if codigo == 200 else "SEGREDO"}]}}]}
+            return httpx.Response(codigo, json=corpo, request=httpx.Request("POST", url))
+    monkeypatch.setattr(voz.httpx, "Client", Cliente)
+    return resultados, pedidos, pausas
+
+
+def test_gemini_503_recupera_sem_trocar_audio(gemini_audio):
+    resultados, pedidos, pausas = gemini_audio
+    resultados.extend([503, "recebi R$ 92,60 na conta Uber"])
+    assert voz.transcrever(b"audio original", "audio/wav") == "recebi R$ 92,60 na conta Uber"
+    assert len(pedidos) == 2 and pedidos[0] == pedidos[1] and pausas == [1]
+
+
+@pytest.mark.parametrize("falha", [503, httpx.ReadTimeout("segredo"), httpx.ConnectError("segredo")])
+def test_gemini_falha_persistente_usa_outro_modelo_com_mesma_chave(gemini_audio, falha):
+    resultados, pedidos, pausas = gemini_audio
+    resultados.extend([falha, falha, "saldo"])
+    assert voz.transcrever(b"audio original", "audio/wav") == "saldo"
+    assert [p[0].split("/")[-1] for p in pedidos] == [
+        "principal:generateContent", "principal:generateContent", "alternativo:generateContent"]
+    assert all(p[1:] == pedidos[0][1:] for p in pedidos) and pausas == [1]
+
+
+@pytest.mark.parametrize("codigo", [400, 401, 403, 429])
+def test_gemini_erro_permanente_nao_repete_nem_troca_modelo(gemini_audio, codigo):
+    resultados, pedidos, pausas = gemini_audio
+    resultados.append(codigo)
+    with pytest.raises(voz.FalhaVoz):
+        voz.transcrever(b"audio", "audio/wav")
+    assert len(pedidos) == 1 and pausas == []
+
+
+def test_gemini_modelo_removido_passa_direto_para_alternativa(gemini_audio):
+    resultados, pedidos, pausas = gemini_audio
+    resultados.extend([404, "saldo"])
+    assert voz.transcrever(b"audio", "audio/wav") == "saldo"
+    assert len(pedidos) == 2 and pausas == []
+
+
+def test_gemini_recuperacao_limitada_e_diagnostico_seguro(gemini_audio, caplog):
+    resultados, pedidos, pausas = gemini_audio
+    resultados.extend([503, 503, 503])
+    with pytest.raises(voz.FalhaVoz) as erro:
+        voz.transcrever(b"audio pessoal", "audio/wav")
+    assert len(pedidos) == 3 and pausas == [1]
+    assert "HTTP 503" in str(erro.value)
+    assert "SEGREDO" not in str(erro.value) + caplog.text
+    assert "chave-teste" not in str(erro.value) + caplog.text
+
+
+def test_gemini_nao_inicia_novo_pedido_se_orcamento_acabou(gemini_audio, monkeypatch):
+    resultados, pedidos, pausas = gemini_audio
+    relogio = iter([0, 0, 2, 41])
+    monkeypatch.setattr(voz.time, "monotonic", lambda: next(relogio))
+    resultados.append(503)
+    with pytest.raises(voz.FalhaVoz):
+        voz.transcrever(b"audio", "audio/wav")
+    assert len(pedidos) == 1
+
+
+@pytest.mark.parametrize("reserva", ["principal", "nenhum"])
+def test_gemini_alternativa_igual_ou_desligada_nao_duplica_pedido(gemini_audio, monkeypatch, reserva):
+    import config
+    monkeypatch.setattr(config, "GEMINI_AUDIO_MODEL_RESERVA", reserva)
+    resultados, pedidos, pausas = gemini_audio
+    resultados.extend([503, 503])
+    with pytest.raises(voz.FalhaVoz):
+        voz.transcrever(b"audio", "audio/wav")
+    assert len(pedidos) == 2

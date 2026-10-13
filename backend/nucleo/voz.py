@@ -17,6 +17,8 @@ chave. O áudio não é guardado em lugar nenhum.
 """
 import base64
 import logging
+import random
+import time
 from typing import Callable, List
 
 import httpx
@@ -27,6 +29,8 @@ log = logging.getLogger("solobot.voz")
 
 MAX_SEGUNDOS = 90
 MAX_BYTES = 3 * 1024 * 1024
+TEMPO_GEMINI = 40  # orçamento por conta, incluindo as tentativas e o modelo alternativo
+TEMPO_PEDIDO = 12
 
 PROMPT = ("Transcreva fielmente esta mensagem de voz em português do Brasil. "
           "Responda SOMENTE com o texto falado, sem aspas, sem comentários. "
@@ -48,6 +52,7 @@ def _motivo(erro: Exception) -> str:
         codigo = erro.response.status_code
         return {429: "limite de uso atingido (HTTP 429)", 401: "chave recusada (HTTP 401)",
                 403: "acesso recusado (HTTP 403)", 404: "modelo indisponível (HTTP 404)",
+                503: "serviço temporariamente indisponível (HTTP 503)",
                 400: "pedido de áudio recusado (HTTP 400)"}.get(codigo, f"serviço respondeu HTTP {codigo}")
     if isinstance(erro, httpx.TimeoutException):
         return "tempo de resposta esgotado"
@@ -64,20 +69,58 @@ def _limpo(mime: str) -> str:
     return (mime or "audio/ogg").split(";")[0].strip() or "audio/ogg"
 
 
+def _temporario(erro: Exception) -> bool:
+    if isinstance(erro, httpx.HTTPStatusError):
+        return erro.response.status_code in (408, 500, 502, 503, 504)
+    return isinstance(erro, (httpx.TimeoutException, httpx.NetworkError))
+
+
+def _pedido_gemini(chave: str, modelo: str, corpo: dict, timeout: float) -> str:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
+    with httpx.Client(timeout=timeout) as c:
+        r = c.post(url, json=corpo, headers={"x-goog-api-key": chave})
+    r.raise_for_status()
+    cand = r.json()["candidates"][0]
+    if cand.get("finishReason") not in (None, "STOP"):
+        raise ValueError("transcrição incompleta")
+    return "".join(p.get("text", "") for p in cand["content"]["parts"] if not p.get("thought")).strip()
+
+
 def _gemini(chave: str, rotulo: str) -> Callable:
     def ouvir(conteudo: bytes, mime: str) -> str:
         corpo = {"contents": [{"role": "user", "parts": [
             {"text": PROMPT},
             {"inline_data": {"mime_type": mime, "data": base64.b64encode(conteudo).decode("ascii")}}]}],
             "generationConfig": {"temperature": 0, "maxOutputTokens": 1024}}
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent"
-        with httpx.Client(timeout=40) as c:
-            r = c.post(url, json=corpo, headers={"x-goog-api-key": chave})
-        r.raise_for_status()
-        cand = r.json()["candidates"][0]
-        if cand.get("finishReason") not in (None, "STOP"):
-            raise ValueError("transcrição incompleta")
-        return "".join(p.get("text", "") for p in cand["content"]["parts"] if not p.get("thought")).strip()
+        modelos = [config.GEMINI_AUDIO_MODEL]
+        reserva = config.GEMINI_AUDIO_MODEL_RESERVA
+        if reserva and reserva.lower() != "nenhum" and reserva not in modelos:
+            modelos.append(reserva)
+        prazo = time.monotonic() + TEMPO_GEMINI
+        ultimo_erro = None
+        for indice, modelo in enumerate(modelos):
+            # Até três pedidos: principal, repetição após pausa, alternativa.
+            for tentativa in range(2 if indice == 0 else 1):
+                restante = prazo - time.monotonic()
+                if restante <= 0:
+                    raise ultimo_erro or httpx.ReadTimeout("tempo de transcrição esgotado")
+                try:
+                    return _pedido_gemini(chave, modelo, corpo, min(TEMPO_PEDIDO, restante))
+                except Exception as erro:
+                    ultimo_erro = erro
+                    log.warning("Transcrição via gemini/%s (%s): %s", rotulo, modelo, _motivo(erro))
+                    if not _temporario(erro):
+                        # Modelo removido permite a alternativa. Chave/quota e resposta
+                        # cortada seguem para outra conta/serviço, sem insistir nesta chave.
+                        if isinstance(erro, httpx.HTTPStatusError) and erro.response.status_code == 404:
+                            break
+                        raise
+                    if indice == 0 and tentativa == 0:
+                        pausa = 1 + random.uniform(0, 0.5)
+                        if prazo - time.monotonic() <= pausa:
+                            raise
+                        time.sleep(pausa)
+        raise ultimo_erro
     ouvir.nome = f"gemini/{rotulo}"
     return ouvir
 

@@ -172,6 +172,15 @@ Uma transcrição cortada é descartada e passa ao próximo serviço configurado
 um sistema e demora na resposta têm mensagens distintas; na demora, confira o resultado no sistema
 antes de repetir, porque o pedido pode ter sido processado mesmo sem resposta ao hub.
 
+Na transcrição do hub (incluindo Bella), falhas temporárias do Gemini, como HTTP 503,
+recebem uma nova tentativa após uma pausa curta. Persistindo a falha, o mesmo áudio vai
+para `GEMINI_AUDIO_MODEL_RESERVA` (padrão: `gemini-3.1-flash-lite`) com a mesma chave.
+O principal é `GEMINI_AUDIO_MODEL` (padrão: `GEMINI_MODEL`). São até três pedidos por conta,
+com espera de resposta de até 12 segundos por pedido e orçamento de 40 segundos por conta.
+Depois entram a chave Gemini reserva e o Grok, se configurados. Chave recusada e limite
+de uso não são repetidos nessa conta. A recuperação ocorre somente na transcrição:
+o comando transcrito é encaminhado uma única vez ao sistema.
+
 Na Administração → Voz do bot → **Conta de voz**, escolha **Automática** (padrão), **Principal**,
 **Secundária** ou outra conta configurada. A escolha é persistente e vale para todos os sistemas,
 incluindo avisos e amostras. Manual usa somente a conta escolhida; Automática tenta as contas em

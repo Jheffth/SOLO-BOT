@@ -49,6 +49,10 @@ WHATSAPP_NUMERO = _env("WHATSAPP_NUMERO")  # só dígitos, para o link wa.me
 GEMINI_API_KEY = _env("GEMINI_API_KEY")
 GEMINI_API_KEY_RESERVA = _env("GEMINI_API_KEY_RESERVA")
 GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-3.5-flash-lite")
+GEMINI_AUDIO_MODEL = _env("GEMINI_AUDIO_MODEL", GEMINI_MODEL)
+# Outro modelo de áudio pode funcionar mesmo se o principal estiver sobrecarregado.
+# "nenhum" desliga a alternativa; não troca o modelo da interpretação dos comandos.
+GEMINI_AUDIO_MODEL_RESERVA = _env("GEMINI_AUDIO_MODEL_RESERVA", "gemini-3.1-flash-lite")
 GROK_API_KEY = _env("GROK_API_KEY")
 GROK_STT_MODEL = _env("GROK_STT_MODEL", "grok-voice-transcribe-2.0")
 

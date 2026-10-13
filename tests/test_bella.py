@@ -10,6 +10,7 @@ import database
 from nucleo import fala, intencao, roteador, voz
 from routers import bella
 from test_fluxos import _ligar_telegram, _tg
+from test_audio import gemini_audio
 
 
 @pytest.fixture()
@@ -157,6 +158,26 @@ def test_falha_na_transcricao_nao_executa_comando(acesso, sistemas, monkeypatch)
     antes = len(sistemas.recebidos)
     r = enviar(acesso, audio_base64=wav_base64())
     assert r.status_code == 502 and "429" in r.json()["detail"]
+    assert len(sistemas.recebidos) == antes
+
+
+def test_recuperacao_503_encaminha_comando_uma_vez(acesso, sistemas, gemini_audio):
+    resultados, pedidos, pausas = gemini_audio
+    resultados.extend([503, 503, "Bella, recebi R$ 92,60 na conta Uber"])
+    antes = len(sistemas.recebidos)
+    r = enviar(acesso, audio_base64=wav_base64())
+    assert r.status_code == 200 and len(pedidos) == 3
+    assert len(sistemas.recebidos) == antes + 1
+    corpo = sistemas.recebidos[-1][2]
+    assert corpo["texto"] == "recebi R$ 92,60 na conta Uber" and corpo["via_audio"]
+
+
+def test_503_em_todos_modelos_nao_encaminha_nada(acesso, sistemas, gemini_audio):
+    resultados, pedidos, pausas = gemini_audio
+    resultados.extend([503, 503, 503])
+    antes = len(sistemas.recebidos)
+    r = enviar(acesso, audio_base64=wav_base64())
+    assert r.status_code == 502 and "HTTP 503" in r.json()["detail"]
     assert len(sistemas.recebidos) == antes
 
 
