@@ -16,6 +16,8 @@ Exemplos por voz ou texto:
 - “listar downloads”
 - “buscar arquivo relatório em documentos”
 - “abrir pasta documentos”
+- “abra meus downloads”
+- “abra minha pasta de projetos” (adicione a pasta Projetos nas configurações)
 - “criar uma pasta chamada Estudos em documentos”
 - “mover arquivo relatório.pdf dos downloads para documentos”
 - “renomear arquivo relatório.pdf para relatório-final.pdf”
@@ -28,6 +30,11 @@ vale cinco minutos e só se usa uma vez. Se o arquivo mudar ou o acesso à pasta
 é preciso fazer um novo pedido. Arquivos no destino nunca são substituídos automaticamente.
 Excluir usa a Lixeira e pode abrir a confirmação nativa do Windows. A pasta principal de
 acesso não pode ser movida, renomeada ou excluída por esses comandos.
+
+Downloads, Documentos e Área de Trabalho são reconhecidos diretamente, inclusive com
+“meu”, “minha”, “meus” ou “minhas”. Pastas escolhidas nas configurações também podem ser
+chamadas pelo nome, como “minha pasta de projetos”. Uma referência direta não varre as
+demais pastas. Se faltar acesso, a Bella indica onde adicioná-lo; não amplia o acesso sozinha.
 
 Nomes e resultados ficam no computador. O pedido ativado por voz é transcrito no servidor
 antes de escolher entre arquivos e os sistemas Solo; o servidor não executa operações locais.

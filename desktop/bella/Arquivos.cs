@@ -48,10 +48,20 @@ namespace Bella {
             for(int i=0;i<2;i++) text=Regex.Replace(text,@"^(?:por favor[,\s]+|(?:(?:voce|você)\s+)?(?:pode|poderia)\s+)","",RegexOptions.IgnoreCase).Trim();
             return text;
         }
-        static string Nome(string text) {
+        static string Nome(string text,bool preservarAspas=false) {
             text=Regex.Replace((text ?? "").Trim(),@"^(?:(?:o|a|os|as|um|uma)\s+)?(?:nov[oa]\s+)?(?:arquivo(?:s)?|pasta(?:s)?|diretório|diretorio)\s+","",RegexOptions.IgnoreCase);
             text=Regex.Replace(text,@"^(?:nova\s+|novo\s+)?(?:chamad[ao]\s+)?","",RegexOptions.IgnoreCase);
-            return text.Trim().TrimEnd('.','!','?').Trim().Trim('"','“','”','\'');
+            text=text.Trim().TrimEnd('.','!','?').Trim();
+            return preservarAspas ? text : text.Trim('"','“','”','\'');
+        }
+        static string Referencia(string text) {
+            // Possessivos descrevem o acesso, não fazem parte do nome procurado.
+            // Aspas preservam nomes literais; criação e renomeação continuam usando Nome.
+            text=(text ?? "").Trim();
+            if(text.StartsWith("\"") || text.StartsWith("“") || text.StartsWith("'")) return text;
+            text=Regex.Replace(text,@"^(?:(?:o|a|os|as)\s+)?(?:meu|minha|meus|minhas)\s+","",RegexOptions.IgnoreCase);
+            text=Regex.Replace(text,@"^(?:(?:o|a|os|as|um|uma)\s+)?(?:arquivo(?:s)?|pasta(?:s)?|diretório|diretorio)\s+(?:de|do|da|dos|das)\s+","",RegexOptions.IgnoreCase);
+            return Nome(text,true);
         }
         static Reply Resposta(string codigo,string texto,string falar=null,Opcao[] opcoes=null) {
             string curto;
@@ -109,14 +119,14 @@ namespace Bella {
                 if(!comando.Success) return Ajuda();
                 string verbo=Dobrar(comando.Groups[1].Value), resto=comando.Groups[2].Value.Trim();
                 if(verbo.StartsWith("list")) {
-                    string p=Pasta(Nome(resto)); bool parcial=false;
+                    string p=Pasta(resto); bool parcial=false;
                     var itens=Ler(new[] { p },false,ref parcial);
                     return Resultados(itens,"listagem","Itens de "+p,parcial);
                 }
                 if(verbo.StartsWith("busc") || verbo.StartsWith("procur") || verbo.StartsWith("encontr")) {
-                    string termo, lugar; SepararLugar(Nome(resto),out termo,out lugar);
+                    string termo, lugar; SepararLugar(Referencia(resto),out termo,out lugar);
                     string[] roots=lugar==null ? Raizes() : new[] { Pasta(lugar) };
-                    termo=Dobrar(Nome(termo));
+                    termo=Dobrar(Nome(Referencia(termo)));
                     if(termo.Length==0) return Ajuda();
                     bool parcial=false;
                     var itens=Ler(roots,true,ref parcial).Where(p=>Dobrar(Path.GetFileName(p)).Contains(termo)).ToList();
@@ -131,7 +141,7 @@ namespace Bella {
                     if(File.Exists(destino)) throw new InvalidOperationException("Já existe um arquivo com esse nome. Escolha outro nome.");
                     Directory.CreateDirectory(destino); return Resposta("criada","Criei a pasta:\n"+destino);
                 }
-                if(verbo.StartsWith("abr")) return Selecionar(Resolver(Nome(resto)),p=>AbrirItem(p));
+                if(verbo.StartsWith("abr")) return Selecionar(Resolver(resto),p=>AbrirItem(p));
                 bool renomear=verbo.StartsWith("renom"), mover=verbo.StartsWith("mov");
                 string origem=resto, destinoNome=null;
                 if(renomear || mover) {
@@ -141,7 +151,7 @@ namespace Bella {
                     origem=resto.Substring(0,i); destinoNome=resto.Substring(i+m.Length);
                 }
                 string novo=destinoNome;
-                return Selecionar(Resolver(Nome(origem)),p=>Preparar(p,novo,renomear ? "renomear" : mover ? "mover" : "excluir"));
+                return Selecionar(Resolver(origem),p=>Preparar(p,novo,renomear ? "renomear" : mover ? "mover" : "excluir"));
             } catch(OperationCanceledException) { Cancelar(); return Resposta("cancelado","Operação cancelada."); }
             catch(UnauthorizedAccessException) { Cancelar(); return Resposta("erro","O Windows não permitiu acessar esse item. Escolha outra pasta ou confira suas permissões."); }
             catch(IOException) { Cancelar(); return Resposta("erro","Não consegui concluir: o item pode estar em uso, ter mudado ou estar indisponível. Confira o arquivo antes de repetir."); }
@@ -152,7 +162,7 @@ namespace Bella {
             string f=Dobrar(text);
             if(Regex.IsMatch(f,@"^(?:(?:o|a|uma|um)\s+)?(?:nova?\s+)?(?:missao|rotina|meta|banco|conta|tarefa)\b")) return false;
             return Regex.IsMatch(f,@"\b(arquivo|arquivos|pasta|pastas|diretorio|downloads|documentos|desktop|area de trabalho)\b|[a-z]:[\\/]|\.[a-z0-9]{1,8}\b")
-                || Raizes().Any(p=>Dobrar(Path.GetFileName(p))==Nome(f));
+                || Raizes().Any(p=>Dobrar(Path.GetFileName(p))==Nome(Referencia(f)));
         }
         public static Reply Ajuda() {
             return Resposta("ajuda","Posso cuidar dos arquivos nas pastas escolhidas em Configurações → Arquivos.\n\n"
@@ -195,7 +205,7 @@ namespace Bella {
             origem=Validar(origem); if(Raizes().Any(r=>Igual(r,origem))) throw new InvalidOperationException("Escolha um item dentro dessa pasta. A pasta de acesso principal não é movida, renomeada ou excluída.");
             string destino=null;
             if(operacao=="renomear") destino=Validar(Path.Combine(Path.GetDirectoryName(origem),NomeSeguro(Nome(novo))));
-            if(operacao=="mover") destino=Validar(Path.Combine(Pasta(Nome(novo)),Path.GetFileName(origem)));
+            if(operacao=="mover") destino=Validar(Path.Combine(Pasta(novo),Path.GetFileName(origem)));
             if(destino!=null) {
                 if(Igual(destino,origem)) return Resposta("existe","O item já tem esse nome e está nessa pasta.");
                 if(File.Exists(destino) || Directory.Exists(destino)) throw new InvalidOperationException("Já existe um item no destino. Escolha outro nome ou pasta; não substituo arquivos.");
@@ -250,19 +260,23 @@ namespace Bella {
             return nome;
         }
         string Pasta(string nome) {
+            var candidatos=PastasConhecidas(nome);
+            if(candidatos.Count!=1) throw new InvalidOperationException("Não identifiquei uma única pasta. Se ela estiver fora do acesso atual, adicione-a em Configurações → Arquivos deste computador. Você também pode informar o caminho completo de uma pasta escolhida.");
+            return candidatos[0];
+        }
+        List<string> PastasConhecidas(string nome) {
             nome=Regex.Replace((nome ?? "").Trim(),@"^(?:d[ao]s?|n[ao]s?|em|aos?|para)\s+","",RegexOptions.IgnoreCase);
-            nome=Nome(nome); string f=Dobrar(nome);
+            nome=Nome(Referencia(nome)); string f=Dobrar(nome);
             string alias=null;
             if(f=="documentos" || f=="meus documentos") alias=Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             if(f=="area de trabalho" || f=="desktop") alias=Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
             if(f=="downloads" || f=="download") alias=Downloads();
-            if(alias!=null) { string p=Validar(alias); if(!Directory.Exists(p)) throw new IOException(); return p; }
-            if(Path.IsPathRooted(nome)) { string p=Validar(nome); if(!Directory.Exists(p)) throw new IOException(); return p; }
+            if(alias!=null) { string p=Validar(alias); if(!Directory.Exists(p)) throw new IOException(); return new List<string> { p }; }
+            if(Path.IsPathRooted(nome)) { string p=Validar(nome); if(!Directory.Exists(p)) throw new IOException(); return new List<string> { p }; }
             var roots=Raizes();
             var candidatos=roots.Where(r=>Dobrar(Path.GetFileName(r))==f).ToList();
             if(candidatos.Count==0) candidatos=roots.Select(r=>Path.Combine(r,nome)).Where(Directory.Exists).ToList();
-            if(candidatos.Count!=1) throw new InvalidOperationException("Não identifiquei uma única pasta. Use documentos, downloads, área de trabalho ou o caminho completo de uma pasta escolhida.");
-            return Validar(candidatos[0]);
+            return candidatos.Select(Validar).ToList();
         }
         static int Separador(string text,string pattern) {
             bool aspas=false; int encontrado=-1;
@@ -276,21 +290,23 @@ namespace Bella {
             int i=Separador(text,@"\s+(?:em|na|no|nas|nos|dos|das)\s+");
             if(i<0) { termo=text; lugar=null; return; }
             var m=Regex.Match(text.Substring(i),@"^\s+(?:em|na|no|nas|nos|dos|das)\s+",RegexOptions.IgnoreCase);
-            termo=text.Substring(0,i); lugar=Nome(text.Substring(i+m.Length));
+            termo=text.Substring(0,i); lugar=text.Substring(i+m.Length);
         }
         List<string> Resolver(string referencia) {
-            string termo, lugar; SepararLugar(referencia,out termo,out lugar); termo=Nome(termo);
+            referencia=Referencia(referencia);
+            string termo, lugar; SepararLugar(referencia,out termo,out lugar); termo=Nome(Referencia(termo));
             if(Path.IsPathRooted(termo)) {
                 string p=Validar(termo); return File.Exists(p) || Directory.Exists(p) ? new List<string> { p } : new List<string>();
             }
-            try { return new List<string> { Pasta(referencia) }; } catch(InvalidOperationException) { } catch(IOException) { }
+            var conhecidas=PastasConhecidas(referencia);
+            if(conhecidas.Count>0) return conhecidas;
             string[] roots=lugar==null ? Raizes() : new[] { Pasta(lugar) };
             var diretos=roots.Select(r=>Validar(Path.Combine(r,termo))).Where(p=>File.Exists(p) || Directory.Exists(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             if(diretos.Count>0) return diretos;
             if(termo.Contains("\\") || termo.Contains("/") || termo.Contains(":")) return new List<string>();
             bool parcial=false; string f=Dobrar(termo);
             var encontrados=Ler(roots,true,ref parcial).Where(p=>Dobrar(Path.GetFileName(p))==f || Dobrar(Path.GetFileNameWithoutExtension(p))==f).ToList();
-            if(parcial) throw new InvalidOperationException("Não consegui consultar todas as pastas. Informe o caminho completo do item para evitar uma escolha incompleta.");
+            if(parcial) throw new InvalidOperationException("A busca desse item foi parcial. Informe uma pasta mais específica ou o caminho completo. Se estiver fora do acesso atual, adicione a pasta em Configurações → Arquivos deste computador.");
             return encontrados;
         }
         List<string> Ler(IEnumerable<string> roots,bool recursivo,ref bool parcial) {

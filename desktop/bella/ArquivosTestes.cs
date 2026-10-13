@@ -53,6 +53,37 @@ namespace Bella {
                 r=files.Atender("/arquivos listar "+Aspas(permitida));
                 Check(r.CodigoVoz=="listagem" && r.opcoes.Length>0,"lista arquivos e pastas");
                 files.Cancelar();
+                // Referências diretas não dependem da varredura de outras pastas.
+                string projetos=Path.Combine(permitida,"Projetos"), indisponivel=Path.Combine(raiz,"indisponivel");
+                Directory.CreateDirectory(projetos); roots=new[] {permitida,indisponivel};
+                foreach(string pedido in new[] {"Abra minha pasta de projetos.","Abra a minha pasta de Projetos.","Bella, abra minha pasta Projetos."}) {
+                    r=files.Processar(pedido).GetAwaiter().GetResult();
+                    Check(r.CodigoVoz=="aberto" && abertos.Last().Equals(projetos,StringComparison.OrdinalIgnoreCase),"abre projetos por frase natural sem busca ampla: "+pedido+" / "+r.texto);
+                }
+                roots=new[] {projetos,indisponivel};
+                Check(files.Processar("Abra meus projetos.").GetAwaiter().GetResult().CodigoVoz=="aberto","nome natural de raiz configurada reconhecido como pedido local");
+                string outroProjeto=Path.Combine(fora,"Projetos"); Directory.CreateDirectory(outroProjeto);
+                roots=new[] {projetos,outroProjeto}; int antes=abertos.Count;
+                r=files.Atender("abra minha pasta de projetos");
+                Check(r.CodigoVoz=="escolha" && r.opcoes.Length==2 && abertos.Count==antes,"pastas configuradas com nomes iguais pedem escolha");
+                roots=new[] {permitida,indisponivel};
+                Check(files.Atender("listar minha pasta de projetos").CodigoVoz=="vazio","listagem usa a mesma referencia natural");
+                File.WriteAllText(Path.Combine(permitida,"meu arquivo.txt"),"literal");
+                Check(files.Processar("abrir arquivo \"meu arquivo.txt\"").GetAwaiter().GetResult().CodigoVoz=="aberto","aspas preservam possessivo literal no nome");
+                r=files.Atender("abrir pasta desconhecida");
+                Check(r.CodigoVoz=="erro" && r.texto.Contains("Configurações") && !r.texto.Contains("Não consegui consultar todas"),"busca parcial orienta adicionar acesso sem escolher automaticamente");
+                r=files.Atender("abrir meus downloads");
+                Check(r.CodigoVoz=="erro" && r.texto.Contains("não está nas pastas escolhidas"),"alias sem acesso nao cai numa varredura geral");
+                string downloads=Arquivos.PastasPadrao().Last(p=>!p.Equals(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),StringComparison.OrdinalIgnoreCase)
+                    && !p.Equals(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),StringComparison.OrdinalIgnoreCase));
+                if(Directory.Exists(downloads)) {
+                    // Só consulta a existência; opener simulado não abre nem lê arquivos pessoais.
+                    var padrao=new Arquivos(()=>new[] {downloads,indisponivel},p=>abertos.Add(p));
+                    foreach(string pedido in new[] {"Abra meus downloads.","Abra minha pasta de downloads.","Abra downloads."}) {
+                        Check(padrao.Atender(pedido).CodigoVoz=="aberto" && abertos.Last()==downloads,"Downloads conhecido abre sem enumerar o conteudo: "+pedido);
+                    }
+                }
+                roots=new[] {permitida};
                 r=files.Atender("renomear arquivo "+Aspas(a)+" para final.pdf");
                 Check(r.CodigoVoz=="confirmar_renomear" && File.Exists(a) && !File.Exists(Path.Combine(permitida,"final.pdf")),"renomear so prepara proposta");
                 Check(files.Atender("não").CodigoVoz=="cancelado" && File.Exists(a),"nao cancela sem mexer");
