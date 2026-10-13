@@ -16,6 +16,8 @@ from test_audio import gemini_audio
 @pytest.fixture()
 def acesso(logado, sistemas, caixa, monkeypatch):
     bella._JANELAS.clear()
+    bella._JANELAS_TRANSCRICAO.clear()
+    bella._JANELAS_VOZ_LOCAL.clear()
     monkeypatch.setattr(fala, "disponivel", lambda: False)
     logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
     logado.post("/api/conectar", json={"app": "rot", "codigo": "CODROT1"})
@@ -77,6 +79,86 @@ def test_audio_transcrito_preserva_valor_e_marca_via_audio(acesso, sistemas, mon
     corpo = sistemas.recebidos[-1][2]
     assert corpo["texto"] == ouvido.removeprefix("Bella, ") and corpo["via_audio"] is True
     assert sistemas.recebidos[-1][0] == "fin"
+
+
+def test_transcricao_para_acao_local_nao_encaminha_nem_altera_modo(acesso, sistemas, monkeypatch):
+    c, h = acesso
+    enviar(acesso, "/rot hoje")
+    antes = len(sistemas.recebidos)
+    monkeypatch.setattr(voz, "transcrever", lambda b, m: "Bella, excluir arquivo rascunho.txt")
+    pedido = {"pedido_id": str(uuid4()), "audio_base64": wav_base64()}
+    r = c.post("/api/bella/transcrever", headers=h, json=pedido)
+    assert r.status_code == 200 and r.json()["ouvido"] == "Bella, excluir arquivo rascunho.txt"
+    assert len(sistemas.recebidos) == antes
+    with database.SessionLocal() as db:
+        registros = db.query(database.MensagemProcessada).filter_by(canal=bella.CANAL_TRANSCRICAO).all()
+        assert len(registros) == 1
+        assert len(registros[0].canal) <= database.MensagemProcessada.canal.type.length
+    assert c.post("/api/bella/transcrever", headers=h, json=pedido).status_code == 409
+    # A lista anterior do Rotinas continua disponível, pois só houve transcrição.
+    assert enviar(acesso, "um").status_code == 200 and sistemas.recebidos[-1][1] == "acao"
+
+
+def test_texto_transcrito_no_cliente_preserva_origem_por_voz(acesso, sistemas):
+    texto = "Recebi R$ 92,60 na conta Uber."
+    r = enviar(acesso, texto, via_audio=True)
+    assert r.status_code == 200
+    assert sistemas.recebidos[-1][2]["texto"] == texto and sistemas.recebidos[-1][2]["via_audio"]
+
+
+@pytest.mark.parametrize("endpoint,dados", [
+    ("transcrever", {"pedido_id": str(uuid4()), "audio_base64": wav_base64()}),
+    ("voz-local", {"codigo": "criada"}),
+])
+def test_rotas_locais_exigem_chave_da_bella(acesso, endpoint, dados):
+    c, h = acesso
+    assert c.post("/api/bella/" + endpoint, json=dados).status_code == 401
+    c.delete("/api/conta/bella")
+    assert c.post("/api/bella/" + endpoint, headers=h, json=dados).status_code == 401
+
+
+def test_voz_local_so_sintetiza_frase_fixa_e_reutilizavel(acesso, sistemas, monkeypatch):
+    c, h = acesso
+    sintetizados = []
+    monkeypatch.setattr(fala, "disponivel", lambda: True)
+    def sintetizar(texto, canal, **kwargs):
+        sintetizados.append((texto, canal, kwargs))
+        return {"base64": "SUQz", "mime": "audio/mpeg"}
+    monkeypatch.setattr(fala, "sintetizar", sintetizar)
+    antes = len(sistemas.recebidos)
+    r = c.post("/api/bella/voz-local", headers=h, json={"codigo": "criada"})
+    assert r.status_code == 200 and r.json()["falar"] == "Criei a pasta."
+    assert sintetizados == [("Criei a pasta.", "whatsapp", {"guardar": True})]
+    assert len(sistemas.recebidos) == antes
+    r = c.post("/api/bella/voz-local", headers=h, json={"codigo": "C:/pasta/arquivo-privado.txt"})
+    assert r.status_code == 422 and len(sintetizados) == 1
+    assert c.post("/api/bella/voz-local", headers=h, json={"codigo": "criada", "caminho": "arquivo-privado"}).status_code == 422
+
+
+def test_transcricao_local_valida_audio_falhas_e_limite(acesso, sistemas, monkeypatch):
+    c, h = acesso
+    def pedir(audio):
+        return c.post("/api/bella/transcrever", headers=h, json={"pedido_id": str(uuid4()), "audio_base64": audio})
+    assert pedir("invalido").status_code == 422
+    assert pedir(wav_base64(31)).status_code == 422
+    monkeypatch.setattr(voz, "transcrever", lambda b, m: "")
+    assert pedir(wav_base64()).status_code == 422
+    monkeypatch.setattr(voz, "transcrever", lambda b, m: "listar downloads")
+    bella._JANELAS_TRANSCRICAO.clear()
+    for _ in range(30):
+        assert pedir(wav_base64()).status_code == 200
+    assert pedir(wav_base64()).status_code == 429
+    # Transcrever não consome o limite dos pedidos aos sistemas.
+    assert enviar(acesso, "/fin saldo").status_code == 200
+
+
+def test_falha_de_voz_local_preserva_texto(acesso, monkeypatch):
+    c, h = acesso
+    monkeypatch.setattr(fala, "disponivel", lambda: True)
+    def falhar(*args, **kwargs): raise RuntimeError("segredo")
+    monkeypatch.setattr(fala, "sintetizar", falhar)
+    r = c.post("/api/bella/voz-local", headers=h, json={"codigo": "aberto"})
+    assert r.status_code == 200 and r.json() == {"falar": "Abri o item."}
 
 
 @pytest.mark.parametrize("modo", [None, "fin", "rot"])

@@ -17,6 +17,7 @@ namespace Bella {
         public int Threshold=220;
         public bool MiniBella=true;          // a pílula sobre a barra de tarefas quando a janela está fechada
         public string Aparencia="foto";      // "foto" (foto com o anel) ou "orbe"
+        public string[] PastasArquivos=Arquivos.PastasPadrao();
         static readonly string FilePath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Solo","Bella","acesso.dat");
         public static Settings Load() {
             if(!File.Exists(FilePath)) return new Settings();
@@ -49,11 +50,13 @@ namespace Bella {
         public string mime { get; set; }
         public Opcao[] opcoes { get; set; }
         internal string AudioPath;
+        internal string CodigoVoz;
     }
     public sealed class Opcao {
         public int numero { get; set; }
         public string rotulo { get; set; }
         public string titulo { get; set; }
+        public string comando { get; set; } // ação local com identificador, não se mistura aos números do hub
     }
     public sealed class Client : IDisposable {
         readonly HttpClient http;
@@ -64,10 +67,18 @@ namespace Bella {
             http=new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect=false });
             http.Timeout=TimeSpan.FromSeconds(150);
         }
-        public async Task<Reply> Send(string text,byte[] wave) {
+        public async Task<Reply> Send(string text,byte[] wave,bool viaAudio=false) {
             var body=new Dictionary<string,object> { {"pedido_id",Guid.NewGuid().ToString()}, {"voz",true} };
             if(wave!=null) body["audio_base64"]=Convert.ToBase64String(wave); else body["texto"]=text;
+            if(viaAudio) body["via_audio"]=true;
             return await Request<Reply>(HttpMethod.Post,"/api/bella/mensagem",body,150);
+        }
+        public Task<Reply> Transcribe(byte[] wave) {
+            return Request<Reply>(HttpMethod.Post,"/api/bella/transcrever",new Dictionary<string,object> {
+                {"pedido_id",Guid.NewGuid().ToString()}, {"audio_base64",Convert.ToBase64String(wave)} },130);
+        }
+        public Task<Reply> LocalVoice(string code) {
+            return Request<Reply>(HttpMethod.Post,"/api/bella/voz-local",new Dictionary<string,object> { {"codigo",code} },8);
         }
         public Task<GreetingSet> Greetings() { return Request<GreetingSet>(HttpMethod.Get,"/api/bella/saudacoes",null,8); }
         public Task<GreetingReply> Greeting(int id) {

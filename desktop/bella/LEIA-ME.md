@@ -3,6 +3,45 @@
 Aplicativo portátil para Windows 10/11 de 64 bits, .NET Framework 4.8 e Microsoft Edge WebView2.
 O computador precisa de um microfone padrão e conexão ao Solo Bot para executar pedidos.
 
+## Arquivos no Windows
+
+A Bella busca, lista e abre arquivos e pastas, cria pastas e pode mover, renomear ou excluir
+itens **depois de você confirmar**. Em **Configurações → Arquivos deste computador**, escolha
+as pastas de acesso. Documentos, Downloads e Área de Trabalho são as escolhas iniciais.
+**Remover acesso** tira a pasta da lista, sem apagar nada. Adicione suas pastas de projetos
+quando quiser trabalhar nelas. Não é necessário executar a Bella como administrador.
+
+Exemplos por voz ou texto:
+
+- “listar downloads”
+- “buscar arquivo relatório em documentos”
+- “abrir pasta documentos”
+- “criar uma pasta chamada Estudos em documentos”
+- “mover arquivo relatório.pdf dos downloads para documentos”
+- “renomear arquivo relatório.pdf para relatório-final.pdf”
+- “excluir arquivo rascunho.txt”
+- `/arquivos ajuda` mostra exemplos na conversa.
+
+Se houver vários itens, escolha pelo número ou botão. Mover, renomear e excluir mostram
+o caminho exato e o destino; “sim” confirma e “não” ou “cancelar” cancela. A confirmação
+vale cinco minutos e só se usa uma vez. Se o arquivo mudar ou o acesso à pasta for removido,
+é preciso fazer um novo pedido. Arquivos no destino nunca são substituídos automaticamente.
+Excluir usa a Lixeira e pode abrir a confirmação nativa do Windows. A pasta principal de
+acesso não pode ser movida, renomeada ou excluída por esses comandos.
+
+Nomes e resultados ficam no computador. O pedido ativado por voz é transcrito no servidor
+antes de escolher entre arquivos e os sistemas Solo; o servidor não executa operações locais.
+Para responder com a voz atual, recebe somente um código de uma frase fixa, cujo áudio é
+salvo e reutilizado por voz. Sem conexão para a síntese, a Bella usa a voz do Windows.
+Pedidos locais por texto funcionam sem conexão; pedidos por voz precisam da transcrição.
+
+A busca usa nomes (sem ler o conteúdo), nas pastas escolhidas e subpastas, até 10 mil itens
+ou cinco segundos. Mostra até dez resultados e avisa se a consulta foi parcial. Informe uma
+pasta mais específica para refinar. Abertura aceita documentos, planilhas, imagens e mídia;
+não executa programas ou scripts. Caminhos de rede e links de pasta não entram nesta versão.
+Arquivos locais do OneDrive são aceitos; sua abertura pode precisar de download pelo Windows.
+Para nomes com “para” ou “em”, use aspas por texto, como `abrir arquivo "C:\Minha pasta\Relatório.pdf"`.
+
 ## Usar
 
 1. Extraia **todo** o `Bella-Windows.zip` numa pasta permanente. Abra `Bella/Bella.exe`.
@@ -67,7 +106,7 @@ O reconhecimento da chamada depende do microfone, pronúncia e ruído. Se não a
 use o atalho. Se captar ruído como fala, leve a **Sensibilidade** para “ambiente barulhento”;
 se encerrar antes de você falar, para “silencioso”. O medidor ao vivo ajuda a achar o ponto. A versão inicial mantém o modo de cada sistema,
 mas ainda não oferece memória geral de conversa, identificação de pessoa pela voz ou
-controle de aplicativos do Windows.
+controle geral de aplicativos do Windows. O controle inicial de arquivos está descrito acima.
 
 ## Compilar
 
@@ -84,6 +123,9 @@ Não instala Python, pacotes globais ou serviços. Os testes internos carregam o
 verificam que silêncio não ativa, testam o ciclo de gravação, pausas e bloqueio de duplicação.
 Conferem também que a tela e as DLLs do WebView2 estão no pacote e que a foto só aceita imagem de verdade.
 Não abrem o microfone e não fazem operações financeiras.
+Os testes de arquivos usam uma pasta temporária, abertura simulada e um provedor simulado
+de Lixeira. Conferem confirmação, cancelamento, limites de acesso, colisões, expiração e
+roteamento de voz; nenhum arquivo pessoal é alterado e nenhuma janela de documento é aberta.
 
 Com a Bella aberta, use `-PrepararAtualizacao` para gerar o pacote em `dist/atualizacao/Bella`, sem alterar o aplicativo em uso. Para aplicar, escolha **Sair** pelo ícone perto do relógio, extraia o ZIP na pasta permanente da Bella e abra novamente. O acesso salvo e a preferência de iniciar com Windows continuam no mesmo usuário.
 

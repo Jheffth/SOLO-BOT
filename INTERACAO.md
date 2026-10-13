@@ -282,9 +282,26 @@ volta a responder, a próxima saudação acompanha. Amostras com voz explícita 
 O cliente confere o catálogo a cada chamada; sem rede, usa o último perfil conhecido, e uma
 chave recusada impede usar o cache. A saudação inteira termina antes da gravação do pedido.
 
-A primeira versão oferece pedidos aos sistemas Solo e continuidade do modo ativo. Identificação
-de pessoa pela voz, memória geral de conversa e controle dos aplicativos do Windows ainda não
-fazem parte dela. A precisão da chamada deve ser ajustada ao microfone e ruído do ambiente.
+A Bella também oferece controle local de arquivos, em `desktop/bella/Arquivos.cs`.
+Pastas permitidas são escolhidas no aplicativo, inicialmente Documentos, Downloads e Área de
+Trabalho. Buscar, listar, abrir e criar pastas são diretos; mover, renomear e excluir mostram
+uma proposta com caminhos e exigem confirmação de uso único, válida por cinco minutos.
+Há reconferência do item e do acesso antes da ação; colisões não substituem arquivos.
+O Windows faz a exclusão pela Lixeira, podendo pedir sua confirmação nativa.
+Links de pasta não são seguidos; arquivos locais de nuvem usam apenas tags reconhecidas.
+
+Áudio no cliente novo vai primeiro a `POST /api/bella/transcrever` (chave Bella, UUID e WAV).
+Essa rota **não roteia, não executa comandos e não altera modo ou escolhas dos sistemas**.
+`PedidosWindows` decide localmente: um pedido Solo segue uma vez, como texto original com
+`via_audio: true`, para `/api/bella/mensagem`; o cliente antigo pode continuar enviando WAV
+diretamente nessa rota. A ação de arquivo roda só no computador. Seu resultado, nomes e caminhos
+não vão ao hub. `POST /api/bella/voz-local` aceita somente o código de uma frase fixa e
+sintetiza com cache persistente por perfil de voz. Sem síntese, o cliente usa a voz do Windows.
+Opções dos sistemas e de arquivos têm identificadores distintos; botões antigos e respostas
+numéricas de uma conversa local não confirmam operações pendentes de outro contexto.
+
+Identificação de pessoa pela voz, memória geral de conversa e controle geral dos aplicativos
+do Windows ainda não fazem parte dela. A precisão da chamada deve ser ajustada ao microfone e ruído.
 
 Instalação e compilação: [desktop/bella/LEIA-ME.md](desktop/bella/LEIA-ME.md).
 

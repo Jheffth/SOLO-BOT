@@ -141,6 +141,11 @@ personalizadas pelo login e cache por voz em `nucleo/saudacoes.py` e `nucleo/aud
 O volume `bella-audios` preserva os MP3 entre deploys; o cliente também guarda cópias locais.
 Os testes internos verificam saudação antes da captura, ausência de repetição no ciclo,
 reutilização do cache, troca de perfil e bloqueio após revogação da chave.
+`Arquivos.cs` executa operações locais somente nas pastas escolhidas pelo usuário Windows;
+`PedidosWindows.cs` separa comandos locais dos sistemas, depois da transcrição em
+`/api/bella/transcrever`. Os testes internos de arquivos usam dados temporários e verificam
+confirmações e isolamento das opções. `/api/bella/voz-local` recebe só códigos de respostas
+fixas reutilizáveis, preservando os nomes e resultados dos arquivos no computador.
 
 ```bash
 pip install -r requirements.txt pytest

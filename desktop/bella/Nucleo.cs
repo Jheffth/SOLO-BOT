@@ -15,6 +15,8 @@ namespace Bella {
     public sealed class Nucleo : IDisposable {
         readonly Control dono;
         readonly Playback player=new Playback();
+        readonly Arquivos arquivos;
+        readonly PedidosWindows pedidos=new PedidosWindows();
         LocalWake wake;
         Capture capture;
         Microphone mic;
@@ -38,7 +40,11 @@ namespace Bella {
         /// <summary>Energia do microfone (RMS), ~14 vezes por segundo enquanto ele está aberto.</summary>
         public event Action<double> Nivel;
 
-        public Nucleo(Control ui,Settings inicial) { dono=ui; Config=inicial ?? new Settings(); }
+        public Nucleo(Control ui,Settings inicial) {
+            dono=ui; Config=inicial ?? new Settings();
+            if(Config.PastasArquivos==null) Config.PastasArquivos=Arquivos.PastasPadrao();
+            arquivos=new Arquivos(()=>Config.PastasArquivos);
+        }
 
         void Ui(Action action) { if(!dono.IsDisposed && dono.IsHandleCreated) dono.BeginInvoke(action); }
         void Note(string text,bool erro=false) { if(Aviso!=null) Aviso(text,erro); }
@@ -58,6 +64,8 @@ namespace Bella {
             AplicarInicioComWindows();
             if(capture!=null) capture.Threshold=Config.Threshold;
             greetings=null;                      // outra chave, outro catálogo de saudações
+            arquivos.Cancelar();
+            pedidos.Cancelar();
             if(listening) WarmGreetings(Config);
         }
 
@@ -75,7 +83,20 @@ namespace Bella {
 
         Settings Copia() {
             return new Settings { Server=Config.Server, Key=Config.Key, Startup=Config.Startup, Threshold=Config.Threshold,
-                                  MiniBella=Config.MiniBella, Aparencia=Config.Aparencia };
+                                  MiniBella=Config.MiniBella, Aparencia=Config.Aparencia, PastasArquivos=(string[])Config.PastasArquivos.Clone() };
+        }
+
+        public void Pastas(string adicionar,int? remover) {
+            if(busy) throw new InvalidOperationException("Espere o pedido atual terminar antes de trocar as pastas.");
+            var novo=Copia(); var lista=new System.Collections.Generic.List<string>(novo.PastasArquivos);
+            if(remover.HasValue && remover.Value>=0 && remover.Value<lista.Count) lista.RemoveAt(remover.Value);
+            if(!String.IsNullOrEmpty(adicionar)) {
+                string p=Arquivos.Canonico(adicionar); Arquivos.ConferirAtalhos(p);
+                if(!Directory.Exists(p)) throw new InvalidOperationException("Essa pasta não está disponível.");
+                if(!lista.Exists(x=>String.Equals(x,p,StringComparison.OrdinalIgnoreCase))) lista.Add(p);
+            }
+            if(lista.Count>20) throw new InvalidOperationException("Escolha até 20 pastas principais.");
+            novo.PastasArquivos=lista.ToArray(); novo.Save(); Config=novo; arquivos.Cancelar(); pedidos.Cancelar();
         }
 
         void AplicarInicioComWindows() {
@@ -182,26 +203,27 @@ namespace Bella {
         }
 
         // ── Pedidos ──────────────────────────────────────────────────
-        public async Task SendText(string text) {
+        public async Task SendText(string text,string exibir=null) {
             text=(text ?? "").Trim(); if(text.Length==0 || busy) return;
-            await Send(text,null);
+            await Send(text,null,exibir);
         }
-        async Task Send(string text,byte[] audio) {
+        async Task Send(string text,byte[] audio,string exibir=null) {
             if(busy) return; busy=true; player.Stop();
             if(capture!=null) capture.Processing();
-            if(text!=null) Falou("eu",text,"texto",null);
+            if(text!=null) {
+                if(text.StartsWith("/arquivos escolher ") || text.StartsWith("/solo-escolher ")) exibir=exibir ?? "Escolher opção";
+                Falou("eu",exibir ?? text,"texto",null);
+            }
             Mudou();
             try {
                 var value=Config;
-                using(var client=new Client(value.Server,value.Key)) {
-                    var reply=await client.Send(text,audio);
-                    if(audio!=null) Falou("eu",reply.ouvido ?? "pedido por voz","voz",null);
-                    Falou("bella",reply.texto,audio!=null?"voz":"texto",reply.opcoes);
-                    if(!quitting) {
-                        if(capture!=null) capture.Speaking();
-                        Mudou();
-                        await player.Say(reply);
-                    }
+                var reply=await pedidos.Enviar(text,audio,arquivos,()=>new Client(value.Server,value.Key),
+                    t=>Falou("eu",t ?? "pedido por voz","voz",null),()=>!quitting);
+                Falou("bella",reply.texto,audio!=null?"voz":"texto",reply.opcoes);
+                if(!quitting) {
+                    if(capture!=null) capture.Speaking();
+                    Mudou();
+                    await player.Say(reply);
                 }
             } catch(OperationCanceledException) { }
             catch(UnauthorizedAccessException e) { if(!quitting) Note(e.Message,true); }
@@ -213,7 +235,7 @@ namespace Bella {
             }
         }
 
-        public void Encerrar() { quitting=true; Pause(); }
+        public void Encerrar() { quitting=true; arquivos.Cancelar(); pedidos.Cancelar(); Pause(); }
         public void Dispose() {
             quitting=true;
             if(mic!=null) { try { mic.Dispose(); } catch { } mic=null; }

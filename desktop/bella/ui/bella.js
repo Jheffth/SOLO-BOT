@@ -72,6 +72,15 @@
     $("cfg-servidor").value = config.servidor || "";
     $("cfg-chave").value = "";
     $("cfg-chave").placeholder = config.temChave ? "Chave salva · termina em " + (config.chaveFinal || "…") : "bella_…";
+    const pastas = $("cfg-pastas"); pastas.textContent = "";
+    (config.pastasArquivos || []).forEach((p, i) => {
+      const linha = document.createElement("div"); linha.className = "pasta-arquivos";
+      const nome = document.createElement("span"); nome.textContent = p; nome.title = p;
+      const remover = document.createElement("button"); remover.className = "btn"; remover.type = "button";
+      remover.textContent = "Remover acesso"; remover.onclick = () => enviar("pasta_arquivos", { remover: i });
+      linha.appendChild(nome); linha.appendChild(remover); pastas.appendChild(linha);
+    });
+    if (!(config.pastasArquivos || []).length) pastas.textContent = "Nenhuma pasta escolhida.";
     const naBoasVindas = !config.temChave;
     $("boas-vindas").hidden = !naBoasVindas;
     $("app").hidden = naBoasVindas;
@@ -215,7 +224,7 @@
         b.onclick = () => {
           if (estado.ocupada) return toast("Espere eu terminar o pedido anterior.");
           ops.querySelectorAll("button").forEach(x => x.disabled = true);
-          enviar("enviar", { texto: String(o.numero) });
+          enviar("enviar", { texto: o.comando || String(o.numero), exibir: [o.rotulo, o.titulo].filter(Boolean).join(" ") });
         };
         ops.appendChild(b);
       });
@@ -287,6 +296,8 @@
     };
     $("btn-painel").onclick = () => enviar("abrir_painel", { servidor: $("cfg-servidor").value.trim() });
     $("btn-sair").onclick = () => enviar("sair");
+    $("btn-pasta").onclick = () => enviar("pasta_arquivos");
+    $("btn-arquivos-ajuda").onclick = () => { fechar(); enviar("enviar", { texto: "/arquivos ajuda" }); };
     // Foto
     $("btn-escolher").onclick = e => { e.preventDefault(); $("arquivo").click(); };
     $("soltar").onclick = e => { if (e.target === $("soltar") || e.target.closest(".soltar-prev")) $("arquivo").click(); };

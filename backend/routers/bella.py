@@ -27,6 +27,9 @@ router = APIRouter(tags=["bella"])
 log = logging.getLogger("solobot.bella")
 _JANELAS = {}
 _JANELAS_SAUDACAO = {}
+_JANELAS_TRANSCRICAO = {}
+_JANELAS_VOZ_LOCAL = {}
+CANAL_TRANSCRICAO = "bella-stt"  # canal do registro persistente tem no máximo 16 caracteres
 RE_CHAMADA = re.compile(r"^(?:(?:ei|oi|ola|olá)\s+)?(?:bella|bela)\b[\s,:.!?—-]*", re.I)
 
 
@@ -71,6 +74,7 @@ class Pedido(BaseModel):
     texto: Optional[str] = Field(default=None, max_length=2000)
     audio_base64: Optional[str] = Field(default=None, max_length=4 * 1024 * 1024)
     voz: bool = True
+    via_audio: bool = False  # texto transcrito pelo canal Windows antes do roteamento
 
 
 @router.get("/api/bella/saudacoes")
@@ -116,31 +120,99 @@ def _audio(dados):
         raise HTTPException(422, "Áudio inválido. Use WAV mono de 16 kHz, até 30 segundos.") from None
 
 
+def _limitar(conta, janelas):
+    agora = time.monotonic()
+    janela = [t for t in janelas.get(conta.id, []) if agora - t < 60]
+    if len(janela) >= 30:
+        raise HTTPException(429, "Muitos pedidos. Espere um minuto.")
+    janelas[conta.id] = janela + [agora]
+
+
+def _ouvir(conteudo):
+    try:
+        texto = voz.transcrever(conteudo, "audio/wav")
+    except voz.SemVoz:
+        raise HTTPException(503, "A transcrição não está configurada no servidor. Use o campo de texto.") from None
+    except voz.FalhaVoz as erro:
+        raise HTTPException(502, "Não consegui ouvir. " + str(erro)) from None
+    if not texto:
+        raise HTTPException(422, "Não ouvi uma fala. Pode tentar de novo.")
+    return texto
+
+
+class PedidoTranscricao(BaseModel):
+    pedido_id: UUID
+    audio_base64: str = Field(min_length=1, max_length=4 * 1024 * 1024)
+
+
+@router.post("/api/bella/transcrever")
+def transcrever(p: PedidoTranscricao, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    """Só ouve: o aplicativo decide entre uma ação local e um pedido aos sistemas."""
+    conta = _autenticar(db, x_bella_chave)
+    conteudo = _audio(p.audio_base64)
+    _limitar(conta, _JANELAS_TRANSCRICAO)
+    if roteador.ja_processada(db, CANAL_TRANSCRICAO, f"{conta.id}:{p.pedido_id}"):
+        raise HTTPException(409, "Este áudio já foi recebido. Grave um novo pedido.")
+    conta.bella_usado_em = datetime.utcnow()
+    db.commit()
+    return {"pedido_id": str(p.pedido_id), "ouvido": _ouvir(conteudo)}
+
+
+# Frases fixas: nenhum nome de arquivo, caminho ou resultado local vai ao servidor.
+FALAS_ARQUIVOS = {
+    "ajuda": "Posso buscar, listar e abrir arquivos, e criar pastas. Para mover, renomear ou excluir, peço sua confirmação.",
+    "listagem": "Aqui estão os arquivos e pastas. Para abrir um item, diga o número.",
+    "busca": "Encontrei estes resultados. Para abrir um deles, diga o número.",
+    "escolha": "Encontrei mais de um item. Qual deles você quer? Diga o número.",
+    "confirmar_mover": "Confira na tela o item e a pasta de destino. Posso mover?",
+    "confirmar_renomear": "Confira na tela o arquivo e o novo nome. Posso renomear?",
+    "confirmar_excluir": "Confira na tela o item que irá para a Lixeira. Posso excluir?",
+    "criada": "Criei a pasta.", "existe": "Essa pasta já existe.", "aberto": "Abri o item.",
+    "movido": "Pronto, movi o item.", "renomeado": "Pronto, renomeei o item.",
+    "excluido": "Concluí a exclusão pelo Windows.", "cancelado": "Pedido de arquivo cancelado.",
+    "erro": "Não consegui concluir esse pedido de arquivo. Confira a mensagem na tela.",
+    "vazio": "Não encontrei itens nas pastas consultadas.",
+    "expirou": "Essa escolha expirou. Faça o pedido de arquivo novamente.",
+}
+
+
+class PedidoVozLocal(BaseModel):
+    model_config = {"extra": "forbid"}
+    codigo: str = Field(max_length=30)
+
+
+@router.post("/api/bella/voz-local")
+def voz_local(p: PedidoVozLocal, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    conta = _autenticar(db, x_bella_chave)
+    _limitar(conta, _JANELAS_VOZ_LOCAL)
+    texto = FALAS_ARQUIVOS.get(p.codigo)
+    if texto is None:
+        raise HTTPException(422, "Resposta local não reconhecida.")
+    saida = {"falar": texto}
+    if fala.disponivel():
+        try:
+            audio = fala.sintetizar(texto, "whatsapp", guardar=True)
+            if audio:
+                saida.update(audio_base64=audio["base64"], mime=audio["mime"])
+        except Exception:
+            log.warning("Bella: resposta local usa voz do Windows")
+    return saida
+
+
 @router.post("/api/bella/mensagem")
 def mensagem(p: Pedido, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
     conta = _autenticar(db, x_bella_chave)
     if bool(p.texto and p.texto.strip()) == bool(p.audio_base64):
         raise HTTPException(422, "Envie um pedido por texto ou áudio.")
     conteudo = _audio(p.audio_base64) if p.audio_base64 else None
-    agora = time.monotonic()
-    janela = [t for t in _JANELAS.get(conta.id, []) if agora - t < 60]
-    if len(janela) >= 30:
-        raise HTTPException(429, "Muitos pedidos. Espere um minuto.")
-    _JANELAS[conta.id] = janela + [agora]
+    _limitar(conta, _JANELAS)
     if roteador.ja_processada(db, "bella", f"{conta.id}:{p.pedido_id}"):
         raise HTTPException(409, "Este pedido já foi recebido. Confira o resultado no sistema antes de repetir.")
     conta.bella_usado_em = datetime.utcnow()
     db.commit()
     texto = (p.texto or "").strip()
     if conteudo:
-        try:
-            texto = voz.transcrever(conteudo, "audio/wav")
-        except voz.SemVoz:
-            raise HTTPException(503, "A transcrição não está configurada no servidor. Use o campo de texto.")
-        except voz.FalhaVoz as erro:
-            raise HTTPException(502, "Não consegui ouvir. " + str(erro)) from None
-        if not texto:
-            raise HTTPException(422, "Não ouvi uma fala. Pode tentar de novo.")
+        texto = _ouvir(conteudo)
     ouvido = texto
     texto = RE_CHAMADA.sub("", texto).strip()
     origem = f"bella:{conta.id}"
@@ -150,7 +222,7 @@ def mensagem(p: Pedido, x_bella_chave: str = Header(""), db: Session = Depends(g
     if not texto:
         saudacao = saudacoes.preparar(conta, secrets.randbelow(len(saudacoes.FRASES)), com_audio=p.voz)
         return {"pedido_id": str(p.pedido_id), "ouvido": ouvido, "opcoes": [], **saudacao}
-    r = roteador.atender_texto(db, "bella", origem, texto, rotulo="Bella", via_audio=bool(conteudo))
+    r = roteador.atender_texto(db, "bella", origem, texto, rotulo="Bella", via_audio=bool(conteudo) or p.via_audio)
     itens, blocos = [], []
     for m in r.mensagens:
         corpo = m.get("texto") or ""

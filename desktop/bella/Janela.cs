@@ -110,10 +110,18 @@ namespace Bella {
                     case "escuta": await bella.AlternarEscuta(); break;
                     case "falar": await bella.Begin(); break;
                     case "parar_voz": bella.PararVoz(); break;
-                    case "enviar": await bella.SendText(Vista.Texto(d,"texto")); break;
+                    case "enviar": await bella.SendText(Vista.Texto(d,"texto"),Vista.Texto(d,"exibir")); break;
                     case "medidor": medidor=Vista.Logico(d,"ligado")==true; break;
                     case "abrir_painel": AbrirPainel(Vista.Texto(d,"servidor")); break;
                     case "sair": Sair(); break;
+                    case "pasta_arquivos":
+                        if(bella.Ocupada) throw new InvalidOperationException("Espere o pedido atual terminar.");
+                        var remover=Vista.Inteiro(d,"remover");
+                        if(remover.HasValue) bella.Pastas(null,remover);
+                        else using(var escolha=new FolderBrowserDialog { Description="Escolha uma pasta que a Bella pode usar.", ShowNewFolderButton=true }) {
+                            if(escolha.ShowDialog(this)==DialogResult.OK) bella.Pastas(escolha.SelectedPath,null);
+                        }
+                        PostarConfig(); break;
                     case "salvar":
                         try { bella.SalvarAcesso(Vista.Texto(d,"servidor"),Vista.Texto(d,"chave")); }
                         catch(Exception e) { tela.Postar(new { tipo="erro_salvar", texto=e.Message }); break; }
@@ -150,7 +158,7 @@ namespace Bella {
             var c=bella.Config;
             string final=String.IsNullOrEmpty(c.Key) || c.Key.Length<4 ? "" : c.Key.Substring(c.Key.Length-4);
             return new { tipo="config", temChave=bella.TemChave, servidor=c.Server, chaveFinal=final, iniciar=c.Startup,
-                         mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto };
+                         mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto, pastasArquivos=c.PastasArquivos };
         }
         void PostarConfig() { var c=Config(); tela.Postar(c); if(mini!=null) mini.Postar(c); }
 
