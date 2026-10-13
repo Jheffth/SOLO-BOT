@@ -111,20 +111,28 @@ não sejam executados como pedidos.
 
 1. **Palavras:** o vocabulário de cada sistema, tirado do manifesto (comandos e exemplos) e de uma
    base fixa ("gastei", "saldo", "rotina", "missão"…). Não custa nada. Se só um sistema casa e ele
-   aceita texto livre, a mensagem vai direto.
+   aceita texto livre, lançamentos vão direto, preservando valores e descrições.
+   Comandos anunciados também funcionam sem barra: "saldo" e "saldo Uber Conta" viram
+   `/saldo` e `/saldo Uber Conta`, inclusive na Bella e em outro modo ativo. Em comandos
+   compartilhados, o modo atual decide; sem modo, a intenção precisa resolver a ambiguidade.
+   Uma palavra isolada parecida com comando ("saltos" no modo Finances) gera uma sugestão
+   para repetir "saldo", sem executar nada. Comandos ocultos não entram nesse reconhecimento.
 2. **IA (Gemini):** quando as palavras não bastam, ou quando o destino só entende comandos, ela
    escolhe o sistema e **traduz a frase em comando**: "o que tem pra hoje?" vira `/hoje` no Rotinas,
-   e "terminei a leitura" vira `/ok leitura`. A resposta mostra o que foi entendido
+   "terminei a leitura" vira `/ok leitura` e "qual meu saldo?" vira `/saldo` no Finances.
+   Consultas precisam de um comando anunciado; se a IA falhar ou inventar um comando,
+   não são encaminhadas como lançamentos. A resposta mostra o que foi entendido
    (`🧭 Entendi: Rotinas · /hoje`).
 
 O mesmo vale **dentro de um modo**. No Rotinas, frases viram comandos. No Finances, que entende texto
-livre, a IA só entra quando há palavras de outro sistema, mesmo que também haja termos financeiros.
+livre, a IA entra para consultas naturais ou quando há palavras de outro sistema, mesmo que também haja termos financeiros.
 Com confiança alta (pelo menos 0,85), o bot **troca de
 sistema sozinho**: dizer "gastei 40 no mercado" no modo Rotinas vai para o Finances. Na dúvida (confiança
 abaixo de 0,6), ele pergunta como antes.
 
-No manifesto, `exemplos` preenchido significa que o sistema aceita texto livre, e aí a frase vai
-como está. Vazio significa que o sistema só entende comandos, e aí a frase é traduzida.
+No manifesto, `exemplos` preenchido significa que o sistema aceita registros em texto livre,
+e esses registros vão como estão. Consultas e comandos literais são traduzidos.
+Vazio significa que o sistema só entende comandos, e aí a frase é traduzida.
 
 A mensagem que gerou a pergunta **não se perde**: o bot guarda e a encaminha
 assim que o usuário escolhe.

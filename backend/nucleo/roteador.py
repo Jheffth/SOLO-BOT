@@ -479,6 +479,15 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
 
     ligados = _sistemas_da_conta(db, conta)
 
+    from nucleo import intencao
+    candidatos = [modulos.por_chave(modo)] if modo else ligados
+    sugestao = (intencao.Intencao() if intencao.comando_literal(db, txt, ligados, modo).app else
+                intencao.sugerir_literal(db, txt, [m for m in candidatos if m]))
+    if sugestao.mensagem:
+        nome = sugestao.mensagem.lstrip("/")
+        verbo = "diga" if via_audio or canal == "bella" else "envie"
+        return Resposta().diz(f"🤔 Você quis dizer “{nome}”? Se for isso, {verbo} “{nome}”.")
+
     # 4. modo ativo
     if modo:
         mod = modulos.por_chave(modo)
@@ -494,7 +503,6 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, ligados[0])
 
     # Entender pelo que foi dito, antes de perguntar.
-    from nucleo import intencao
     it = intencao.interpretar(db, txt, ligados)
     alvo = modulos.por_chave(it.app) if it.app else None
     if alvo and it.mensagem:
@@ -522,22 +530,25 @@ def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod) -> Res
     Texto livre com um sistema já definido (modo ativo, ou único conectado).
 
       · Comando ("/..."): vai direto, como sempre.
+      · Comando anunciado sem barra: ganha a barra, preservando argumentos.
       · O sistema entende texto livre (Finances): vai direto, A NÃO SER que as
-        palavras também apontem para outro sistema — aí a IA confirma e,
-        com confiança alta, troca de sistema.
+        palavras também apontem para outro sistema ou sejam uma consulta —
+        aí a IA traduz e, com confiança alta, pode trocar de sistema.
       · O sistema só entende comandos (Rotinas): a IA traduz a frase para o
         comando ("o que tem pra hoje" → "/hoje").
     """
     from nucleo import intencao
     if txt.startswith("/"):
         return para_sistema(db, conta, canal, origem, mod, texto=txt, via_audio=via_audio)
+    literal = intencao.comando_literal(db, txt, ligados or [mod], modo=mod.chave)
     livre = intencao.aceita_texto_livre(db, mod.chave)
-    if livre:
+    consulta = intencao.eh_consulta(txt)
+    if livre and not literal.app and not consulta:
         outros = [m for m in ligados if m.chave != mod.chave]
         pontos = intencao.por_palavras(db, txt, [mod] + outros)
         if not any(pontos.get(m.chave) for m in outros):
             return para_sistema(db, conta, canal, origem, mod, texto=txt, via_audio=via_audio)
-    it = intencao.interpretar(db, txt, ligados or [mod], modo=mod.chave)
+    it = literal if literal.app else intencao.interpretar(db, txt, ligados or [mod], modo=mod.chave)
     if it.app and it.app != mod.chave and it.confianca >= intencao.CONFIANCA_TROCA and it.mensagem:
         outro = modulos.por_chave(it.app)
         if outro and _vinculo(conta, outro.chave):
@@ -545,6 +556,8 @@ def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod) -> Res
             return _entregar_intencao(db, conta, canal, origem, outro, txt, it, via_audio)
     if it.app == mod.chave and it.mensagem:
         return _entregar_intencao(db, conta, canal, origem, mod, txt, it, via_audio)
+    if consulta:
+        return Resposta().diz("🤔 Não consegui identificar essa consulta. Use /ajuda para ver os comandos.")
     return para_sistema(db, conta, canal, origem, mod, texto=txt, via_audio=via_audio)
 
 

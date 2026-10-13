@@ -14,9 +14,11 @@ DUAS CAMADAS, da mais barata para a mais cara
 
   1. PALAVRAS — o manifesto de cada sistema (nomes, comandos, descrições,
      exemplos) + um vocabulário básico. Grátis e instantâneo. Decide o
-     sistema quando só um casa.
+     sistema quando só um casa. Comandos anunciados sem barra são
+     reconhecidos antes de encaminhar registros em texto livre.
   2. IA (Gemini) — quando as palavras não bastam, ou quando o sistema de
-     destino só entende comandos (manifesto sem `exemplos`): recebe os
+     destino só entende comandos (manifesto sem `exemplos`) ou a frase
+     é uma consulta: recebe os
      comandos de cada sistema e devolve {app, mensagem, confianca}.
      `mensagem` é o que vai de fato para o sistema: o comando com os
      argumentos ("/ok leitura"), ou o próprio texto, se o sistema aceita
@@ -30,6 +32,7 @@ import logging
 import re
 import unicodedata
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import List, Optional
 
 from nucleo import manifestos, modulos
@@ -71,6 +74,54 @@ def aceita_texto_livre(db, app: str) -> bool:
     return bool((manifestos.de(db, app) or {}).get("exemplos"))
 
 
+def _escolher_literal(encontrados: list, modo: Optional[str]) -> Intencao:
+    atuais = [it for it in encontrados if it.app == modo]
+    opcoes = atuais or encontrados
+    return opcoes[0] if len(opcoes) == 1 else Intencao()
+
+
+def comando_literal(db, texto: str, candidatos: List[modulos.Modulo], modo=None) -> Intencao:
+    """Um comando anunciado, sem barra: saldo Nubank -> /saldo Nubank."""
+    partes = (texto or "").strip().split(maxsplit=1)
+    if not partes or partes[0].startswith("/"):
+        return Intencao()
+    palavra = _norm(partes[0].strip(".,!?;:"))
+    if not re.fullmatch(r"[a-z][a-z0-9_]+", palavra):
+        return Intencao()
+    argumento = " " + partes[1] if len(partes) == 2 else ""
+    # Aceita o plural regular apenas se o termo exato não existir no manifesto.
+    for termo in dict.fromkeys([palavra, palavra.removesuffix("s")]):
+        encontrados = [Intencao(app=m.chave, mensagem=c["comando"] + argumento,
+                                confianca=1, via="comando")
+                       for m in candidatos for c in manifestos.comandos_visiveis(db, m.chave)
+                       if c["comando"] == "/" + termo]
+        if encontrados:
+            return _escolher_literal(encontrados, modo)
+    return Intencao()
+
+
+def sugerir_literal(db, texto: str, candidatos: List[modulos.Modulo]) -> Intencao:
+    """Palavra isolada parecida com comando: sugere, nunca executa a aproximação."""
+    palavra = _norm((texto or "").strip().strip(".,!?;:"))
+    if not re.fullmatch(r"[a-z]{4,30}", palavra) or comando_literal(db, texto, candidatos).app:
+        return Intencao()
+    encontrados = []
+    for m in candidatos:
+        for c in manifestos.comandos_visiveis(db, m.chave):
+            nome = c["comando"].lstrip("/")
+            termos = {palavra, palavra.removesuffix("s")}
+            if len(nome) >= 4 and any(SequenceMatcher(None, t, nome).ratio() >= 0.8 for t in termos):
+                encontrados.append(Intencao(app=m.chave, mensagem=c["comando"], via="sugestao"))
+    return _escolher_literal(encontrados, None)
+
+
+def eh_consulta(texto: str) -> bool:
+    """Consultas precisam de comando mesmo quando o sistema aceita lançamentos livres."""
+    return bool(re.match(r"^(?:qual|quais|quanto|quantos|quanta|quantas|mostre|mostra|mostrar|"
+                         r"consulte|consultar|veja|ver|me (?:diga|mostre|mostra)|"
+                         r"o que (?:tenho|tem)|como (?:esta|estao))\b", _norm(texto.strip())))
+
+
 def _vocab(db, mod: modulos.Modulo) -> set:
     man = manifestos.de(db, mod.chave) or {}
     texto = " ".join([mod.nome.replace("Solo ", ""), VOCABULARIO.get(mod.chave, "")]
@@ -97,7 +148,9 @@ Responda SOMENTE um JSON: {"app": "<chave ou vazio>", "mensagem": "<o que enviar
 Regras:
 - "app": a chave do sistema. Vazio se não der para saber.
 - "mensagem":
-  - se o sistema tem aceita_texto_livre=true e a mensagem é um registro/pedido em linguagem natural, repita a mensagem original;
+  - consultas também devem virar comandos da lista, mesmo com aceita_texto_livre=true
+    (ex.: "qual meu saldo?" -> "/saldo"; "mostre o extrato de 30 dias" -> "/extrato 30");
+  - se o sistema tem aceita_texto_livre=true e a mensagem é um registro em linguagem natural, repita a mensagem original;
   - senão, traduza para UM comando da lista daquele sistema, com os argumentos que a pessoa disse
     (ex.: "terminei a leitura" -> "/ok leitura"; "o que tenho pra hoje" -> "/hoje"). Sem o prefixo do sistema.
   - se nenhum comando serve, vazio.
@@ -156,12 +209,16 @@ def _descrever(db, mods: List[modulos.Modulo]) -> list:
 def interpretar(db, texto: str, candidatos: List[modulos.Modulo], modo: Optional[str] = None) -> Intencao:
     """
     Para qual sistema é, e o que mandar. `app` vazio = não deu para saber
-    (o hub pergunta). A mensagem só é traduzida para comando quando o
-    sistema de destino não aceita texto livre.
+    (o hub pergunta). Comandos literais e consultas são traduzidos mesmo
+    quando o sistema também aceita registros em texto livre.
     """
     texto = (texto or "").strip()
     if not texto or texto.startswith("/") or not candidatos:
         return Intencao()
+    literal = comando_literal(db, texto, candidatos, modo)
+    if literal.app:
+        return literal
+    consulta = eh_consulta(texto)
     chaves = {m.chave for m in candidatos}
     pontos = por_palavras(db, texto, candidatos)
     com_ponto = [k for k, p in pontos.items() if p > 0]
@@ -169,11 +226,16 @@ def interpretar(db, texto: str, candidatos: List[modulos.Modulo], modo: Optional
 
     # Palavras bastam quando só um sistema casa E ele entende texto livre.
     # (Com um modo ativo em OUTRO sistema, trocar é sério: quem confirma é a IA.)
-    if unico and aceita_texto_livre(db, unico) and (modo is None or unico == modo):
+    if unico and not consulta and aceita_texto_livre(db, unico) and (modo is None or unico == modo):
         return Intencao(app=unico, mensagem=texto, confianca=0.7, via="palavras")
 
     ia = _ia(texto, _descrever(db, candidatos), modo)
     if ia and ia.app in chaves and ia.confianca >= CONFIANCA_MINIMA:
+        if consulta:
+            comando = (ia.mensagem or "").split(maxsplit=1)
+            anunciados = {c["comando"] for c in manifestos.comandos_visiveis(db, ia.app)}
+            if not comando or comando[0] not in anunciados:
+                return Intencao(app=ia.app, via="ia")
         if aceita_texto_livre(db, ia.app) and not (ia.mensagem or "").startswith("/"):
             # O sistema entende frase solta: vai a frase ORIGINAL, nunca a
             # reescrita da IA. Ela trocou "Paguei 123,67 da internet" por
@@ -183,6 +245,6 @@ def interpretar(db, texto: str, candidatos: List[modulos.Modulo], modo: Optional
             ia.mensagem = None
         return ia
     if unico:                      # a IA não ajudou, mas as palavras apontam um só
-        return Intencao(app=unico, mensagem=texto if aceita_texto_livre(db, unico) else None,
+        return Intencao(app=unico, mensagem=texto if not consulta and aceita_texto_livre(db, unico) else None,
                         confianca=0.5, via="palavras")
     return Intencao()

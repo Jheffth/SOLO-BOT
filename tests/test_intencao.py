@@ -85,6 +85,52 @@ def test_no_modo_finances_texto_livre_nao_chama_ia(dois, sistemas, monkeypatch):
     assert ch == [] and sistemas.recebidos[-1][2]["texto"] == "35 uber nubank"
 
 
+@pytest.mark.parametrize("modo", [None, "fin", "rot"])
+def test_consulta_natural_no_finances_tambem_vira_comando(dois, sistemas, caixa, monkeypatch, modo):
+    if modo:
+        _tg(dois, f"/{modo} ajuda")
+    ch = _ia(monkeypatch, {"app": "fin", "mensagem": "/saldo Uber Conta", "confianca": 0.95})
+    _tg(dois, "Qual meu saldo na Uber Conta?")
+    assert ch and sistemas.recebidos[-1][0] == "fin"
+    assert sistemas.recebidos[-1][2]["texto"] == "/saldo Uber Conta"
+    assert "Entendi: Finances" in caixa[-1][2]
+
+
+@pytest.mark.parametrize("resposta", [None, {"app": "fin", "mensagem": "mostre saldo", "confianca": 0.95},
+                                    {"app": "fin", "mensagem": "/inventado 80", "confianca": 0.95}])
+def test_consulta_nao_entendida_nao_vira_lancamento(dois, sistemas, caixa, monkeypatch, resposta):
+    _tg(dois, "/fin saldo")
+    antes = len(sistemas.recebidos)
+    _ia(monkeypatch, resposta)
+    _tg(dois, "Quanto gastei dos 80 reais ontem?")
+    assert len(sistemas.recebidos) == antes
+    assert "Não consegui identificar essa consulta" in caixa[-1][2]
+
+
+def test_comando_ambiguo_respeita_modo_e_ignora_ocultos(dois, sistemas, caixa, monkeypatch):
+    from database import SessionLocal
+    from nucleo import modulos
+    dois.post("/interno/manifesto", headers={"X-Solo-Token": "tok-rot"}, json={
+        **ROT, "versao": "2", "comandos": ROT["comandos"] + [{"comando": "/saldo", "descricao": "Saldo de pontos"},
+                                               {"comando": "/interno", "descricao": "Interno", "oculto": True}]})
+    with SessionLocal() as db:
+        candidatos = [modulos.por_chave("fin"), modulos.por_chave("rot")]
+        assert not intencao.comando_literal(db, "saldo", candidatos).app
+        assert intencao.comando_literal(db, "saldo", candidatos, modo="rot").app == "rot"
+        assert not intencao.comando_literal(db, "interno", candidatos).app
+        assert not intencao.sugerir_literal(db, "internoa", candidatos).app
+        assert not intencao.sugerir_literal(db, "saltos 92,60 Uber", candidatos).app
+
+
+def test_comando_novo_do_manifesto_tambem_funciona_sem_barra(dois, sistemas, monkeypatch):
+    dois.post("/interno/manifesto", headers={"X-Solo-Token": "tok-fin"}, json={
+        **FIN, "versao": "2", "comandos": FIN["comandos"] + [{"comando": "/extrato", "descricao": "Extrato"}]})
+    _tg(dois, "/fin saldo")
+    ch = _ia(monkeypatch, None)
+    _tg(dois, "extrato 30")
+    assert ch == [] and sistemas.recebidos[-1][2]["texto"] == "/extrato 30"
+
+
 @pytest.mark.parametrize("audio", [False, True])
 @pytest.mark.parametrize("modo,frase,destino,comando", [
     ("fin", "Crie a missão geral fazer a barba até meia-noite", "rot", "/criar barba"),

@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 import database
-from nucleo import fala, roteador, voz
+from nucleo import fala, intencao, roteador, voz
 from routers import bella
 from test_fluxos import _ligar_telegram, _tg
 
@@ -76,6 +76,48 @@ def test_audio_transcrito_preserva_valor_e_marca_via_audio(acesso, sistemas, mon
     corpo = sistemas.recebidos[-1][2]
     assert corpo["texto"] == ouvido.removeprefix("Bella, ") and corpo["via_audio"] is True
     assert sistemas.recebidos[-1][0] == "fin"
+
+
+@pytest.mark.parametrize("modo", [None, "fin", "rot"])
+@pytest.mark.parametrize("audio", [False, True])
+@pytest.mark.parametrize("pedido,comando", [("saldo", "/saldo"), ("Saldo!", "/saldo"),
+                                           ("saldos", "/saldo"), ("saldo Uber Conta", "/saldo Uber Conta")])
+def test_saldo_sem_barra_e_consulta_em_qualquer_modo(acesso, sistemas, monkeypatch, modo, audio, pedido, comando):
+    if modo:
+        enviar(acesso, f"/{modo} ajuda")
+    def nao_chamar_ia(*a):
+        raise AssertionError("Comando anunciado não precisa de IA")
+    monkeypatch.setattr(intencao, "_ia", nao_chamar_ia)
+    monkeypatch.setattr(voz, "transcrever", lambda b, m: "Bella, " + pedido)
+    antes = len(sistemas.recebidos)
+    r = enviar(acesso, audio_base64=wav_base64()) if audio else enviar(acesso, pedido)
+    assert r.status_code == 200 and len(sistemas.recebidos) == antes + 1
+    app, _, corpo = sistemas.recebidos[-1]
+    assert app == "fin" and corpo["texto"] == comando
+    assert corpo.get("via_audio", False) == audio
+    assert "Entendi: Finances" in r.json()["texto"]
+
+
+def test_saltos_pede_correcao_sem_executar_e_saldo_seguinte_funciona(acesso, sistemas, monkeypatch):
+    enviar(acesso, "/fin saldo")
+    antes = len(sistemas.recebidos)
+    monkeypatch.setattr(voz, "transcrever", lambda b, m: "saltos")
+    r = enviar(acesso, audio_base64=wav_base64())
+    assert r.status_code == 200 and "Você quis dizer “saldo”" in r.json()["texto"]
+    assert len(sistemas.recebidos) == antes
+    monkeypatch.setattr(voz, "transcrever", lambda b, m: "saldo")
+    assert enviar(acesso, audio_base64=wav_base64()).status_code == 200
+    assert len(sistemas.recebidos) == antes + 1 and sistemas.recebidos[-1][2]["texto"] == "/saldo"
+
+
+@pytest.mark.parametrize("audio", [False, True])
+def test_lancamento_com_saldo_no_meio_preserva_valor_e_descricao(acesso, sistemas, monkeypatch, audio):
+    enviar(acesso, "/fin saldo")
+    pedido = "Recebi R$ 92,60 na Uber, saldo da diária de motorista."
+    monkeypatch.setattr(voz, "transcrever", lambda b, m: pedido)
+    r = enviar(acesso, audio_base64=wav_base64()) if audio else enviar(acesso, pedido)
+    assert r.status_code == 200
+    assert sistemas.recebidos[-1][2]["texto"] == pedido
 
 
 def test_escolhas_faladas_tambem_executam_acao(acesso, sistemas):
