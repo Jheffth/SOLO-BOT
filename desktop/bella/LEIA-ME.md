@@ -191,3 +191,8 @@ baixe o artefato `Bella-Windows`. Esse download exige acesso ao GitHub.
 Fontes: [API Vosk](https://github.com/alphacep/vosk-api),
 [modelo português](https://alphacephei.com/vosk/models),
 [proteção DPAPI](https://learn.microsoft.com/en-us/dotnet/standard/security/how-to-use-data-protection).
+## Respostas sem esperar o áudio
+
+A resposta aparece na conversa assim que a operação termina. A Bella busca a voz
+em seguida, sem repetir a ação. Se o serviço de voz demorar ou falhar, ela usa a
+fala do Windows; as pesquisas e os resultados dos sistemas continuam disponíveis.

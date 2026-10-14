@@ -19,6 +19,8 @@ def acesso(logado, sistemas, caixa, monkeypatch):
     bella._JANELAS_TRANSCRICAO.clear()
     bella._JANELAS_VOZ_LOCAL.clear()
     bella._JANELAS_COMANDOS.clear()
+    bella._JANELAS_VOZ_RESPOSTA.clear()
+    bella._FALAS_PENDENTES.clear()
     monkeypatch.setattr(fala, "disponivel", lambda: False)
     logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
     logado.post("/api/conectar", json={"app": "rot", "codigo": "CODROT1"})
@@ -374,6 +376,68 @@ def test_resposta_com_voz_ou_texto_se_tts_falhar(acesso, monkeypatch):
     r = enviar(acesso, "/fin saldo")
     assert r.status_code == 200 and "eco:/saldo" in r.json()["texto"]
     assert "audio_base64" not in r.json()
+
+
+def test_texto_chega_sem_esperar_resumo_ou_sintese(acesso, sistemas, monkeypatch):
+    monkeypatch.setattr(fala, "o_que_falar", lambda *a: pytest.fail("Texto não espera a preparação da voz"))
+    monkeypatch.setattr(fala, "sintetizar", lambda *a: pytest.fail("Texto não espera a síntese"))
+    r = enviar(acesso, "/fin saldo", voz_separada=True).json()
+    assert "eco:/saldo" in r["texto"] and r["voz_id"] and "audio_base64" not in r
+    quantidade = len(sistemas.recebidos)
+    monkeypatch.setattr(fala, "o_que_falar", lambda *a: "Seu saldo está na tela.")
+    monkeypatch.setattr(fala, "disponivel", lambda: True)
+    monkeypatch.setattr(fala, "sintetizar", lambda t, c: {"base64": "SUQz", "mime": "audio/mpeg"})
+    c, h = acesso
+    audio = c.post("/api/bella/voz-resposta", headers=h, json={"voz_id": r["voz_id"]})
+    assert audio.status_code == 200 and audio.json()["falar"] == "Seu saldo está na tela."
+    assert audio.json()["audio_base64"] == "SUQz" and len(sistemas.recebidos) == quantidade
+    assert c.post("/api/bella/voz-resposta", headers=h, json={"voz_id": r["voz_id"]}).status_code == 404
+
+
+def test_voz_separada_exige_chave_e_nao_aceita_texto_arbitrario(acesso, monkeypatch):
+    c, h = acesso
+    r = enviar(acesso, "/fin saldo", voz_separada=True).json()
+    assert c.post("/api/bella/voz-resposta", json={"voz_id": r["voz_id"]}).status_code == 401
+    assert c.post("/api/bella/voz-resposta", headers=h, json={"voz_id": r["voz_id"], "texto": "Outro conteúdo"}).status_code == 422
+    c.delete("/api/conta/bella")
+    assert c.post("/api/bella/voz-resposta", headers=h, json={"voz_id": r["voz_id"]}).status_code == 401
+
+
+def test_voz_separada_expira_sem_reexecutar_comando(acesso, sistemas, monkeypatch):
+    c, h = acesso
+    r = enviar(acesso, "/fin saldo", voz_separada=True).json()
+    antes = len(sistemas.recebidos)
+    agora = bella.time.monotonic()
+    monkeypatch.setattr(bella.time, "monotonic", lambda: agora + 181)
+    assert c.post("/api/bella/voz-resposta", headers=h, json={"voz_id": r["voz_id"]}).status_code == 404
+    assert len(sistemas.recebidos) == antes
+
+
+def test_voz_separada_nao_pode_ser_lida_por_outra_conta_ou_chave_nova(acesso):
+    c, h = acesso
+    r = enviar(acesso, "/fin saldo", voz_separada=True).json()
+    outra = "bella_" + "z" * 43
+    with database.SessionLocal() as db:
+        db.add(database.Conta(nome="Outra", usuario="outra", senha_hash="teste", bella_hash=bella._hash(outra)))
+        db.commit()
+    assert c.post("/api/bella/voz-resposta", headers={"X-Bella-Chave": outra}, json={"voz_id": r["voz_id"]}).status_code == 404
+    nova = c.post("/api/conta/bella").json()["chave"]
+    assert c.post("/api/bella/voz-resposta", headers={"X-Bella-Chave": nova}, json={"voz_id": r["voz_id"]}).status_code == 404
+
+
+def test_falha_voz_separada_preserva_roteiro_natural(acesso, monkeypatch):
+    from conftest import Resp
+    from nucleo import modulos
+    dito = "Na conta Nubank, você tem cem reais."
+    monkeypatch.setattr(modulos, "_post", lambda *a, **k: Resp(200, {"mensagens": [
+        {"texto": "Nubank R$ 100,00", "falado": dito}]}))
+    monkeypatch.setattr(fala, "disponivel", lambda: True)
+    monkeypatch.setattr(fala, "sintetizar", lambda *a: (_ for _ in ()).throw(RuntimeError()))
+    r = enviar(acesso, "/fin saldo", voz_separada=True).json()
+    assert r["falar"] == dito
+    c, h = acesso
+    v = c.post("/api/bella/voz-resposta", headers=h, json={"voz_id": r["voz_id"]})
+    assert v.status_code == 200 and v.json() == {"falar": dito}
 
 
 def test_gerenciar_exige_login_e_chave_trocada_invalida_antiga(cliente, acesso):

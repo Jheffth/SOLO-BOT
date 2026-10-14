@@ -329,6 +329,14 @@ sintetiza com cache persistente por perfil de voz. Sem síntese, o cliente usa a
 Opções dos sistemas e de arquivos têm identificadores distintos; botões antigos e respostas
 numéricas de uma conversa local não confirmam operações pendentes de outro contexto.
 
+A Bella mostra o resultado assim que a operação termina, antes de esperar a síntese.
+O cliente novo pede `voz_separada: true` em `/api/bella/mensagem` e recebe um `voz_id`.
+`/api/bella/voz-resposta` prepara somente a fala daquela resposta, sem executar o comando
+novamente. O identificador vale três minutos, uma vez, vinculado à conta e à chave atual;
+o servidor mantém no máximo 256 respostas em memória. Reinício ou falha da voz preserva
+o resultado e a fala do Windows. O cliente limita essa espera a 12 segundos (8 nas respostas
+locais). Clientes anteriores continuam recebendo texto e áudio juntos.
+
 Identificação de pessoa pela voz, memória geral de conversa e controle geral dos aplicativos
 do Windows ainda não fazem parte dela. A precisão da chamada deve ser ajustada ao microfone e ruído.
 

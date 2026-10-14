@@ -119,6 +119,7 @@ namespace Bella {
                 }
                 Comandos(files,permitida,fora,link,linkCriado);
                 Rede(files,permitida).GetAwaiter().GetResult();
+                Latencia(files,permitida).GetAwaiter().GetResult();
             } finally {
                 string full=Path.GetFullPath(raiz), baseFull=Path.GetFullPath(baseDirectory).TrimEnd(Path.DirectorySeparatorChar);
                 if(!full.StartsWith(baseFull+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)) throw new Exception("Fixture fora da pasta de testes.");
@@ -208,6 +209,47 @@ namespace Bella {
                     ? new JavaScriptSerializer().Serialize(new { ouvido=Transcrito })
                     : new JavaScriptSerializer().Serialize(new { texto="Resposta Solo", falar="Pronto.", opcoes=new[] {new {numero=1, rotulo="Concluir", titulo="Missão"}} });
                 return new HttpResponseMessage(Falhar || (interpretar && FalharIA) ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) { Content=new StringContent(json,Encoding.UTF8,"application/json") };
+            }
+        }
+        sealed class VozLenta : HttpMessageHandler {
+            public readonly TaskCompletionSource<bool> Entrou=new TaskCompletionSource<bool>();
+            public readonly TaskCompletionSource<bool> Liberar=new TaskCompletionSource<bool>();
+            public int Operacoes;
+            public bool Falhar;
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage r,CancellationToken token) {
+                bool mensagem=r.RequestUri.AbsolutePath.EndsWith("/mensagem");
+                if(mensagem) {
+                    Operacoes++;
+                    string corpo=await r.Content.ReadAsStringAsync();
+                    Check(corpo.Contains("\"voz_separada\":true"),"cliente pede resultado antes da voz");
+                } else {
+                    Entrou.TrySetResult(true);
+                    await Liberar.Task;
+                }
+                return new HttpResponseMessage(!mensagem && Falhar ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) {
+                    Content=new StringContent(mensagem
+                        ? "{\"texto\":\"Saldo pronto\",\"falar\":\"Seu saldo está na tela.\",\"voz_id\":\"00000000-0000-0000-0000-000000000001\",\"opcoes\":[]}"
+                        : "{\"falar\":\"Pronto.\",\"audio_base64\":\"SUQz\",\"mime\":\"audio/mpeg\"}",Encoding.UTF8,"application/json") };
+            }
+            protected override void Dispose(bool disposing) { } // Compartilhado entre os clientes deste teste.
+        }
+        static async Task Latencia(Arquivos files,string pasta) {
+            foreach(bool local in new[] {false,true}) {
+                foreach(bool falhar in new[] {false,true}) {
+                    var servidor=new VozLenta {Falhar=falhar}; var fila=new PedidosWindows();
+                    bool exibido=false;
+                    var envio=fila.Enviar(local ? "/arquivos listar "+Aspas(pasta) : "saldo de hoje",null,files,
+                        ()=>new Client("https://test.invalid","bella_"+new string('x',43),servidor),null,null,
+                        r=> { exibido=true; Check(!servidor.Entrou.Task.IsCompleted,"resultado aparece antes da consulta de voz"); });
+                    try {
+                        Check(await Task.WhenAny(servidor.Entrou.Task,Task.Delay(5000))==servidor.Entrou.Task,"chegou ao pedido de voz");
+                        Check(exibido && !envio.IsCompleted,"voz lenta nao esconde o resultado local ou financeiro");
+                    } finally { servidor.Liberar.TrySetResult(true); }
+                    var resposta=await envio;
+                    Check(servidor.Operacoes==(local ? 0 : 1),"voz nao reenvia a operação");
+                    Check(!String.IsNullOrEmpty(resposta.falar),"falha da voz mantém fala do Windows");
+                    Check(falhar || resposta.audio_base64=="SUQz","voz escolhida continua disponível");
+                }
             }
         }
         static async Task Rede(Arquivos files,string pasta) {

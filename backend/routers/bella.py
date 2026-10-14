@@ -9,9 +9,11 @@ import re
 import secrets
 import time
 import wave
+from collections import OrderedDict
+from threading import Lock
 from datetime import datetime
 from typing import Literal, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -76,6 +78,63 @@ class Pedido(BaseModel):
     audio_base64: Optional[str] = Field(default=None, max_length=4 * 1024 * 1024)
     voz: bool = True
     via_audio: bool = False  # texto transcrito pelo canal Windows antes do roteamento
+    voz_separada: bool = False  # cliente novo mostra o resultado antes de pedir a síntese
+
+
+_FALAS_PENDENTES = OrderedDict()
+_FALAS_LOCK = Lock()
+_JANELAS_VOZ_RESPOSTA = {}
+
+
+def _guardar_fala(conta, mensagens, fallback, tem_opcoes):
+    agora = time.monotonic()
+    identificador = str(uuid4())
+    with _FALAS_LOCK:
+        for chave, item in list(_FALAS_PENDENTES.items()):
+            if agora - item[0] >= 180:
+                _FALAS_PENDENTES.pop(chave)
+        while len(_FALAS_PENDENTES) >= 256:
+            _FALAS_PENDENTES.popitem(last=False)
+        _FALAS_PENDENTES[identificador] = (agora, conta.id, conta.bella_hash, mensagens, fallback, tem_opcoes)
+    return identificador
+
+
+class PedidoVozResposta(BaseModel):
+    model_config = {"extra": "forbid"}
+    voz_id: UUID
+
+
+@router.post("/api/bella/voz-resposta")
+def voz_resposta(p: PedidoVozResposta, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    """Lê uma resposta já pronta. Nunca roteia nem repete a operação original."""
+    conta = _autenticar(db, x_bella_chave)
+    _limitar(conta, _JANELAS_VOZ_RESPOSTA)
+    with _FALAS_LOCK:
+        item = _FALAS_PENDENTES.get(str(p.voz_id))
+        if not item or item[1:3] != (conta.id, conta.bella_hash) or time.monotonic() - item[0] >= 180:
+            raise HTTPException(404, "A voz dessa resposta expirou. O resultado continua na tela.")
+        _FALAS_PENDENTES.pop(str(p.voz_id))
+    return _preparar_voz(item[3], item[4], item[5], com_audio=True)
+
+
+def _preparar_voz(mensagens, fallback, tem_opcoes, com_audio):
+    try:
+        falado = fala.o_que_falar(mensagens)
+    except Exception:
+        log.warning("Bella: não consegui preparar o resumo falado")
+        falado = None
+    falado = falado or fallback
+    if tem_opcoes:
+        falado += " Para escolher, diga o número."
+    saida = {"falar": falado}
+    if com_audio and fala.disponivel():
+        try:
+            audio = fala.sintetizar(falado, "whatsapp")
+            if audio:
+                saida.update(audio_base64=audio["base64"], mime=audio["mime"])
+        except Exception:
+            log.warning("Bella: falha na resposta em áudio; texto preservado")
+    return saida
 
 
 @router.get("/api/bella/saudacoes")
@@ -259,22 +318,15 @@ def mensagem(p: Pedido, x_bella_chave: str = Header(""), db: Session = Depends(g
             itens += novos
         blocos.append(corpo)
     roteador.guardar_escolhas(db, "bella", origem, itens)
-    try:
-        falado = fala.o_que_falar(r.mensagens)
-    except Exception:
-        log.warning("Bella: não consegui preparar o resumo falado")
-        falado = None
-    falado = falado or (fala.texto_falavel("\n".join(blocos), None) or "Pronto.")[:fala.MAX_CARACTERES]
-    if itens:
-        falado += " Para escolher, diga o número."
+    fallback = (" ".join(m["falado"] for m in r.mensagens if m.get("falado")) or
+                fala.texto_falavel("\n".join(blocos), None) or "Pronto.")[:fala.MAX_CARACTERES]
     saida = {"pedido_id": str(p.pedido_id), "ouvido": ouvido, "texto": _sem_marcacao("\n\n".join(blocos)),
-             "falar": falado, "opcoes": [{"numero": i, "rotulo": a["rotulo"], "titulo": a["titulo"]}
+             "falar": fallback, "opcoes": [{"numero": i, "rotulo": a["rotulo"], "titulo": a["titulo"]}
                                            for i, a in enumerate(itens, 1)]}
-    if p.voz and fala.disponivel():
-        try:
-            audio = fala.sintetizar(falado, "whatsapp")
-            if audio:
-                saida.update(audio_base64=audio["base64"], mime=audio["mime"])
-        except Exception:
-            log.warning("Bella: falha na resposta em áudio; texto preservado")
+    if p.voz and p.voz_separada:
+        saida["voz_id"] = _guardar_fala(conta, r.mensagens, fallback, bool(itens))
+        if itens:
+            saida["falar"] += " Para escolher, diga o número."
+    else:
+        saida.update(_preparar_voz(r.mensagens, fallback, bool(itens), p.voz))
     return saida

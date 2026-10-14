@@ -226,8 +226,8 @@ namespace Bella {
             try {
                 var value=Config;
                 var reply=await pedidos.Enviar(text,audio,arquivos,()=>new Client(value.Server,value.Key),
-                    t=>Falou("eu",t ?? "pedido por voz","voz",null),()=>!quitting);
-                Falou("bella",reply.texto,audio!=null?"voz":"texto",reply.opcoes);
+                    t=>Falou("eu",t ?? "pedido por voz","voz",null),()=>!quitting,
+                    r=> { if(!quitting) Falou("bella",r.texto,audio!=null?"voz":"texto",r.opcoes); });
                 if(!quitting) {
                     if(capture!=null) capture.Speaking();
                     Mudou();

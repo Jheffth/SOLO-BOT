@@ -49,6 +49,7 @@ namespace Bella {
         public string ouvido { get; set; }
         public string audio_base64 { get; set; }
         public string mime { get; set; }
+        public string voz_id { get; set; }
         public Opcao[] opcoes { get; set; }
         internal string AudioPath;
         internal string CodigoVoz;
@@ -74,7 +75,7 @@ namespace Bella {
             http.Timeout=TimeSpan.FromSeconds(150);
         }
         public async Task<Reply> Send(string text,byte[] wave,bool viaAudio=false) {
-            var body=new Dictionary<string,object> { {"pedido_id",Guid.NewGuid().ToString()}, {"voz",true} };
+            var body=new Dictionary<string,object> { {"pedido_id",Guid.NewGuid().ToString()}, {"voz",true}, {"voz_separada",true} };
             if(wave!=null) body["audio_base64"]=Convert.ToBase64String(wave); else body["texto"]=text;
             if(viaAudio) body["via_audio"]=true;
             return await Request<Reply>(HttpMethod.Post,"/api/bella/mensagem",body,150);
@@ -85,6 +86,9 @@ namespace Bella {
         }
         public Task<Reply> LocalVoice(string code) {
             return Request<Reply>(HttpMethod.Post,"/api/bella/voz-local",new Dictionary<string,object> { {"codigo",code} },8);
+        }
+        public Task<Reply> ResponseVoice(string id) {
+            return Request<Reply>(HttpMethod.Post,"/api/bella/voz-resposta",new {voz_id=id},12);
         }
         public Task<InterpretacaoComando> InterpretarComando(string text,ComandoPasta[] comandos) {
             var catalogo=new List<object>();
