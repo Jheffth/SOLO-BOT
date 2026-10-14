@@ -340,6 +340,16 @@ locais). Clientes anteriores continuam recebendo texto e áudio juntos.
 Identificação de pessoa pela voz, memória geral de conversa e controle geral dos aplicativos
 do Windows ainda não fazem parte dela. A precisão da chamada deve ser ajustada ao microfone e ruído.
 
+Em Configurações → Escuta, **Apertar para falar** substitui a chamada por voz por uma
+tecla configurável (F8 por 5 segundos inicialmente; permite Ctrl/Alt/Shift e 1–30 segundos).
+O microfone fica fechado até terminar a espera. O usuário fala mantendo a tecla e solta
+para enviar; silêncio e soltura antecipada não geram pedidos. A gravação é limitada a
+29 segundos e só segue ao soltar. Botão de microfone, “Bella” e Ctrl+Alt+B não contornam
+essa regra. Texto continua disponível. O atalho funciona em segundo plano, respeita pausa
+e exige uma nova pressão depois de responder, trocar a configuração ou interromper a espera.
+Na edição das configurações, a ativação fica suspensa. Clientes antigos mantêm a chamada
+por voz. Os testes locais usam relógio e microfone simulados, sem capturar áudio do usuário.
+
 Instalação e compilação: [desktop/bella/LEIA-ME.md](desktop/bella/LEIA-ME.md).
 
 ### O que fica para depois

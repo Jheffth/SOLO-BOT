@@ -16,6 +16,10 @@ namespace Bella {
         public bool Startup;
         public int Threshold=220;
         public bool MiniBella=true;          // a pílula sobre a barra de tarefas quando a janela está fechada
+        public bool PushToTalk;
+        public int TalkKey=119;              // F8
+        public int TalkModifiers;
+        public int TalkSeconds=5;
         public string Aparencia="foto";      // "foto" (foto com o anel) ou "orbe"
         public string[] PastasArquivos=Arquivos.PastasPadrao();
         public ComandoPasta[] ComandosPastas=new ComandoPasta[0];
@@ -29,6 +33,7 @@ namespace Bella {
         }
         public void Save() {
             Validate(Server,Key);
+            ApertarParaFalar.Validar(TalkKey,TalkModifiers,TalkSeconds);
             var bytes=Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(this));
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
             File.WriteAllBytes(FilePath,ProtectedData.Protect(bytes,null,DataProtectionScope.CurrentUser));

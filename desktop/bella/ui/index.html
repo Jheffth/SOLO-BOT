@@ -107,6 +107,12 @@
 
       <section class="grupo">
         <h3>Escuta</h3>
+        <label class="linha"><span>Apertar para falar<small>A Bella só grava enquanto você segura a tecla escolhida.</small></span><input type="checkbox" class="sw" id="cfg-apertar"></label>
+        <div id="cfg-atalho-fala" hidden>
+          <label class="campo"><span>Tecla para falar</span><button class="btn" id="cfg-tecla-fala" type="button">F8 · trocar tecla</button></label>
+          <label class="campo"><span>Segurar antes de ouvir (segundos)</span><input type="number" id="cfg-espera-fala" min="1" max="30" step="1" value="5"></label>
+          <p class="ajuda">Segure até aparecer “Pode falar”. Continue segurando enquanto fala e solte para enviar. Se soltar antes do tempo, nada será gravado. Funciona também com a janela fechada.</p>
+        </div>
         <label class="linha"><span>Iniciar com o Windows<small>Abre escondida, já ouvindo.</small></span><input type="checkbox" class="sw" id="cfg-iniciar"></label>
         <label class="linha"><span>Mini-Bella sobre a tela<small>Quando a janela estiver fechada.</small></span><input type="checkbox" class="sw" id="cfg-mini"></label>
         <div class="linha col">
@@ -145,8 +151,8 @@
       <section class="grupo">
         <h3>Atalhos</h3>
         <dl class="atalhos">
-          <dt>“Bella”</dt><dd>chama por voz</dd>
-          <dt>Ctrl + Alt + B</dt><dd>fala sem dizer o nome</dd>
+          <dt>“Bella”</dt><dd id="atalho-voz-dica">chama por voz</dd>
+          <dt id="atalho-fala-tecla">Ctrl + Alt + B</dt><dd id="atalho-fala-dica">fala sem dizer o nome</dd>
           <dt>“dois”, “sim”</dt><dd>responde a uma lista ou confirmação</dd>
         </dl>
         <button class="btn perigo" id="btn-sair" type="button">Encerrar a Bella</button>

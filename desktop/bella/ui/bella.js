@@ -12,7 +12,8 @@
   const ponteReal = !!(window.chrome && window.chrome.webview);
 
   let config = { temChave: false, servidor: "", chaveFinal: "", iniciar: false, mini: true, sensibilidade: 220, aparencia: "foto", foto: null };
-  let estado = { modo: "pausada", escutando: false, ocupada: false };
+  let estado = { modo: "pausada", escutando: false, ocupada: false, segurando: false, restante: 0 };
+  let escolhendoTecla = false;
   let primeiraMensagem = true;
   let ultimoOuvido = "", ultimaResposta = "";
   let comandoEmEdicao = null;
@@ -63,12 +64,24 @@
   function aplicarConfig(c) {
     config = Object.assign(config, c);
     aplicarAvatar();
-    if (MINI) return;
+    if (MINI) { aplicarEstado({}); return; }
     $("btn-recortar").disabled = !config.foto;
     $("btn-remover").disabled = !config.foto;
     document.querySelectorAll("[data-aparencia]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.aparencia === config.aparencia)));
     $("cfg-iniciar").checked = !!config.iniciar;
     $("cfg-mini").checked = !!config.mini;
+    $("cfg-apertar").checked = !!config.apertarParaFalar;
+    $("cfg-atalho-fala").hidden = !config.apertarParaFalar;
+    $("cfg-espera-fala").value = config.esperaFalar || 5;
+    if (!escolhendoTecla) $("cfg-tecla-fala").textContent = (config.nomeTeclaFalar || "F8") + " · trocar tecla";
+    $("entrada").placeholder = config.apertarParaFalar ? "Escreva uma mensagem…" : "Escreva ou diga “Bella”…";
+    document.querySelector(".compositor .tecla").textContent = config.apertarParaFalar ? (config.nomeTeclaFalar || "F8") : "Ctrl Alt B";
+    $("cfg-iniciar").closest("label").querySelector("small").textContent = config.apertarParaFalar ? "Abre escondida, aguardando a tecla." : "Abre escondida, já ouvindo.";
+    $("atalho-voz-dica").textContent = config.apertarParaFalar ? "desativada neste modo" : "chama por voz";
+    $("atalho-fala-tecla").textContent = config.apertarParaFalar ? (config.nomeTeclaFalar || "F8") : "Ctrl + Alt + B";
+    $("atalho-fala-dica").textContent = config.apertarParaFalar ? "segure por " + (config.esperaFalar || 5) + " s; solte para enviar" : "fala sem dizer o nome";
+    document.querySelector(".rodape").lastChild.textContent = config.apertarParaFalar ? "Microfone fechado até ativar pela tecla" : "A escuta de espera fica no seu computador";
+    aplicarEstado({});
     const p = paraPct(config.sensibilidade || 220);
     $("cfg-sens").value = p; $("cfg-sens").style.setProperty("--p", p + "%");
     $("medidor-marca").style.left = p + "%";
@@ -144,12 +157,22 @@
     pensando: ["Pensando…", ""],
     falando: ["Respondendo", ""]
   };
+  function textosEstado() {
+    if (config.apertarParaFalar && !estado.escutando) return ["Apertar para falar pausado", "ative a escuta no botão acima"];
+    if (config.apertarParaFalar && estado.escutando) {
+      const tecla = config.nomeTeclaFalar || "F8";
+      if (estado.segurando) return ["Segure " + tecla, estado.restante + " s para abrir o microfone"];
+      if (estado.modo === "espera") return ["Apertar para falar", "segure " + tecla + " por " + (config.esperaFalar || 5) + " s"];
+      if (estado.modo === "ouvindo") return ["Pode falar", "solte " + tecla + " para enviar"];
+    }
+    return TEXTOS[estado.modo] || TEXTOS.pausada;
+  }
   function aplicarEstado(s) {
     estado = Object.assign(estado, s);
     const modo = estado.modo;
     if (MINI) { $("mini").dataset.modo = modo; atualizarMini(); return; }
     $("presenca").dataset.modo = modo;
-    const t = TEXTOS[modo] || TEXTOS.pausada;
+    const t = textosEstado();
     const el = $("estado"); el.textContent = "";
     const b = document.createElement("b"); b.textContent = t[0]; el.appendChild(b);
     if (t[1]) el.appendChild(document.createTextNode(" · " + t[1]));
@@ -159,11 +182,12 @@
     if (modo !== "ouvindo") document.documentElement.style.setProperty("--nivel", 0);
     const chip = $("chip-escuta");
     chip.classList.toggle("ativa", !!estado.escutando);
-    $("chip-texto").textContent = estado.escutando ? "Ouvindo “Bella”" : "Escuta pausada";
+    $("chip-texto").textContent = estado.escutando ? (config.apertarParaFalar ? "Apertar para falar" : "Ouvindo “Bella”") : "Escuta pausada";
     chip.title = estado.escutando ? "Pausar a escuta e liberar o microfone" : "Ligar a escuta";
     $("btn-parar").hidden = !(modo === "falando" || modo === "saudando");
     $("btn-falar").disabled = !!estado.ocupada && modo !== "ouvindo";
     $("btn-falar").classList.toggle("gravando", modo === "ouvindo");
+    $("btn-falar").title = config.apertarParaFalar ? "Segure " + (config.nomeTeclaFalar || "F8") + " por " + (config.esperaFalar || 5) + " s" : "Falar agora (Ctrl + Alt + B)";
     $("btn-enviar").disabled = !!estado.ocupada;
     digitando(modo === "pensando");
   }
@@ -300,8 +324,8 @@
 
   // ── Mini-Bella ─────────────────────────────────────────────
   function atualizarMini() {
-    const t = TEXTOS[estado.modo] || TEXTOS.pausada;
-    const resposta = (estado.modo === "falando" || estado.modo === "espera" || estado.modo === "pausada") && ultimaResposta ? ultimaResposta : t[0];
+    const t = textosEstado();
+    const resposta = !estado.segurando && (estado.modo === "falando" || (estado.modo === "espera" && !config.apertarParaFalar) || estado.modo === "pausada") && ultimaResposta ? ultimaResposta : t[0] + (t[1] ? " · " + t[1] : "");
     $("mini-ouvido").textContent = ultimoOuvido ? "“" + ultimoOuvido + "”" : "Bella";
     $("mini-resposta").textContent = resposta;
   }
@@ -328,7 +352,7 @@
     const fechar = () => { $("gaveta").classList.remove("aberta"); $("gaveta").setAttribute("aria-hidden", "true"); setTimeout(() => $("veu").hidden = true, 250); enviar("medidor", { ligado: false }); };
     $("btn-config").onclick = () => abrir();
     $("btn-comandos").onclick = () => abrir("comandos");
-    document.querySelectorAll("[data-aba]").forEach(b => b.onclick = () => aba(b.dataset.aba));
+    document.querySelectorAll("[data-aba]").forEach(b => b.onclick = () => { cancelarTecla(); aba(b.dataset.aba); });
     $("btn-fechar-config").onclick = fechar; $("veu").onclick = fechar;
     $("btn-trocar-foto").onclick = () => { abrir(); setTimeout(() => $("arquivo").click(), 320); };
     document.addEventListener("keydown", e => {
@@ -340,6 +364,36 @@
     });
     $("cfg-iniciar").onchange = e => enviar("preferencias", { iniciar: e.target.checked });
     $("cfg-mini").onchange = e => enviar("preferencias", { mini: e.target.checked });
+    $("cfg-apertar").onchange = e => enviar("preferencias", { apertarParaFalar: e.target.checked });
+    $("cfg-espera-fala").onchange = e => {
+      const segundos = Number(e.target.value);
+      if (!Number.isInteger(segundos) || segundos < 1 || segundos > 30) {
+        e.target.value = config.esperaFalar || 5; return toast("Escolha de 1 a 30 segundos.", true);
+      }
+      enviar("preferencias", { esperaFalar: segundos });
+    };
+    const cancelarTecla = () => {
+      escolhendoTecla = false; $("cfg-tecla-fala").textContent = (config.nomeTeclaFalar || "F8") + " · trocar tecla";
+    };
+    $("cfg-tecla-fala").onclick = () => {
+      escolhendoTecla = !escolhendoTecla;
+      $("cfg-tecla-fala").textContent = escolhendoTecla ? "Pressione a nova tecla (Esc cancela)" : (config.nomeTeclaFalar || "F8") + " · trocar tecla";
+    };
+    document.addEventListener("keydown", e => {
+      if (!escolhendoTecla) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (e.key === "Escape") return cancelarTecla();
+      if (e.repeat || [16, 17, 18, 91, 92].includes(e.keyCode)) return;
+      const tecla = e.keyCode;
+      const valida = (tecla >= 48 && tecla <= 57) || (tecla >= 65 && tecla <= 90) || (tecla >= 96 && tecla <= 135)
+        || [8, 13, 19, 20, 32, 33, 34, 35, 36, 37, 38, 39, 40, 45, 46, 145].includes(tecla)
+        || (tecla >= 186 && tecla <= 192) || (tecla >= 219 && tecla <= 222);
+      if (!valida || e.metaKey) return toast("Escolha outra tecla, como F8, opcionalmente com Ctrl, Alt ou Shift.", true);
+      cancelarTecla();
+      enviar("preferencias", { teclaFalar: tecla, modificadoresFalar: (e.altKey ? 1 : 0) | (e.ctrlKey ? 2 : 0) | (e.shiftKey ? 4 : 0) });
+    }, true);
+    $("btn-fechar-config").addEventListener("click", cancelarTecla);
+    $("veu").addEventListener("click", cancelarTecla);
     let espera;
     $("cfg-sens").oninput = e => {
       const p = +e.target.value; e.target.style.setProperty("--p", p + "%"); $("medidor-marca").style.left = p + "%";

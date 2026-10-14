@@ -19,7 +19,8 @@ namespace Bella {
         readonly PedidosWindows pedidos=new PedidosWindows();
         LocalWake wake;
         Capture capture;
-        Microphone mic;
+        IMicrophone mic;
+        readonly Func<IMicrophone> criarMicrofone;
         GreetingLibrary greetings;
         string greetingConnection;
         bool listening, starting, busy, quitting;
@@ -40,10 +41,13 @@ namespace Bella {
         /// <summary>Energia do microfone (RMS), ~14 vezes por segundo enquanto ele está aberto.</summary>
         public event Action<double> Nivel;
 
-        public Nucleo(Control ui,Settings inicial) {
+        public Nucleo(Control ui,Settings inicial,Func<IMicrophone> microphoneFactory=null) {
             dono=ui; Config=inicial ?? new Settings();
+            criarMicrofone=microphoneFactory ?? (()=>new Microphone());
             if(Config.PastasArquivos==null) Config.PastasArquivos=Arquivos.PastasPadrao();
             if(Config.ComandosPastas==null) Config.ComandosPastas=new ComandoPasta[0];
+            try { ApertarParaFalar.Validar(Config.TalkKey,Config.TalkModifiers,Config.TalkSeconds); }
+            catch { Config.TalkKey=119; Config.TalkModifiers=0; Config.TalkSeconds=5; }
             arquivos=new Arquivos(()=>Config.PastasArquivos,commands:()=>Config.ComandosPastas);
         }
 
@@ -67,24 +71,38 @@ namespace Bella {
             greetings=null;                      // outra chave, outro catálogo de saudações
             arquivos.Cancelar();
             pedidos.Cancelar();
-            if(listening) WarmGreetings(Config);
+            if(listening && !Config.PushToTalk) WarmGreetings(Config);
         }
 
         /// <summary>Preferências que mudam na hora (sem botão Salvar). Nulo = não mexe.</summary>
-        public void Preferencias(bool? iniciar,bool? mini,int? sensibilidade,string aparencia) {
+        public async Task Preferencias(bool? iniciar,bool? mini,int? sensibilidade,string aparencia,
+            bool? apertar=null,int? tecla=null,int? modificadores=null,int? segundos=null) {
             var novo=Copia();
+            bool mudarFala=apertar.HasValue || tecla.HasValue || modificadores.HasValue || segundos.HasValue;
+            if(mudarFala && (busy || starting)) throw new InvalidOperationException("Espere o pedido atual terminar antes de trocar o modo de fala.");
+            if(apertar.HasValue) novo.PushToTalk=apertar.Value;
+            if(tecla.HasValue) novo.TalkKey=tecla.Value;
+            if(modificadores.HasValue) novo.TalkModifiers=modificadores.Value;
+            if(segundos.HasValue) novo.TalkSeconds=segundos.Value;
+            ApertarParaFalar.Validar(novo.TalkKey,novo.TalkModifiers,novo.TalkSeconds);
             if(iniciar.HasValue) novo.Startup=iniciar.Value;
             if(mini.HasValue) novo.MiniBella=mini.Value;
             if(sensibilidade.HasValue) novo.Threshold=Math.Max(50,Math.Min(4000,sensibilidade.Value));
             if(aparencia=="foto" || aparencia=="orbe") novo.Aparencia=aparencia;
+            if(TemChave) novo.Save();
+            bool retomar=listening && mudarFala;
+            if(mudarFala) { Pause(); capture=null; }
             Config=novo;
             if(capture!=null) capture.Threshold=Config.Threshold;
-            if(TemChave) { Config.Save(); if(iniciar.HasValue) AplicarInicioComWindows(); }
+            if(TemChave && iniciar.HasValue) AplicarInicioComWindows();
+            if(retomar) await StartListening();
+            Mudou();
         }
 
         Settings Copia() {
             return new Settings { Server=Config.Server, Key=Config.Key, Startup=Config.Startup, Threshold=Config.Threshold,
                                   MiniBella=Config.MiniBella, Aparencia=Config.Aparencia, PastasArquivos=(string[])Config.PastasArquivos.Clone(),
+                                  PushToTalk=Config.PushToTalk, TalkKey=Config.TalkKey, TalkModifiers=Config.TalkModifiers, TalkSeconds=Config.TalkSeconds,
                                   ComandosPastas=(ComandoPasta[])Config.ComandosPastas.Clone() };
         }
 
@@ -120,17 +138,19 @@ namespace Bella {
             starting=true;
             try {
                 Settings.Validate(Config.Server,Config.Key);
-                if(wake==null) {
+                if(!Config.PushToTalk && wake==null)
                     wake=await Task.Run(()=>new LocalWake(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"modelo")));
-                    capture=new Capture(wake); capture.Changed+=mode=>Ui(Mudou);
+                if(quitting) return;
+                if(capture==null) {
+                    var origem=new Capture(Config.PushToTalk ? null : wake) {PushToTalk=Config.PushToTalk};
+                    capture=origem; capture.Changed+=mode=>Ui(Mudou);
                     capture.WakeDetected+=()=>Ui(async()=>await Greet());
-                    capture.RequestReady+=audio=>Ui(async()=>{ if(capture.State==Capture.Mode.Processing && listening) await Send(null,audio); });
+                    capture.RequestReady+=audio=>Ui(async()=>{ if(capture==origem && origem.State==Capture.Mode.Processing && listening) await Send(null,audio); });
                 }
                 capture.Threshold=Config.Threshold; capture.Listen(); listening=true;
-                mic=new Microphone();
-                mic.Start(pcm=>{ capture.Feed(pcm); Medir(pcm); },message=>Ui(()=>{ Pause(); Note(message,true); }));
+                if(!Config.PushToTalk) AbrirMicrofone();
                 Mudou();
-                WarmGreetings(Config);
+                if(!Config.PushToTalk) WarmGreetings(Config);
             } catch(Exception e) { Pause(); Note("Não consegui ligar a escuta: "+e.Message,true); }
             finally { starting=false; }
         }
@@ -153,6 +173,7 @@ namespace Bella {
         public async Task AlternarEscuta() { if(listening) Pause(); else await StartListening(); }
 
         public async Task Begin() {
+            if(Config.PushToTalk) { Note("Segure "+ApertarParaFalar.Nome(Config.TalkKey,Config.TalkModifiers)+" por "+Config.TalkSeconds+" segundos. Fale e solte para enviar."); return; }
             if(busy) { Note("Ainda estou cuidando do pedido anterior."); return; }
             player.Stop();
             if(!listening) await StartListening();
@@ -160,6 +181,29 @@ namespace Bella {
         }
 
         public void PararVoz() { player.Stop(); }
+
+        void AbrirMicrofone() {
+            var origem=capture;
+            mic=criarMicrofone();
+            mic.Start(pcm=>{ origem.Feed(pcm); Medir(pcm); },message=>Ui(()=>{ Pause(); Note(message,true); }));
+        }
+        void FecharMicrofone() {
+            if(mic!=null) { mic.Dispose(); mic=null; }
+        }
+        public bool ComecarPorTecla() {
+            if(quitting || starting || busy || !listening || !Config.PushToTalk || capture==null || !capture.BeginHeld()) return false;
+            player.Stop();
+            try { AbrirMicrofone(); Mudou(); return true; }
+            catch(Exception e) { Pause(); Note("Não consegui abrir o microfone: "+e.Message,true); return false; }
+        }
+        public void SoltarTecla(bool cancelar=false) {
+            if(!Config.PushToTalk || capture==null || capture.State!=Capture.Mode.Recording) return;
+            try {
+                FecharMicrofone();
+                if(cancelar) capture.Listen(); else capture.EndHeld();
+            } catch(Exception e) { Pause(); Note(e.Message,true); }
+            Mudou();
+        }
 
         // ── Saudações ────────────────────────────────────────────────
         GreetingLibrary GreetingsFor(Settings value) {

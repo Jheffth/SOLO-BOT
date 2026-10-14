@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -15,6 +16,8 @@ namespace Bella {
     public sealed class Janela : Form {
         [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr h,int id,uint modifiers,uint key);
         [DllImport("user32.dll")] static extern bool UnregisterHotKey(IntPtr h,int id);
+        [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
+        [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
 
         readonly WebView2 web=new WebView2();
         readonly Vista tela;
@@ -22,6 +25,9 @@ namespace Bella {
         readonly NotifyIcon tray=new NotifyIcon();
         readonly ToolStripMenuItem itemEscuta;
         readonly Timer esconderMini=new Timer { Interval=5000 };
+        readonly Timer teclaFalar=new Timer { Interval=20 };
+        readonly EsperaTecla esperaTecla=new EsperaTecla();
+        readonly Stopwatch tempoTecla=Stopwatch.StartNew();
         readonly string pastaUi=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ui");
         readonly bool minimized;
         CoreWebView2Environment ambiente;
@@ -67,10 +73,14 @@ namespace Bella {
             tray.Text="Bella · escuta pausada"; tray.Visible=true;
 
             esconderMini.Tick+=(s,e)=>{ esconderMini.Stop(); if(mini!=null) mini.Hide(); };
+            teclaFalar.Tick+=(s,e)=>ObservarTecla();
+            if(IsHandleCreated) AtualizarAtalho();
             FormClosing+=(s,e)=>{
                 if(quitting) return;
                 e.Cancel=true; Hide();
-                if(!avisouBandeja) { avisouBandeja=true; tray.ShowBalloonTip(1500,"Bella","Continuo aqui perto do relógio. Diga “Bella” quando precisar.",ToolTipIcon.None); }
+                if(!avisouBandeja) { avisouBandeja=true; tray.ShowBalloonTip(1500,"Bella",bella.Config.PushToTalk
+                    ? "Continuo perto do relógio. Segure "+ApertarParaFalar.Nome(bella.Config.TalkKey,bella.Config.TalkModifiers)+" para falar."
+                    : "Continuo aqui perto do relógio. Diga “Bella” quando precisar.",ToolTipIcon.None); }
             };
             VisibleChanged+=(s,e)=>AtualizarMini();
             Resize+=(s,e)=>AtualizarMini();
@@ -80,13 +90,38 @@ namespace Bella {
         protected override void OnHandleCreated(EventArgs e) {
             base.OnHandleCreated(e);
             Visual.JanelaEscura(this);
-            atalhoLivre=RegisterHotKey(Handle,1,0x4000|0x0002|0x0001,(uint)Keys.B);   // MOD_NOREPEAT|CTRL|ALT + B
+            AtualizarAtalho();
         }
         protected override void WndProc(ref Message m) {
             if(m.Msg==0x0312 && m.WParam.ToInt32()==1) PeloAtalho();
             base.WndProc(ref m);
         }
         async void PeloAtalho() { await Seguro(bella.Begin); }
+        void AtualizarAtalho() {
+            if(bella==null || !IsHandleCreated) return;
+            teclaFalar.Enabled=bella.Config.PushToTalk;
+            UnregisterHotKey(Handle,1);
+            atalhoLivre=bella.Config.PushToTalk || RegisterHotKey(Handle,1,0x4000|0x0002|0x0001,(uint)Keys.B);
+            esperaTecla.Reiniciar();
+        }
+        static bool TeclaAbaixada(int tecla) { return GetAsyncKeyState(tecla)<0; }
+        void ObservarTecla() {
+            if(quitting) return;
+            var c=bella.Config;
+            bool habilitada=c.PushToTalk && bella.Escutando && !bella.Ocupada && !medidor && GetForegroundWindow()!=IntPtr.Zero;
+            bool pressionada=false;
+            if(habilitada) {
+                int modificadores=(TeclaAbaixada(18)?1:0)|(TeclaAbaixada(17)?2:0)|(TeclaAbaixada(16)?4:0);
+                pressionada=TeclaAbaixada(c.TalkKey) && modificadores==c.TalkModifiers
+                    && !TeclaAbaixada(91) && !TeclaAbaixada(92);
+            }
+            int anterior=esperaTecla.Restantes; bool contando=esperaTecla.Contando;
+            var acao=esperaTecla.Atualizar(habilitada,pressionada,tempoTecla.Elapsed.TotalMilliseconds,c.TalkSeconds);
+            if(acao==AcaoTecla.Comecar && !bella.ComecarPorTecla()) esperaTecla.Reiniciar();
+            if(acao==AcaoTecla.Enviar) bella.SoltarTecla();
+            if(acao==AcaoTecla.Cancelar) bella.SoltarTecla(true);
+            if(anterior!=esperaTecla.Restantes || contando!=esperaTecla.Contando || acao!=AcaoTecla.Nenhuma) AoMudar();
+        }
 
         async Task Abrir() {
             if(minimized) { Hide(); Opacity=1; }
@@ -141,7 +176,11 @@ namespace Bella {
                         if(!bella.Escutando) await bella.StartListening();
                         break;
                     case "preferencias":
-                        bella.Preferencias(Vista.Logico(d,"iniciar"),Vista.Logico(d,"mini"),Vista.Inteiro(d,"sensibilidade"),Vista.Texto(d,"aparencia"));
+                        try {
+                            await bella.Preferencias(Vista.Logico(d,"iniciar"),Vista.Logico(d,"mini"),Vista.Inteiro(d,"sensibilidade"),Vista.Texto(d,"aparencia"),
+                                Vista.Logico(d,"apertarParaFalar"),Vista.Inteiro(d,"teclaFalar"),Vista.Inteiro(d,"modificadoresFalar"),Vista.Inteiro(d,"esperaFalar"));
+                            if(d.ContainsKey("apertarParaFalar") || d.ContainsKey("teclaFalar") || d.ContainsKey("esperaFalar") || d.ContainsKey("modificadoresFalar")) AtualizarAtalho();
+                        } catch(Exception e) { tela.Postar(new {tipo="toast",texto=e.Message,erro=true}); }
                         PostarConfig(); AtualizarMini();
                         break;
                     case "foto":
@@ -169,6 +208,8 @@ namespace Bella {
             var c=bella.Config;
             string final=String.IsNullOrEmpty(c.Key) || c.Key.Length<4 ? "" : c.Key.Substring(c.Key.Length-4);
             return new { tipo="config", temChave=bella.TemChave, servidor=c.Server, chaveFinal=final, iniciar=c.Startup,
+                         apertarParaFalar=c.PushToTalk, teclaFalar=c.TalkKey, modificadoresFalar=c.TalkModifiers, esperaFalar=c.TalkSeconds,
+                         nomeTeclaFalar=ApertarParaFalar.Nome(c.TalkKey,c.TalkModifiers),
                          mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto, pastasArquivos=c.PastasArquivos,
                          comandosPastas=c.ComandosPastas, modelosComandos=Navegador.Modelos() };
         }
@@ -193,10 +234,11 @@ namespace Bella {
         void AoMudar() {
             var modo=bella.Modo;
             if(!bella.Escutando && modo==Modo.Listening) modo=Modo.Paused;
-            var m=new { tipo="estado", modo=NomeDoModo(modo), escutando=bella.Escutando, ocupada=bella.Ocupada };
+            var m=new { tipo="estado", modo=NomeDoModo(modo), escutando=bella.Escutando, ocupada=bella.Ocupada,
+                        segurando=esperaTecla.Contando, restante=esperaTecla.Restantes };
             tela.Postar(m); if(mini!=null) mini.Postar(m);
             tray.Icon=Visual.Icone(modo,SystemInformation.SmallIconSize.Width*2);
-            var dica="Bella · "+Dica[modo]; tray.Text=dica.Length>63?dica.Substring(0,63):dica;
+            var dica="Bella · "+(bella.Config.PushToTalk && bella.Escutando && modo==Modo.Listening ? "segure "+ApertarParaFalar.Nome(bella.Config.TalkKey,bella.Config.TalkModifiers) : Dica[modo]); tray.Text=dica.Length>63?dica.Substring(0,63):dica;
             itemEscuta.Text=bella.Escutando?"Pausar escuta":"Ligar escuta";
             AtualizarMini();
         }
@@ -206,7 +248,7 @@ namespace Bella {
             if(quitting || ambiente==null) return;
             bool fora=!Visible || WindowState==FormWindowState.Minimized;
             var modo=bella.Modo;
-            bool emAcao=modo==Modo.Greeting || modo==Modo.Recording || modo==Modo.Processing || modo==Modo.Speaking;
+            bool emAcao=esperaTecla.Contando || modo==Modo.Greeting || modo==Modo.Recording || modo==Modo.Processing || modo==Modo.Speaking;
             if(!fora || !bella.Config.MiniBella) { esconderMini.Stop(); if(mini!=null) mini.Hide(); return; }
             if(emAcao) {
                 esconderMini.Stop();
@@ -234,7 +276,7 @@ namespace Bella {
 
         public void Sair() {
             if(quitting) return;
-            quitting=true; bella.Encerrar(); tray.Visible=false;
+            quitting=true; teclaFalar.Stop(); bella.Encerrar(); tray.Visible=false;
             if(mini!=null) mini.Close();
             Close();
         }
@@ -242,7 +284,7 @@ namespace Bella {
         protected override void Dispose(bool disposing) {
             if(disposing) {
                 if(IsHandleCreated) UnregisterHotKey(Handle,1);
-                bella.Dispose(); tray.Dispose(); esconderMini.Dispose();
+                teclaFalar.Dispose(); bella.Dispose(); tray.Dispose(); esconderMini.Dispose();
                 if(mini!=null) mini.Dispose();
             }
             base.Dispose(disposing);

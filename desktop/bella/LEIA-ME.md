@@ -5,6 +5,18 @@ O computador precisa de um microfone padrão e conexão ao Solo Bot para executa
 
 ## Arquivos no Windows
 
+### Apertar para falar
+
+Em **Configurações → Escuta**, marque **Apertar para falar**. Por padrão, segure **F8
+por 5 segundos**, até aparecer **Pode falar**. Fale mantendo a tecla pressionada e
+solte para enviar. **Trocar tecla** aceita outra tecla e combinações com Ctrl, Alt
+ou Shift; o tempo pode variar de 1 a 30 segundos. As preferências ficam salvas.
+
+Nesse modo, o microfone fica fechado durante a espera e “Bella” não ativa a gravação.
+Soltar cedo ou sem falar não envia nada. Funciona em segundo plano; você também pode
+pausar pelo botão de escuta. O texto continua disponível. Desmarcar a opção restaura
+a chamada por voz e o atalho Ctrl+Alt+B. A gravação tem limite de 29 segundos.
+
 ### Comandos e automações
 
 Clique em **Comandos**, no topo da janela, ou na aba **Comandos** das configurações.

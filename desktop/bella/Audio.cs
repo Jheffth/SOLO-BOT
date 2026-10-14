@@ -7,7 +7,10 @@ using System.Threading.Tasks;
 
 namespace Bella {
     // PCM mono 16 kHz / 16 bits, compatível com Vosk e com a API da Bella.
-    public sealed class Microphone : IDisposable {
+    public interface IMicrophone : IDisposable {
+        void Start(Action<byte[]> data,Action<string> error);
+    }
+    public sealed class Microphone : IMicrophone {
         [StructLayout(LayoutKind.Sequential, Pack=2)] struct Format {
             public ushort tag, channels; public uint rate, average; public ushort align, bits, extra;
         }
@@ -83,15 +86,29 @@ namespace Bella {
         double elapsed, lastVoice;
         bool heardVoice;
         public int Threshold = 220;
+        public bool PushToTalk { get; set; }
         public Capture(IWake detector) { wake=detector; State=Mode.Paused; }
         void Set(Mode mode) { State=mode; if(Changed!=null) Changed(mode); }
-        public void Listen() { lock(gate) { record.SetLength(0); wake.Reset(); Set(Mode.Listening); } }
+        public void Listen() { lock(gate) { record.SetLength(0); if(wake!=null) wake.Reset(); Set(Mode.Listening); } }
         public void Pause() { lock(gate) { record.SetLength(0); Set(Mode.Paused); } }
         public void Begin() {
-            lock(gate) { if(State!=Mode.Listening) return; Set(Mode.Greeting); }
+            lock(gate) { if(PushToTalk || State!=Mode.Listening) return; Set(Mode.Greeting); }
             if(WakeDetected!=null) WakeDetected();
         }
-        public void RecordAfterGreeting() { lock(gate) { if(State==Mode.Greeting) BeginInside(); } }
+        public void RecordAfterGreeting() { lock(gate) { if(!PushToTalk && State==Mode.Greeting) BeginInside(); } }
+        public bool BeginHeld() {
+            lock(gate) { if(!PushToTalk || State!=Mode.Listening) return false; BeginInside(); return true; }
+        }
+        public void EndHeld() {
+            byte[] ready=null;
+            lock(gate) {
+                if(!PushToTalk || State!=Mode.Recording) return;
+                if(heardVoice && record.Length>0) { ready=Wave(record.ToArray()); Set(Mode.Processing); }
+                else Set(Mode.Listening);
+                record.SetLength(0);
+            }
+            if(ready!=null && RequestReady!=null) RequestReady(ready);
+        }
         public void Speaking() { lock(gate) Set(Mode.Speaking); }
         public void Processing() { lock(gate) Set(Mode.Processing); }
         void BeginInside() {
@@ -103,13 +120,14 @@ namespace Bella {
             bool called=false;
             lock(gate) {
                 if(State==Mode.Listening) {
-                    if(wake.Hear(pcm)) { Set(Mode.Greeting); called=true; }
+                    if(!PushToTalk && wake!=null && wake.Hear(pcm)) { Set(Mode.Greeting); called=true; }
                 } else if(State==Mode.Recording) {
+                    if(PushToTalk && elapsed>=29) return; // Aguarda soltar, sem enviar automaticamente.
                     record.Write(pcm,0,pcm.Length); elapsed+=(double)pcm.Length/32000;
                     if(Energy(pcm)>Threshold) { lastVoice=elapsed; heardVoice=true; }
-                    if(elapsed>=29 || (heardVoice && elapsed-lastVoice>=1.3 && elapsed>=1)) {
+                    if(!PushToTalk && (elapsed>=29 || (heardVoice && elapsed-lastVoice>=1.3 && elapsed>=1))) {
                         ready=Wave(record.ToArray()); record.SetLength(0); Set(Mode.Processing);
-                    } else if(!heardVoice && elapsed>=6) { record.SetLength(0); wake.Reset(); Set(Mode.Listening); }
+                    } else if(!PushToTalk && !heardVoice && elapsed>=6) { record.SetLength(0); wake.Reset(); Set(Mode.Listening); }
                 }
             }
             if(called && WakeDetected!=null) WakeDetected();
