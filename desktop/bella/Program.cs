@@ -55,6 +55,7 @@ namespace Bella {
         static void Check(bool condition,string name) { if(!condition) throw new Exception(name); }
         public static void Run() {
             ArquivosTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
+            NavegadorTestes.Run();
             var wake=new Wake(); var c=new Capture(wake); int requests=0; byte[] result=null;
             c.RequestReady+=b=>{ requests++; result=b; };
             var silence=new byte[3200]; var voice=new byte[3200]; for(int i=1;i<voice.Length;i+=2) voice[i]=10;

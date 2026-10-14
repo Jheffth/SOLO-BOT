@@ -88,9 +88,9 @@ namespace Bella {
                                   ComandosPastas=(ComandoPasta[])Config.ComandosPastas.Clone() };
         }
 
-        public void ComandoPasta(string id,string frase,string caminho,bool remover) {
+        public void ComandoPasta(string id,string frase,string caminho,bool remover,string tipo=null,string termo=null) {
             if(busy) throw new InvalidOperationException("Espere o pedido atual terminar antes de editar os comandos.");
-            var novo=Copia(); novo.ComandosPastas=Bella.ComandosPastas.Atualizar(novo.ComandosPastas,id,frase,caminho,remover);
+            var novo=Copia(); novo.ComandosPastas=Bella.ComandosPastas.Atualizar(novo.ComandosPastas,id,frase,caminho,remover,tipo,termo);
             novo.Save(); Config=novo; arquivos.Cancelar(); pedidos.Cancelar();
         }
 

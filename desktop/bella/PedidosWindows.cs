@@ -32,9 +32,9 @@ namespace Bella {
                 catch(UnauthorizedAccessException) { throw; }
                 catch(Exception) { } // Sem IA, oferece os comandos locais; não vira lançamento financeiro.
                 if(continuar!=null && !continuar()) throw new OperationCanceledException();
-                reply=await arquivos.Interpretar(escolha);
+                reply=await arquivos.Interpretar(escolha,text);
             }
-            if(reply==null && arquivos.PedidoDePasta(text)) reply=await arquivos.Interpretar(null);
+            if(reply==null && arquivos.PedidoLocal(text)) reply=await arquivos.Interpretar(null,text);
             if(reply==null) {
                 arquivos.Cancelar(); tokenSolo=null; ultimoLocal=false;
                 using(var c=cliente()) reply=await c.Send(text,null,viaAudio);

@@ -5,9 +5,20 @@ O computador precisa de um microfone padrão e conexão ao Solo Bot para executa
 
 ## Arquivos no Windows
 
-### Comandos para abrir suas pastas
+### Comandos e automações
 
 Clique em **Comandos**, no topo da janela, ou na aba **Comandos** das configurações.
+Escolha **Tipo de ação**: pasta, site, Google, YouTube ou Maps. Os **Modelos prontos**
+preenchem o formulário; ajuste e salve para criar seu comando. Há exemplos de escrita
+criativa, pesquisa livre, vídeos, lugares, Gmail, agenda, WhatsApp Web, Downloads e Documentos.
+
+As pesquisas básicas já funcionam sem cadastro:
+
+- “Pesquisar sobre escrita criativa” abre os resultados no Google.
+- “Pesquisar no YouTube sobre técnicas de escrita” abre a busca de vídeos.
+- “Pesquisar no Maps sobre cafeterias em São Paulo” abre a busca no mapa.
+
+Para **abrir uma pasta**:
 Preencha **Frase do comando** (por exemplo, `Abrir minha pasta de Projetos`) e **Caminho
 da pasta** (`C:\JEFFERSON\PROJETOS`), ou use **Escolher pasta**, e clique em **Salvar comando**.
 Diga a frase ou escreva na conversa: a Bella abre o caminho cadastrado diretamente.
@@ -19,12 +30,26 @@ os caminhos cadastrados continuam no computador. Só abre automaticamente uma pa
 quando há uma correspondência segura. Na dúvida ou sem interpretação disponível,
 mostra as opções para você escolher, sem enviar esse pedido ao Finanças.
 
+Para **abrir um site**, cadastre uma frase e o endereço HTTP/HTTPS. O site abre no
+navegador padrão do Windows. Para **pesquisar**, escolha um assunto fixo ou marque
+**Usar o assunto que eu disser** e coloque `{assunto}` na frase, como `Pesquisar sobre
+{assunto}`. Você pode dizer “Pesquisar sobre escrita criativa” e depois “Pesquisar
+sobre criação de personagens”, usando o mesmo comando. **Testar** pergunta o assunto
+se ele for variável. A resposta fica pendente por cinco minutos; “cancelar” cancela.
+As páginas abrem diretamente com os resultados, usando o assunto codificado no endereço.
+Google, YouTube e Maps não precisam de uma nova chave de serviço para essa navegação.
+O Maps usa o [formato oficial de URLs](https://developers.google.com/maps/documentation/urls/get-started).
+
 Cada cadastro tem **Testar**, **Editar** e **Remover**. Remover apaga apenas o comando.
-As associações ficam cifradas junto das preferências e continuam disponíveis depois de
+As associações, tipos e assuntos fixos ficam cifrados junto das preferências e continuam disponíveis depois de
 reiniciar. Frases duplicadas e caminhos inexistentes são recusados. É possível cadastrar
-até 50 comandos. O cadastro permite apenas abrir aquela pasta; buscar e alterar seus
+até 50 comandos pessoais, além das três pesquisas básicas. Um comando de pasta permite apenas abrir aquela pasta; buscar e alterar seus
 arquivos continuam dependendo do acesso concedido abaixo. A pasta é conferida novamente
-a cada abertura; o comando não executa programas, scripts ou instruções do servidor.
+a cada abertura. Sites aceitam somente endereços HTTP/HTTPS sem credenciais.
+Na interpretação por IA vão só frases, identificadores e tipos; caminhos, endereços
+cadastrados e assuntos fixos não são enviados. O Gemini pode devolver um assunto para
+uma pesquisa variável; o Windows monta o endereço apenas no motor definido pelo comando.
+Comandos de pastas das versões anteriores continuam disponíveis como tipo Pasta.
 
 ### Buscar e cuidar dos arquivos
 

@@ -62,6 +62,7 @@ namespace Bella {
     public sealed class InterpretacaoComando {
         public string comando_id { get; set; }
         public string[] candidatos { get; set; }
+        public string assunto { get; set; }
     }
     public sealed class Client : IDisposable {
         readonly HttpClient http;
@@ -87,7 +88,7 @@ namespace Bella {
         }
         public Task<InterpretacaoComando> InterpretarComando(string text,ComandoPasta[] comandos) {
             var catalogo=new List<object>();
-            foreach(var c in comandos) catalogo.Add(new {id=c.Id,frase=c.Frase});
+            foreach(var c in comandos) catalogo.Add(new {id=c.Id,frase=c.Frase,tipo=c.Tipo ?? "pasta"});
             return Request<InterpretacaoComando>(HttpMethod.Post,"/api/bella/interpretar-comando",new {texto=text,comandos=catalogo},15);
         }
         public Task<GreetingSet> Greetings() { return Request<GreetingSet>(HttpMethod.Get,"/api/bella/saudacoes",null,8); }

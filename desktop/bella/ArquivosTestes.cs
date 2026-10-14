@@ -194,16 +194,17 @@ namespace Bella {
             catch(OperationCanceledException) { cancelou=true; }
             Check(cancelou && abertos.Count==quantidade,"encerrar durante interpretacao nao abre pasta depois");
         }
-        sealed class Servidor : HttpMessageHandler {
+        internal sealed class Servidor : HttpMessageHandler {
             readonly List<string> pedidos;
             public string Transcrito, Interpretado; public bool Falhar, FalharIA;
             public Action AoInterpretar;
+            public string Assunto;
             public Servidor(List<string> calls,string heard,bool fail,string command=null,bool failIA=false) { pedidos=calls; Transcrito=heard; Falhar=fail; Interpretado=command; FalharIA=failIA; }
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage r,CancellationToken token) {
                 string body=await r.Content.ReadAsStringAsync(); pedidos.Add(r.RequestUri.AbsolutePath+" "+body);
                 bool interpretar=r.RequestUri.AbsolutePath.EndsWith("interpretar-comando");
                 if(interpretar && AoInterpretar!=null) AoInterpretar();
-                string json=interpretar ? new JavaScriptSerializer().Serialize(new {comando_id=Interpretado,candidatos=new string[0]}) : r.RequestUri.AbsolutePath.EndsWith("transcrever")
+                string json=interpretar ? new JavaScriptSerializer().Serialize(new {comando_id=Interpretado,candidatos=new string[0],assunto=Assunto}) : r.RequestUri.AbsolutePath.EndsWith("transcrever")
                     ? new JavaScriptSerializer().Serialize(new { ouvido=Transcrito })
                     : new JavaScriptSerializer().Serialize(new { texto="Resposta Solo", falar="Pronto.", opcoes=new[] {new {numero=1, rotulo="Concluir", titulo="Missão"}} });
                 return new HttpResponseMessage(Falhar || (interpretar && FalharIA) ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) { Content=new StringContent(json,Encoding.UTF8,"application/json") };

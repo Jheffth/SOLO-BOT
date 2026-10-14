@@ -116,7 +116,7 @@ namespace Bella {
                     case "sair": Sair(); break;
                     case "comando_pasta":
                         try {
-                            bella.ComandoPasta(Vista.Texto(d,"id"),Vista.Texto(d,"frase"),Vista.Texto(d,"caminho"),Vista.Logico(d,"remover")==true);
+                            bella.ComandoPasta(Vista.Texto(d,"id"),Vista.Texto(d,"frase"),Vista.Texto(d,"caminho"),Vista.Logico(d,"remover")==true,Vista.Texto(d,"tipo"),Vista.Texto(d,"termo"));
                             PostarConfig(); tela.Postar(new {tipo="comando_salvo", removido=Vista.Logico(d,"remover")==true});
                         } catch(Exception e) { tela.Postar(new {tipo="toast",texto=e.Message,erro=true}); }
                         break;
@@ -170,7 +170,7 @@ namespace Bella {
             string final=String.IsNullOrEmpty(c.Key) || c.Key.Length<4 ? "" : c.Key.Substring(c.Key.Length-4);
             return new { tipo="config", temChave=bella.TemChave, servidor=c.Server, chaveFinal=final, iniciar=c.Startup,
                          mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto, pastasArquivos=c.PastasArquivos,
-                         comandosPastas=c.ComandosPastas };
+                         comandosPastas=c.ComandosPastas, modelosComandos=Navegador.Modelos() };
         }
         void PostarConfig() { var c=Config(); tela.Postar(c); if(mini!=null) mini.Postar(c); }
 

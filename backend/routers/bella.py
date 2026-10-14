@@ -10,7 +10,7 @@ import secrets
 import time
 import wave
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -165,13 +165,16 @@ FALAS_ARQUIVOS = {
     "listagem": "Aqui estão os arquivos e pastas. Para abrir um item, diga o número.",
     "busca": "Encontrei estes resultados. Para abrir um deles, diga o número.",
     "escolha": "Qual destas opções você quer? Diga o número.",
+    "site_aberto": "Abri o site no seu navegador padrão.",
+    "pesquisa_aberta": "Abri os resultados da pesquisa no seu navegador padrão.",
+    "pedir_assunto": "Qual assunto você quer pesquisar?",
     "confirmar_mover": "Confira na tela o item e a pasta de destino. Posso mover?",
     "confirmar_renomear": "Confira na tela o arquivo e o novo nome. Posso renomear?",
     "confirmar_excluir": "Confira na tela o item que irá para a Lixeira. Posso excluir?",
     "criada": "Criei a pasta.", "existe": "Essa pasta já existe.", "aberto": "Abri o item.",
     "movido": "Pronto, movi o item.", "renomeado": "Pronto, renomeei o item.",
-    "excluido": "Concluí a exclusão pelo Windows.", "cancelado": "Pedido de arquivo cancelado.",
-    "erro": "Não consegui concluir esse pedido de arquivo. Confira a mensagem na tela.",
+    "excluido": "Concluí a exclusão pelo Windows.", "cancelado": "Pedido cancelado.",
+    "erro": "Não consegui concluir esse comando. Confira a mensagem na tela.",
     "vazio": "Não encontrei itens nas pastas consultadas.",
     "expirou": "Essa escolha expirou. Faça o pedido de arquivo novamente.",
 }
@@ -181,12 +184,13 @@ class ComandoLocal(BaseModel):
     model_config = {"extra": "forbid"}
     id: str = Field(pattern=r"^[a-f0-9]{32}$")
     frase: str = Field(min_length=3, max_length=200)
+    tipo: Literal["pasta", "site", "google", "youtube", "maps"] = "pasta"
 
 
 class PedidoComandoLocal(BaseModel):
     model_config = {"extra": "forbid"}
     texto: str = Field(min_length=1, max_length=2000)
-    comandos: list[ComandoLocal] = Field(min_length=1, max_length=50)
+    comandos: list[ComandoLocal] = Field(min_length=1, max_length=53)  # 50 cadastros + 3 pesquisas básicas
 
 
 @router.post("/api/bella/interpretar-comando")

@@ -148,6 +148,10 @@ confirmações e isolamento das opções. `/api/bella/voz-local` recebe só cód
 fixas reutilizáveis, preservando os nomes e resultados dos arquivos no computador.
 `/api/bella/interpretar-comando` usa `nucleo/comandos_locais.py` para reconhecer paráfrases
 dos comandos locais pelo Gemini, somente por frase/ID, sem caminhos cadastrados.
+`Navegador.cs` abre sites e resultados de buscas no navegador padrão; a configuração
+guarda os tipos e destinos no Windows. A interpretação também recebe tipo e devolve
+assunto para uma pesquisa variável, sem receber os destinos. Os testes locais simulam
+a abertura e verificam codificação, protocolos, escolhas e compatibilidade dos cadastros.
 
 ```bash
 pip install -r requirements.txt pytest

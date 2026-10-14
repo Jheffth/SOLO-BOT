@@ -211,12 +211,56 @@ def test_interpretacao_local_valida_catalogo_e_limita_pedidos(acesso, monkeypatc
     corpo = {"texto": "Abra projetos", "comandos": [{"id": "a" * 32, "frase": "Abrir projetos"}]}
     for invalido in ({**corpo, "comandos": []}, {**corpo, "comandos": corpo["comandos"] * 2},
                      {**corpo, "comandos": [{"id": "caminho", "frase": "Abrir projetos"}]},
+                     {**corpo, "comandos": [{"id": "a" * 32, "frase": "Executar", "tipo": "powershell"}]},
                      {**corpo, "caminho": "C:/projetos"}):
         assert c.post("/api/bella/interpretar-comando", headers=h, json=invalido).status_code == 422
     bella._JANELAS_COMANDOS.clear()
     for _ in range(30):
         assert c.post("/api/bella/interpretar-comando", headers=h, json=corpo).status_code == 200
     assert c.post("/api/bella/interpretar-comando", headers=h, json=corpo).status_code == 429
+
+
+@pytest.mark.parametrize("tipo", ["google", "youtube", "maps"])
+def test_interpretacao_de_pesquisa_so_retorna_id_e_assunto(monkeypatch, tipo):
+    from nucleo import comandos_locais, gemini
+    import json
+    comandos = [{"id": "a" * 32, "frase": "Pesquisar sobre {assunto}", "tipo": tipo}]
+    monkeypatch.setattr(gemini, "gerar", lambda *a, **k: json.dumps({
+        "comando_id": "a" * 32, "confianca": .95, "assunto": "Escrita criativa",
+        "url": "javascript:ignorar", "tipo": "powershell"}))
+    assert comandos_locais.interpretar("Encontre dicas de escrita criativa", comandos) == {
+        "comando_id": "a" * 32, "candidatos": [], "assunto": "Escrita criativa"}
+
+
+@pytest.mark.parametrize("assunto", [["tema"], "x" * 501])
+def test_interpretacao_de_pesquisa_recusa_assunto_invalido(monkeypatch, assunto):
+    from nucleo import comandos_locais, gemini
+    import json
+    monkeypatch.setattr(gemini, "gerar", lambda *a, **k: json.dumps({
+        "comando_id": "a" * 32, "confianca": .95, "assunto": assunto}))
+    assert comandos_locais.interpretar("Pesquise escrita", [
+        {"id": "a" * 32, "frase": "Pesquisar {assunto}", "tipo": "google"}]) == {
+            "comando_id": None, "candidatos": []}
+
+
+def test_pesquisa_ambigua_preserva_assunto_para_escolha(monkeypatch):
+    from nucleo import comandos_locais, gemini
+    import json
+    monkeypatch.setattr(gemini, "gerar", lambda *a, **k: json.dumps({
+        "comando_id": "", "candidatos": ["a" * 32, "b" * 32], "assunto": "Escrita criativa"}))
+    assert comandos_locais.interpretar("Encontre escrita criativa", [
+        {"id": "a" * 32, "frase": "Pesquisar {assunto}", "tipo": "google"},
+        {"id": "b" * 32, "frase": "Pesquisar vídeos {assunto}", "tipo": "youtube"}]) == {
+            "comando_id": None, "candidatos": ["a" * 32, "b" * 32], "assunto": "Escrita criativa"}
+
+
+def test_interpretacao_de_site_ignora_destino_inventado(monkeypatch):
+    from nucleo import comandos_locais, gemini
+    monkeypatch.setattr(gemini, "gerar", lambda *a, **k: '{"comando_id":"' + "a" * 32 +
+                        '","confianca":0.95,"assunto":"javascript:ignorar","url":"https://inventado.invalid"}')
+    assert comandos_locais.interpretar("Abra meu correio", [
+        {"id": "a" * 32, "frase": "Abrir meu Gmail", "tipo": "site"}]) == {
+            "comando_id": "a" * 32, "candidatos": []}
 
 
 @pytest.mark.parametrize("modo", [None, "fin", "rot"])

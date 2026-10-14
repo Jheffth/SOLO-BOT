@@ -35,7 +35,7 @@
       case "salvo": toast(m.texto || "Salvo."); break;
       case "erro_salvar": erroSalvar(m.texto); break;
       case "comando_caminho": $("comando-caminho").value = m.caminho; break;
-      case "comando_salvo": if (!m.removido) limparComando(); toast(m.removido ? "Comando removido. A pasta foi preservada." : "Comando salvo. Já pode falar a frase cadastrada."); break;
+      case "comando_salvo": if (!m.removido) limparComando(); toast(m.removido ? "Comando removido." : "Comando salvo. Já pode falar a frase cadastrada."); break;
       case "foto_original": if (m.dataUrl) abrirRecorte(m.dataUrl); else toast("A foto original não está mais aqui. Escolha a foto de novo.", true); break;
     }
   }
@@ -94,20 +94,42 @@
   function limparComando() {
     comandoEmEdicao = null; $("form-comando").reset();
     $("btn-comando-salvar").textContent = "Salvar comando"; $("btn-comando-cancelar").hidden = true;
+    tipoComando();
+  }
+  function tipoComando() {
+    const tipo = $("comando-tipo").value, pasta = tipo === "pasta", site = tipo === "site", pesquisa = !pasta && !site;
+    const variavel = $("comando-variavel").checked;
+    $("campo-comando-caminho").hidden = pesquisa; $("comando-caminho").required = !pesquisa;
+    $("campo-comando-pasta").hidden = !pasta; $("campo-comando-pesquisa").hidden = !pesquisa;
+    $("campo-comando-termo").hidden = !pesquisa || variavel; $("comando-termo").required = pesquisa && !variavel;
+    $("rotulo-comando-caminho").textContent = pasta ? "Caminho da pasta" : "Endereço do site";
+    $("comando-caminho").placeholder = pasta ? "C:\\JEFFERSON\\PROJETOS" : "https://mail.google.com";
+    $("ajuda-comando").textContent = pasta ? "O comando abre somente a pasta cadastrada. Para buscar ou alterar arquivos nela, adicione também o acesso nas Configurações." : site ? "O site abre no seu navegador padrão." : variavel ? "Use {assunto} na frase, como Pesquisar sobre {assunto}. Na hora, diga Pesquisar sobre escrita criativa. Os resultados abrem no navegador padrão." : "Este comando sempre pesquisa o assunto fixo que você definir. Os resultados abrem no navegador padrão.";
+  }
+  function preencherComando(c, editar) {
+    comandoEmEdicao = editar ? c.Id : null;
+    $("comando-tipo").value = c.Tipo || "pasta"; $("comando-frase").value = c.Frase;
+    $("comando-caminho").value = c.Caminho || ""; $("comando-termo").value = c.Termo || "";
+    $("comando-variavel").checked = (c.Frase || "").includes("{assunto}");
+    $("btn-comando-salvar").textContent = editar ? "Salvar alterações" : "Salvar comando";
+    $("btn-comando-cancelar").hidden = !editar; tipoComando(); $("comando-frase").focus();
   }
   function desenharComandos() {
     const lista = $("lista-comandos"); lista.textContent = "";
     const comandos = config.comandosPastas || [];
     if (comandoEmEdicao && !comandos.some(c => c.Id === comandoEmEdicao)) limparComando();
-    if (!comandos.length) { const p = document.createElement("p"); p.className = "ajuda"; p.textContent = "Nenhum comando salvo. Cadastre sua primeira pasta acima."; lista.appendChild(p); }
+    if (!comandos.length) { const p = document.createElement("p"); p.className = "ajuda"; p.textContent = "Nenhum comando salvo. Escolha um modelo ou cadastre sua primeira automação."; lista.appendChild(p); }
+    const modelos = $("modelos-comandos"); modelos.textContent = "";
+    (config.modelosComandos || []).forEach(c => { const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = c.Titulo; b.onclick = () => preencherComando(c, false); modelos.appendChild(b); });
     comandos.forEach(c => {
       const card = document.createElement("div"); card.className = "comando-salvo";
       const frase = document.createElement("b"); frase.textContent = c.Frase;
-      const caminho = document.createElement("p"); caminho.textContent = c.Caminho;
+      const nomes = { pasta: "Pasta", site: "Site", google: "Google", youtube: "YouTube", maps: "Maps" };
+      const caminho = document.createElement("p"); caminho.textContent = (nomes[c.Tipo || "pasta"] || "Ação") + " · " + (c.Caminho || c.Termo || "Assunto informado por voz ou texto");
       const acoes = document.createElement("div"); acoes.className = "botoes";
       const botao = (rotulo, acao) => { const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = rotulo; b.onclick = acao; acoes.appendChild(b); };
-      botao("Testar", () => { if (estado.ocupada) return toast("Espere o pedido atual terminar.", true); $("btn-fechar-config").click(); enviar("enviar", { texto: c.Frase }); });
-      botao("Editar", () => { comandoEmEdicao = c.Id; $("comando-frase").value = c.Frase; $("comando-caminho").value = c.Caminho; $("btn-comando-salvar").textContent = "Salvar alterações"; $("btn-comando-cancelar").hidden = false; $("comando-frase").focus(); });
+      botao("Testar", () => { if (estado.ocupada) return toast("Espere o pedido atual terminar.", true); $("btn-fechar-config").click(); enviar("enviar", { texto: "/arquivos comando " + c.Id, exibir: c.Frase.replace("{assunto}", "…") }); });
+      botao("Editar", () => preencherComando(c, true));
       botao("Remover", () => enviar("comando_pasta", { id: c.Id, remover: true }));
       card.appendChild(frase); card.appendChild(caminho); card.appendChild(acoes); lista.appendChild(card);
     });
@@ -333,9 +355,14 @@
     $("btn-pasta").onclick = () => enviar("pasta_arquivos");
     $("btn-comando-pasta").onclick = () => enviar("comando_escolher_pasta");
     $("btn-comando-cancelar").onclick = limparComando;
+    $("comando-tipo").onchange = tipoComando; $("comando-variavel").onchange = tipoComando;
     $("form-comando").onsubmit = e => {
       e.preventDefault();
-      enviar("comando_pasta", { id: comandoEmEdicao, frase: $("comando-frase").value.trim(), caminho: $("comando-caminho").value.trim() });
+      const tipo = $("comando-tipo").value, pesquisa = tipo !== "pasta" && tipo !== "site";
+      let frase = $("comando-frase").value.trim();
+      if (pesquisa && $("comando-variavel").checked && !frase.includes("{assunto}")) frase += " {assunto}";
+      if (pesquisa && !$("comando-variavel").checked && frase.includes("{assunto}")) return toast("Retire {assunto} da frase para usar um assunto fixo.", true);
+      enviar("comando_pasta", { id: comandoEmEdicao, frase, tipo, termo: $("comando-termo").value.trim(), caminho: $("comando-caminho").value.trim() });
     };
     $("btn-arquivos-ajuda").onclick = () => { fechar(); enviar("enviar", { texto: "/arquivos ajuda" }); };
     // Foto

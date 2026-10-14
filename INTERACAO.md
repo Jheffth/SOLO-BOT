@@ -306,6 +306,19 @@ O cliente oferece uma escolha local em vez de mandar esse pedido de pasta ao Fin
 A interpretação exige chave Bella, tem limite próprio e não executa comandos, grava
 cadastros ou altera o modo e as escolhas dos sistemas. A abertura permanece no Windows.
 
+A aba Comandos também oferece tipos **site**, **google**, **youtube** e **maps**, além
+de pasta. `Navegador.cs` valida URLs HTTP/HTTPS e codifica os assuntos para abrir os
+resultados no navegador padrão, com `UseShellExecute`. Google, YouTube e Maps têm três
+comandos básicos de pesquisa, ativos sem cadastro; os modelos da interface preenchem
+cadastros pessoais para edição e salvamento. O limite é 50 cadastros pessoais, além dos
+três básicos. A configuração anterior sem `Tipo` é lida como pasta, preservando o acesso.
+Buscas podem ter um termo fixo ou `{assunto}` na frase. Se faltar assunto, a Bella pergunta
+e guarda a continuação local por cinco minutos. Trocar comandos ou cancelar limpa a continuação.
+O Gemini recebe frase/ID/tipo e pode devolver o assunto de uma busca variável, limitado
+a 500 caracteres; nunca escolhe URL, caminho, motor ou executável. Ambiguidades preservam
+o assunto para a escolha. A síntese recebe só códigos fixos `site_aberto`, `pesquisa_aberta`
+e `pedir_assunto`. Os resultados são exibidos pelo navegador; o aplicativo não raspa páginas.
+
 Áudio no cliente novo vai primeiro a `POST /api/bella/transcrever` (chave Bella, UUID e WAV).
 Essa rota **não roteia, não executa comandos e não altera modo ou escolhas dos sistemas**.
 `PedidosWindows` decide localmente: um pedido Solo segue uma vez, como texto original com

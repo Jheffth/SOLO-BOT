@@ -192,6 +192,9 @@ input { font: inherit; color: inherit; }
 .abas-config button { flex: 1; padding: 9px; border-radius: 9px; color: var(--suave); border: 1px solid var(--linha); }
 .abas-config button[aria-selected="true"] { color: var(--violeta); background: rgba(139,92,246,.12); border-color: rgba(167,139,250,.35); }
 .lista-comandos { display: grid; gap: 12px; }
+.modelos-comandos { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-top: 12px; }
+.modelos-comandos .btn { text-align: left; white-space: normal; }
+.campo select { width: 100%; color: var(--tinta); background: var(--sup); border: 1px solid var(--linha2); border-radius: 10px; padding: 10px; font: inherit; }
 .comando-salvo { padding: 12px; border: 1px solid var(--linha2); border-radius: 12px; background: var(--sup); }
 .comando-salvo b, .comando-salvo p { display: block; overflow-wrap: anywhere; user-select: text; }
 .comando-salvo p { color: var(--suave); font-size: 12px; margin: 6px 0 10px; }
