@@ -297,6 +297,14 @@ nas preferências, e aceitam edição, teste e remoção. Eles permitem somente 
 escolhida; não ampliam as raízes de busca nem concedem acesso para alterar seus arquivos.
 Maiúsculas, acentos, pontuação e os verbos “abra/abre/abrir” são equivalentes; frases
 duplicadas, respostas de confirmação e números de escolhas não podem ser cadastrados.
+“Quero que abra a minha pasta de projetos” e “Gostaria de abrir…” são reconhecidos
+diretamente. Outras frases de abertura podem consultar `/api/bella/interpretar-comando`,
+que usa `nucleo/comandos_locais.py` e o Gemini. Recebe só pedido, frases e IDs, sem os
+caminhos cadastrados. O retorno é validado contra o catálogo recebido; confiança abaixo
+de 0,85, ambiguidade, ID desconhecido ou falha não abrem nada automaticamente.
+O cliente oferece uma escolha local em vez de mandar esse pedido de pasta ao Finanças.
+A interpretação exige chave Bella, tem limite próprio e não executa comandos, grava
+cadastros ou altera o modo e as escolhas dos sistemas. A abertura permanece no Windows.
 
 Áudio no cliente novo vai primeiro a `POST /api/bella/transcrever` (chave Bella, UUID e WAV).
 Essa rota **não roteia, não executa comandos e não altera modo ou escolhas dos sistemas**.

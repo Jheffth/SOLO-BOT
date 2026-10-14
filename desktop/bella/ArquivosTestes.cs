@@ -135,7 +135,8 @@ namespace Bella {
             var comandos=ComandosPastas.Atualizar(null,null,"Abrir minha pasta de Projetos",fora);
             string id=comandos[0].Id;
             var local=new Arquivos(()=>new[] {permitida},p=>abertos.Add(p),commands:()=>comandos);
-            foreach(string frase in new[] {"Abrir minha pasta de Projetos","Abra minha pasta de projetos.","Bella, por favor, abra minha pasta de Projetos!"})
+            foreach(string frase in new[] {"Abrir minha pasta de Projetos","Abra minha pasta de projetos.","Bella, por favor, abra minha pasta de Projetos!",
+                "Quero que abra a minha pasta de projetos.","Eu gostaria que você abrisse a minha pasta de projetos", "Gostaria de abrir a minha pasta de projetos, por favor."})
                 Check(local.Processar(frase).GetAwaiter().GetResult().CodigoVoz=="aberto" && abertos.Last()==fora,"comando personalizado abre diretamente fora das raizes de busca: "+frase);
             Check(local.Atender("excluir pasta "+Aspas(fora)).CodigoVoz=="erro","cadastro de abertura nao concede acesso para exclusao");
             Check(local.Atender("listar "+Aspas(fora)).CodigoVoz=="erro","cadastro de abertura nao amplia raizes de busca");
@@ -167,17 +168,45 @@ namespace Bella {
             var r=fila.Enviar(null,new byte[] {1},local,cliente,null).GetAwaiter().GetResult();
             Check(r.CodigoVoz=="aberto" && abertos.Last()==fora && pedidos.Count==2 && pedidos[1].StartsWith("/api/bella/voz-local "),"comando personalizado por voz executa localmente sem passar pelo hub");
             Check(!pedidos[1].Contains(fora) && !pedidos[1].Contains("Hora de programar"),"sintese nao recebe cadastro nem caminho");
+            pedidos.Clear(); string livre="Leve-me até a pasta onde desenvolvo meus projetos.";
+            Func<Client> ia=()=>new Client("https://test.invalid","bella_"+new string('x',43),new Servidor(pedidos,livre,false,comandos[0].Id));
+            r=fila.Enviar(livre,null,local,ia,null).GetAwaiter().GetResult();
+            Check(r.CodigoVoz=="aberto" && abertos.Last()==fora && pedidos.Count==2 && pedidos[0].StartsWith("/api/bella/interpretar-comando "),"frase livre consulta IA antes do hub e abre comando validado");
+            Check(!pedidos[0].Contains(fora.Replace("\\","\\\\")) && !pedidos[0].Contains("Caminho") && pedidos[0].Contains("Hora de programar"),"interpretacao recebe somente frase e id, sem caminho cadastrado");
+            pedidos.Clear(); int quantidade=abertos.Count;
+            Func<Client> falhaIa=()=>new Client("https://test.invalid","bella_"+new string('x',43),new Servidor(pedidos,livre,false,null,true));
+            r=fila.Enviar(livre,null,local,falhaIa,null).GetAwaiter().GetResult();
+            Check(r.CodigoVoz=="escolha" && abertos.Count==quantidade && !pedidos.Any(p=>p.StartsWith("/api/bella/mensagem ")),"falha da IA pergunta localmente e nao envia pedido ao Finances");
+            Check(fila.Enviar(r.opcoes[0].comando,null,local,ia,null).GetAwaiter().GetResult().CodigoVoz=="aberto","escolha local abre apos falha da IA");
+            pedidos.Clear(); quantidade=abertos.Count;
+            Func<Client> inventada=()=>new Client("https://test.invalid","bella_"+new string('x',43),new Servidor(pedidos,livre,false,new string('f',32)));
+            r=fila.Enviar(null,new byte[] {1},local,inventada,null).GetAwaiter().GetResult();
+            Check(r.CodigoVoz=="escolha" && abertos.Count==quantidade && pedidos.Count==3 && !pedidos.Any(p=>p.StartsWith("/api/bella/mensagem ")),"id desconhecido da IA por voz nao executa nem cai no Finances");
+            pedidos.Clear();
+            r=fila.Enviar("Não abra a pasta de projetos",null,local,ia,null).GetAwaiter().GetResult();
+            Check(r.CodigoVoz=="cancelado" && abertos.Count==quantidade && !pedidos.Any(p=>p.StartsWith("/api/bella/interpretar-comando ")),"pedido negado nao abre pasta");
+            pedidos.Clear();
+            r=fila.Enviar("Quero ver meu saldo",null,local,ia,null).GetAwaiter().GetResult();
+            Check(pedidos.Count==1 && pedidos[0].StartsWith("/api/bella/mensagem ") && pedidos[0].Contains("Quero ver meu saldo"),"consulta financeira preserva texto e nao usa interpretacao local");
+            pedidos.Clear(); bool continuar=true, cancelou=false; quantidade=abertos.Count;
+            Func<Client> cancelando=()=>new Client("https://test.invalid","bella_"+new string('x',43),new Servidor(pedidos,livre,false,comandos[0].Id) {AoInterpretar=()=>continuar=false});
+            try { fila.Enviar(livre,null,local,cancelando,null,()=>continuar).GetAwaiter().GetResult(); }
+            catch(OperationCanceledException) { cancelou=true; }
+            Check(cancelou && abertos.Count==quantidade,"encerrar durante interpretacao nao abre pasta depois");
         }
         sealed class Servidor : HttpMessageHandler {
             readonly List<string> pedidos;
-            public string Transcrito; public bool Falhar;
-            public Servidor(List<string> calls,string heard,bool fail) { pedidos=calls; Transcrito=heard; Falhar=fail; }
+            public string Transcrito, Interpretado; public bool Falhar, FalharIA;
+            public Action AoInterpretar;
+            public Servidor(List<string> calls,string heard,bool fail,string command=null,bool failIA=false) { pedidos=calls; Transcrito=heard; Falhar=fail; Interpretado=command; FalharIA=failIA; }
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage r,CancellationToken token) {
                 string body=await r.Content.ReadAsStringAsync(); pedidos.Add(r.RequestUri.AbsolutePath+" "+body);
-                string json=r.RequestUri.AbsolutePath.EndsWith("transcrever")
+                bool interpretar=r.RequestUri.AbsolutePath.EndsWith("interpretar-comando");
+                if(interpretar && AoInterpretar!=null) AoInterpretar();
+                string json=interpretar ? new JavaScriptSerializer().Serialize(new {comando_id=Interpretado,candidatos=new string[0]}) : r.RequestUri.AbsolutePath.EndsWith("transcrever")
                     ? new JavaScriptSerializer().Serialize(new { ouvido=Transcrito })
                     : new JavaScriptSerializer().Serialize(new { texto="Resposta Solo", falar="Pronto.", opcoes=new[] {new {numero=1, rotulo="Concluir", titulo="Missão"}} });
-                return new HttpResponseMessage(Falhar ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) { Content=new StringContent(json,Encoding.UTF8,"application/json") };
+                return new HttpResponseMessage(Falhar || (interpretar && FalharIA) ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) { Content=new StringContent(json,Encoding.UTF8,"application/json") };
             }
         }
         static async Task Rede(Arquivos files,string pasta) {

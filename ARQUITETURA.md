@@ -146,6 +146,8 @@ reutilização do cache, troca de perfil e bloqueio após revogação da chave.
 `/api/bella/transcrever`. Os testes internos de arquivos usam dados temporários e verificam
 confirmações e isolamento das opções. `/api/bella/voz-local` recebe só códigos de respostas
 fixas reutilizáveis, preservando os nomes e resultados dos arquivos no computador.
+`/api/bella/interpretar-comando` usa `nucleo/comandos_locais.py` para reconhecer paráfrases
+dos comandos locais pelo Gemini, somente por frase/ID, sem caminhos cadastrados.
 
 ```bash
 pip install -r requirements.txt pytest

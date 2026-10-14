@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 import config
 from database import Conta, get_db
-from nucleo import fala, render, roteador, saudacoes, voz
+from nucleo import comandos_locais, fala, render, roteador, saudacoes, voz
 from routers.atalho import _numero_falado, _sem_marcacao
 from seguranca import conta_atual
 
@@ -29,6 +29,7 @@ _JANELAS = {}
 _JANELAS_SAUDACAO = {}
 _JANELAS_TRANSCRICAO = {}
 _JANELAS_VOZ_LOCAL = {}
+_JANELAS_COMANDOS = {}
 CANAL_TRANSCRICAO = "bella-stt"  # canal do registro persistente tem no máximo 16 caracteres
 RE_CHAMADA = re.compile(r"^(?:(?:ei|oi|ola|olá)\s+)?(?:bella|bela)\b[\s,:.!?—-]*", re.I)
 
@@ -163,7 +164,7 @@ FALAS_ARQUIVOS = {
     "ajuda": "Posso buscar, listar e abrir arquivos, e criar pastas. Para mover, renomear ou excluir, peço sua confirmação.",
     "listagem": "Aqui estão os arquivos e pastas. Para abrir um item, diga o número.",
     "busca": "Encontrei estes resultados. Para abrir um deles, diga o número.",
-    "escolha": "Encontrei mais de um item. Qual deles você quer? Diga o número.",
+    "escolha": "Qual destas opções você quer? Diga o número.",
     "confirmar_mover": "Confira na tela o item e a pasta de destino. Posso mover?",
     "confirmar_renomear": "Confira na tela o arquivo e o novo nome. Posso renomear?",
     "confirmar_excluir": "Confira na tela o item que irá para a Lixeira. Posso excluir?",
@@ -174,6 +175,28 @@ FALAS_ARQUIVOS = {
     "vazio": "Não encontrei itens nas pastas consultadas.",
     "expirou": "Essa escolha expirou. Faça o pedido de arquivo novamente.",
 }
+
+
+class ComandoLocal(BaseModel):
+    model_config = {"extra": "forbid"}
+    id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    frase: str = Field(min_length=3, max_length=200)
+
+
+class PedidoComandoLocal(BaseModel):
+    model_config = {"extra": "forbid"}
+    texto: str = Field(min_length=1, max_length=2000)
+    comandos: list[ComandoLocal] = Field(min_length=1, max_length=50)
+
+
+@router.post("/api/bella/interpretar-comando")
+def interpretar_comando(p: PedidoComandoLocal, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    """Só interpreta uma frase: nenhum comando é executado ou armazenado no hub."""
+    conta = _autenticar(db, x_bella_chave)
+    _limitar(conta, _JANELAS_COMANDOS)
+    if len({c.id for c in p.comandos}) != len(p.comandos):
+        raise HTTPException(422, "Comandos com identificadores repetidos.")
+    return comandos_locais.interpretar(p.texto, [c.model_dump() for c in p.comandos])
 
 
 class PedidoVozLocal(BaseModel):

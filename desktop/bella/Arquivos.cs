@@ -28,12 +28,43 @@ namespace Bella {
         }
         public void Cancelar() { escolhas=null; identidade=null; confirmacao=false; }
         public bool TemEscolha { get { return escolhas!=null; } }
-        public Task<Reply> Processar(string text) {
+        public ComandoPasta[] CatalogoComandos { get { return (comandos() ?? new ComandoPasta[0]).ToArray(); } }
+        public bool PedidoDePasta(string text) {
+            string f=Dobrar(text);
+            if((text ?? "").Trim().StartsWith("/") || EhResposta(text)) return false;
+            if(Regex.IsMatch(f,@"\b(missao|rotina|meta|tarefa|banco|conta|saldo|extrato|recebi|gastei|paguei|transferir)\b")) return false;
+            if(!Regex.IsMatch(f,@"\b(abrir|abra|abre|abrisse|acessar|acesse|acessa|mostrar|mostre|ver|visualizar|leve|levar|ir|entrar|trabalhar|programar)\b")) return false;
+            return Regex.IsMatch(f,@"\b(pasta|pastas|diretorio|diretorios|downloads|documentos|desktop|area de trabalho)\b")
+                || CatalogoComandos.Any(c=>Regex.Split(ComandosPastas.Chave(c.Frase),@"\s+").Any(t=>t.Length>=3
+                    && !Regex.IsMatch(t,@"^(abrir|minha|minhas|meu|meus|pasta|pastas|para|por|favor|hora|quero)$")
+                    && Regex.IsMatch(f,@"\b"+Regex.Escape(t)+@"\b")));
+        }
+        public bool PodeInterpretar(string text) {
+            return CatalogoComandos.Length>0 && PedidoDePasta(text)
+                && !Regex.IsMatch(Dobrar(Limpar(text)),@"^(?:nao|nunca)\b")
+                && !Regex.IsMatch(Dobrar(text),@"\b(excluir|exclua|apagar|apague|deletar|delete|mover|mova|renomear|renomeie|criar|crie)\b")
+                && !Regex.IsMatch(text ?? "",@"[a-zA-Z]:[\\/]");
+        }
+        public Task<Reply> Processar(string text) { return Executar(()=>Atender(text)); }
+        public Task<Reply> Interpretar(InterpretacaoComando resultado) {
+            return Executar(()=> {
+                Cancelar(); var catalogo=CatalogoComandos;
+                var ids=resultado==null ? new string[0] : resultado.candidatos ?? new string[0];
+                var escolhido=ids.Length>1 ? null : catalogo.SingleOrDefault(c=>c.Id==(resultado==null ? null : resultado.comando_id));
+                if(escolhido!=null) return Atender("/arquivos comando "+escolhido.Id);
+                var candidatos=catalogo.Where(c=>ids.Contains(c.Id)).ToArray();
+                if(candidatos.Length==0) candidatos=catalogo;
+                if(candidatos.Length==0) return Resposta("erro","Cadastre a frase e o caminho da pasta na aba Comandos para eu abrir diretamente.");
+                return Oferecer(candidatos.Take(10).Select(c=>new KeyValuePair<string,Func<Reply>>(c.Frase,()=>Atender("/arquivos comando "+c.Id))).ToList(),
+                    "escolha","Qual destas pastas você quer abrir?"+(candidatos.Length>10 ? " Mostrando os 10 primeiros comandos; diga a frase cadastrada para escolher outro." : ""),false);
+            });
+        }
+        Task<Reply> Executar(Func<Reply> acao) {
             // Explorer e Lixeira usam o Shell do Windows, que exige uma thread STA.
             // A busca não bloqueia a janela e o provedor nativo roda no mesmo contexto.
             var resultado=new TaskCompletionSource<Reply>();
             var thread=new Thread(()=> {
-                try { resultado.SetResult(Atender(text)); }
+                try { resultado.SetResult(acao()); }
                 catch(Exception e) { resultado.SetException(e); }
             });
             thread.IsBackground=true; thread.Name="BellaArquivos";
@@ -46,9 +77,7 @@ namespace Bella {
             return b.ToString().Normalize(NormalizationForm.FormC);
         }
         static string Limpar(string text) {
-            text=Regex.Replace((text ?? "").Trim(),@"^(?:(?:ei|oi|olá|ola)\s+)?(?:bella|bela)\b[\s,:.!?—-]*","",RegexOptions.IgnoreCase).Trim();
-            for(int i=0;i<2;i++) text=Regex.Replace(text,@"^(?:por favor[,\s]+|(?:(?:voce|você)\s+)?(?:pode|poderia)\s+)","",RegexOptions.IgnoreCase).Trim();
-            return text;
+            return ComandosPastas.Pedido(text);
         }
         static string Nome(string text,bool preservarAspas=false) {
             text=Regex.Replace((text ?? "").Trim(),@"^(?:(?:o|a|os|as|um|uma)\s+)?(?:nov[oa]\s+)?(?:arquivo(?:s)?|pasta(?:s)?|diretório|diretorio)\s+","",RegexOptions.IgnoreCase);
@@ -70,7 +99,7 @@ namespace Bella {
             switch(codigo) {
                 case "ajuda": curto="Posso buscar, listar e abrir arquivos, e criar pastas. Para mover, renomear ou excluir, peço sua confirmação."; break;
                 case "listagem": case "busca": curto="Aqui estão os resultados. Para abrir um item, diga o número."; break;
-                case "escolha": curto="Encontrei mais de um item. Qual deles você quer? Diga o número."; break;
+                case "escolha": curto="Qual destas opções você quer? Diga o número."; break;
                 case "confirmar_mover": curto="Confira o item e a pasta de destino na tela. Posso mover?"; break;
                 case "confirmar_renomear": curto="Confira o item e o novo nome na tela. Posso renomear?"; break;
                 case "confirmar_excluir": curto="Confira o item que irá para a Lixeira. Posso excluir?"; break;
@@ -113,7 +142,14 @@ namespace Bella {
                     if(!escolhas.TryGetValue(n,out acao)) return Resposta("erro","Diga um dos números da lista ou “cancelar”.");
                     Cancelar(); return acao(); // A escolha é consumida antes de mexer no arquivo.
                 }
-                var cadastrados=(comandos() ?? new ComandoPasta[0]).Where(c=>ComandosPastas.Chave(c.Frase)==ComandosPastas.Chave(text)).ToList();
+                var porId=Regex.Match(text,@"^/arquivos comando ([a-f0-9]{32})$");
+                if(porId.Success) {
+                    Cancelar(); var c=CatalogoComandos.SingleOrDefault(x=>x.Id==porId.Groups[1].Value);
+                    if(c==null) return Resposta("expirou","Esse comando não está mais cadastrado. Confira a aba Comandos.");
+                    string p=ComandosPastas.ConferirPasta(c.Caminho); abrir(p); return Resposta("aberto","Abri:\n"+p);
+                }
+                if(PedidoDePasta(text) && Regex.IsMatch(Dobrar(text),@"^(?:nao|nunca)\b")) { Cancelar(); return Resposta("cancelado","Não abri a pasta."); }
+                var cadastrados=CatalogoComandos.Where(c=>ComandosPastas.Chave(c.Frase)==ComandosPastas.Chave(text)).ToList();
                 if(cadastrados.Count>0) {
                     Cancelar();
                     if(cadastrados.Count!=1) return Resposta("erro","Há mais de um comando com essa frase. Corrija os cadastros na aba Comandos.");

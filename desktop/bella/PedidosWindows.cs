@@ -26,6 +26,15 @@ namespace Bella {
                 return new Reply { CodigoVoz="expirou", texto="Não há uma escolha de arquivo pendente. Faça o pedido novamente.", falar="Não há uma escolha de arquivo pendente." };
             }
             var reply=await arquivos.Processar(text);
+            if((reply==null || reply.CodigoVoz=="erro" || reply.CodigoVoz=="vazio") && arquivos.PodeInterpretar(text)) {
+                InterpretacaoComando escolha=null;
+                try { using(var c=cliente()) escolha=await c.InterpretarComando(text,arquivos.CatalogoComandos); }
+                catch(UnauthorizedAccessException) { throw; }
+                catch(Exception) { } // Sem IA, oferece os comandos locais; não vira lançamento financeiro.
+                if(continuar!=null && !continuar()) throw new OperationCanceledException();
+                reply=await arquivos.Interpretar(escolha);
+            }
+            if(reply==null && arquivos.PedidoDePasta(text)) reply=await arquivos.Interpretar(null);
             if(reply==null) {
                 arquivos.Cancelar(); tokenSolo=null; ultimoLocal=false;
                 using(var c=cliente()) reply=await c.Send(text,null,viaAudio);

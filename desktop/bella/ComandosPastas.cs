@@ -11,13 +11,18 @@ namespace Bella {
         public string Caminho;
     }
     public static class ComandosPastas {
+        public static string Pedido(string frase) {
+            string f=(frase ?? "").Trim();
+            f=Regex.Replace(f,@"^(?:(?:ei|oi|olá|ola)\s+)?(?:bella|bela)\b[\s,:.!?—-]*","",RegexOptions.IgnoreCase);
+            for(int i=0;i<3;i++) f=Regex.Replace(f,@"^(?:(?:eu\s+)?(?:quero|gostaria|preciso|desejo)(?:\s+que)?(?:\s+de)?\s+(?:(?:voce|você)\s+)?|(?:(?:voce|você)\s+)?(?:pode|poderia)\s+|por favor[,\s]+)","",RegexOptions.IgnoreCase).Trim();
+            return Regex.Replace(f,@"[,\s]+por favor[.!?]*$","",RegexOptions.IgnoreCase).Trim();
+        }
         public static string Chave(string frase) {
-            string f=Arquivos.Dobrar(frase).Trim();
-            f=Regex.Replace(f,@"^(?:(?:ei|oi|ola)\s+)?(?:bella|bela)\b[\s,:.!?—-]*","");
+            string f=Arquivos.Dobrar(Pedido(frase));
             f=Regex.Replace(f,@"[^\p{L}\p{Nd}\s]"," ");
             f=Regex.Replace(f,@"\s+"," ").Trim();
-            for(int i=0;i<2;i++) f=Regex.Replace(f,@"^(?:por favor\s+|(?:(?:voce)\s+)?(?:pode|poderia)\s+)","");
-            return Regex.Replace(f,@"^(?:abra|abre|abrir)\b","abrir");
+            f=Regex.Replace(f,@"^(?:abra|abre|abrir|abrisse)\b","abrir");
+            return Regex.Replace(f,@"^abrir\s+(?:o|a|os|as)\s+","abrir ");
         }
         public static string ConferirPasta(string caminho) {
             string p=Arquivos.Canonico((caminho ?? "").Trim().Trim('"'));

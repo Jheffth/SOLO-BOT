@@ -59,6 +59,10 @@ namespace Bella {
         public string titulo { get; set; }
         public string comando { get; set; } // ação local com identificador, não se mistura aos números do hub
     }
+    public sealed class InterpretacaoComando {
+        public string comando_id { get; set; }
+        public string[] candidatos { get; set; }
+    }
     public sealed class Client : IDisposable {
         readonly HttpClient http;
         readonly string server,key;
@@ -80,6 +84,11 @@ namespace Bella {
         }
         public Task<Reply> LocalVoice(string code) {
             return Request<Reply>(HttpMethod.Post,"/api/bella/voz-local",new Dictionary<string,object> { {"codigo",code} },8);
+        }
+        public Task<InterpretacaoComando> InterpretarComando(string text,ComandoPasta[] comandos) {
+            var catalogo=new List<object>();
+            foreach(var c in comandos) catalogo.Add(new {id=c.Id,frase=c.Frase});
+            return Request<InterpretacaoComando>(HttpMethod.Post,"/api/bella/interpretar-comando",new {texto=text,comandos=catalogo},15);
         }
         public Task<GreetingSet> Greetings() { return Request<GreetingSet>(HttpMethod.Get,"/api/bella/saudacoes",null,8); }
         public Task<GreetingReply> Greeting(int id) {

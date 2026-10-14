@@ -12,6 +12,12 @@ Preencha **Frase do comando** (por exemplo, `Abrir minha pasta de Projetos`) e *
 da pasta** (`C:\JEFFERSON\PROJETOS`), ou use **Escolher pasta**, e clique em **Salvar comando**.
 Diga a frase ou escreva na conversa: a Bella abre o caminho cadastrado diretamente.
 “Abra” e “abrir”, letras maiúsculas, acentos e pontuação são equivalentes.
+Também pode dizer “Quero que abra a minha pasta de projetos” ou “Gostaria de abrir…”.
+Para frases mais livres, a Bella consulta o Gemini para escolher entre os comandos
+cadastrados. A interpretação recebe somente o pedido, as frases e seus identificadores;
+os caminhos cadastrados continuam no computador. Só abre automaticamente uma pasta
+quando há uma correspondência segura. Na dúvida ou sem interpretação disponível,
+mostra as opções para você escolher, sem enviar esse pedido ao Finanças.
 
 Cada cadastro tem **Testar**, **Editar** e **Remover**. Remover apaga apenas o comando.
 As associações ficam cifradas junto das preferências e continuam disponíveis depois de

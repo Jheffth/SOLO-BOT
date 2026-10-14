@@ -18,6 +18,7 @@ def acesso(logado, sistemas, caixa, monkeypatch):
     bella._JANELAS.clear()
     bella._JANELAS_TRANSCRICAO.clear()
     bella._JANELAS_VOZ_LOCAL.clear()
+    bella._JANELAS_COMANDOS.clear()
     monkeypatch.setattr(fala, "disponivel", lambda: False)
     logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
     logado.post("/api/conectar", json={"app": "rot", "codigo": "CODROT1"})
@@ -109,6 +110,7 @@ def test_texto_transcrito_no_cliente_preserva_origem_por_voz(acesso, sistemas):
 @pytest.mark.parametrize("endpoint,dados", [
     ("transcrever", {"pedido_id": str(uuid4()), "audio_base64": wav_base64()}),
     ("voz-local", {"codigo": "criada"}),
+    ("interpretar-comando", {"texto": "Abra projetos", "comandos": [{"id": "a" * 32, "frase": "Abrir minha pasta de projetos"}]}),
 ])
 def test_rotas_locais_exigem_chave_da_bella(acesso, endpoint, dados):
     c, h = acesso
@@ -159,6 +161,62 @@ def test_falha_de_voz_local_preserva_texto(acesso, monkeypatch):
     monkeypatch.setattr(fala, "sintetizar", falhar)
     r = c.post("/api/bella/voz-local", headers=h, json={"codigo": "aberto"})
     assert r.status_code == 200 and r.json() == {"falar": "Abri o item."}
+
+
+def test_interpretar_comando_local_sem_execucao_ou_mudanca_de_sessao(acesso, sistemas, monkeypatch):
+    from nucleo import gemini
+    c, h = acesso
+    enviar(acesso, "/rot hoje")
+    antes = len(sistemas.recebidos)
+    pedidos = []
+    def gerar(prompt, texto, **kwargs):
+        pedidos.append((prompt, texto, kwargs))
+        return '{"comando_id":"' + "a" * 32 + '","confianca":0.95,"candidatos":[]}'
+    monkeypatch.setattr(gemini, "gerar", gerar)
+    corpo = {"texto": "Leve-me à pasta onde desenvolvo meus projetos", "comandos": [
+        {"id": "a" * 32, "frase": "Abrir minha pasta de Projetos"}]}
+    r = c.post("/api/bella/interpretar-comando", headers=h, json=corpo)
+    assert r.status_code == 200 and r.json() == {"comando_id": "a" * 32, "candidatos": []}
+    assert len(sistemas.recebidos) == antes and len(pedidos) == 1
+    assert '"frase": "Abrir minha pasta de Projetos"' in pedidos[0][1]
+    assert "caminho" not in pedidos[0][1] and "C:\\" not in pedidos[0][1]
+    assert enviar(acesso, "um").status_code == 200 and sistemas.recebidos[-1][1] == "acao"
+    corpo["comandos"][0]["caminho"] = "C:/nao-enviar"
+    assert c.post("/api/bella/interpretar-comando", headers=h, json=corpo).status_code == 422
+    assert len(pedidos) == 1
+
+
+@pytest.mark.parametrize("saida,esperado", [
+    (None, {"comando_id": None, "candidatos": []}),
+    ('[]', {"comando_id": None, "candidatos": []}),
+    ('{invalido}', {"comando_id": None, "candidatos": []}),
+    ('{"comando_id":"inventado","confianca":1}', {"comando_id": None, "candidatos": []}),
+    ('{"comando_id":"' + "a" * 32 + '","confianca":0.4}', {"comando_id": None, "candidatos": []}),
+    ('{"comando_id":"' + "a" * 32 + '","confianca":true}', {"comando_id": None, "candidatos": []}),
+    ('{"comando_id":"' + "a" * 32 + '","confianca":1,"candidatos":["' + "a" * 32 + '","' + "b" * 32 + '"]}',
+     {"comando_id": None, "candidatos": ["a" * 32, "b" * 32]}),
+    ('{"candidatos":["inventado"]}', {"comando_id": None, "candidatos": []}),
+])
+def test_interpretacao_local_valida_saida_da_ia(monkeypatch, saida, esperado):
+    from nucleo import comandos_locais, gemini
+    monkeypatch.setattr(gemini, "gerar", lambda *a, **k: saida)
+    assert comandos_locais.interpretar("Abra a pasta de trabalho", [
+        {"id": "a" * 32, "frase": "Abrir projetos"}, {"id": "b" * 32, "frase": "Abrir trabalho"}]) == esperado
+
+
+def test_interpretacao_local_valida_catalogo_e_limita_pedidos(acesso, monkeypatch):
+    from nucleo import gemini
+    c, h = acesso
+    monkeypatch.setattr(gemini, "gerar", lambda *a, **k: None)
+    corpo = {"texto": "Abra projetos", "comandos": [{"id": "a" * 32, "frase": "Abrir projetos"}]}
+    for invalido in ({**corpo, "comandos": []}, {**corpo, "comandos": corpo["comandos"] * 2},
+                     {**corpo, "comandos": [{"id": "caminho", "frase": "Abrir projetos"}]},
+                     {**corpo, "caminho": "C:/projetos"}):
+        assert c.post("/api/bella/interpretar-comando", headers=h, json=invalido).status_code == 422
+    bella._JANELAS_COMANDOS.clear()
+    for _ in range(30):
+        assert c.post("/api/bella/interpretar-comando", headers=h, json=corpo).status_code == 200
+    assert c.post("/api/bella/interpretar-comando", headers=h, json=corpo).status_code == 429
 
 
 @pytest.mark.parametrize("modo", [None, "fin", "rot"])
