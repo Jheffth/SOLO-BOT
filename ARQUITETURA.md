@@ -152,6 +152,13 @@ dos comandos locais pelo Gemini, somente por frase/ID, sem caminhos cadastrados.
 guarda os tipos e destinos no Windows. A interpretação também recebe tipo e devolve
 assunto para uma pesquisa variável, sem receber os destinos. Os testes locais simulam
 a abertura e verificam codificação, protocolos, escolhas e compatibilidade dos cadastros.
+`Programas.cs` executa os cadastros de tipo `word` ou `programa`, antes dos arquivos e
+do roteamento aos sistemas. Ditado e abertura reconhecíveis são locais; pedidos livres
+usam `/api/bella/programa` e `nucleo/programas.py`, que recebem somente frase, ID e tipo.
+Uma resposta de IA contém apenas ID, ação permitida e texto; nunca escolhe executável.
+`Word.cs` reutiliza o Word por COM e pelo modelo nativo da janela, inserindo texto sem
+substituir a seleção. `--word-self-test` verifica a integração em um documento isolado
+quando não houver Word aberto. A compilação normal usa um editor simulado, sem Office.
 
 ```bash
 pip install -r requirements.txt pytest

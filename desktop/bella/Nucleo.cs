@@ -17,6 +17,9 @@ namespace Bella {
         readonly Playback player=new Playback();
         readonly Arquivos arquivos;
         readonly PedidosWindows pedidos=new PedidosWindows();
+        readonly Programas programas;
+        public System.Collections.Generic.Dictionary<string,long> Tempos {get {return pedidos.Tempos;}}
+        public long TempoChamada {get;private set;}
         LocalWake wake;
         Capture capture;
         IMicrophone mic;
@@ -50,6 +53,7 @@ namespace Bella {
             try { ApertarParaFalar.Validar(Config.TalkKey,Config.TalkModifiers,Config.TalkSeconds); }
             catch { Config.TalkKey=119; Config.TalkModifiers=0; Config.TalkSeconds=5; }
             arquivos=new Arquivos(()=>Config.PastasArquivos,commands:()=>Config.ComandosPastas);
+            programas=new Programas(()=>Config.ComandosPastas);
         }
 
         void Ui(Action action) { if(!dono.IsDisposed && dono.IsHandleCreated) dono.BeginInvoke(action); }
@@ -72,16 +76,17 @@ namespace Bella {
             greetings=null;                      // outra chave, outro catálogo de saudações
             arquivos.Cancelar();
             pedidos.Cancelar();
-            if(listening && !Config.PushToTalk) WarmGreetings(Config);
+            if(listening && !Config.PushToTalk && !Config.FastWake) WarmGreetings(Config);
         }
 
         /// <summary>Preferências que mudam na hora (sem botão Salvar). Nulo = não mexe.</summary>
         public async Task Preferencias(bool? iniciar,bool? mini,int? sensibilidade,string aparencia,
-            bool? apertar=null,int? tecla=null,int? modificadores=null,int? segundos=null) {
+            bool? apertar=null,int? tecla=null,int? modificadores=null,int? segundos=null,bool? rapida=null) {
             var novo=Copia();
             bool mudarFala=apertar.HasValue || tecla.HasValue || modificadores.HasValue || segundos.HasValue;
             if(mudarFala && (busy || starting)) throw new InvalidOperationException("Espere o pedido atual terminar antes de trocar o modo de fala.");
             if(apertar.HasValue) novo.PushToTalk=apertar.Value;
+            if(rapida.HasValue) novo.FastWake=rapida.Value;
             if(tecla.HasValue) novo.TalkKey=tecla.Value;
             if(modificadores.HasValue) novo.TalkModifiers=modificadores.Value;
             if(segundos.HasValue) novo.TalkSeconds=segundos.Value;
@@ -105,6 +110,7 @@ namespace Bella {
                                   MiniBella=Config.MiniBella, Aparencia=Config.Aparencia, PastasArquivos=(string[])Config.PastasArquivos.Clone(),
                                   PushToTalk=Config.PushToTalk, TalkKey=Config.TalkKey, TalkModifiers=Config.TalkModifiers, TalkSeconds=Config.TalkSeconds,
                                   WakePhrases=(string[])Config.WakePhrases.Clone(),
+                                  FastWake=Config.FastWake,
                                   ComandosPastas=(ComandoPasta[])Config.ComandosPastas.Clone() };
         }
 
@@ -172,7 +178,7 @@ namespace Bella {
                 capture.Threshold=Config.Threshold; capture.Listen(); listening=true;
                 if(!Config.PushToTalk) AbrirMicrofone();
                 Mudou();
-                if(!Config.PushToTalk) WarmGreetings(Config);
+                if(!Config.PushToTalk && !Config.FastWake) WarmGreetings(Config);
             } catch(Exception e) { Pause(); Note("Não consegui ligar a escuta: "+e.Message,true); }
             finally { starting=false; }
         }
@@ -239,14 +245,16 @@ namespace Bella {
             try {
                 var library=GreetingsFor(value);
                 using(var client=new Client(value.Server,value.Key)) {
-                    await library.Warm(client,()=>!quitting && listening && greetingConnection==value.Server+"\n"+value.Key);
+                    await library.Warm(client,()=>!quitting && listening && !Config.FastWake && greetingConnection==value.Server+"\n"+value.Key);
                 }
             } catch(Exception) { /* A chamada usa o cache ou a voz do Windows se a preparação falhar. */ }
         }
         async Task Greet() {
             if(busy || !listening || capture.State!=Capture.Mode.Greeting) return;
             busy=true; Mudou();
+            var tempo=Stopwatch.StartNew();
             try {
+                if(Config.FastWake) return;
                 bool fallback=false;
                 try {
                     var value=Config; var library=GreetingsFor(value);
@@ -270,6 +278,7 @@ namespace Bella {
                 await Task.Delay(180);
             } finally {
                 // O detector ignora a saudação inteira; só depois captura o pedido.
+                TempoChamada=tempo.ElapsedMilliseconds;
                 busy=false;
                 if(!quitting && listening) capture.RecordAfterGreeting();
                 Mudou();
@@ -293,7 +302,7 @@ namespace Bella {
                 var value=Config;
                 var reply=await pedidos.Enviar(text,audio,arquivos,()=>new Client(value.Server,value.Key),
                     t=>Falou("eu",t ?? "pedido por voz","voz",null),()=>!quitting,
-                    r=> { if(!quitting) Falou("bella",r.texto,audio!=null?"voz":"texto",r.opcoes); });
+                    r=> { if(!quitting) Falou("bella",r.texto,audio!=null?"voz":"texto",r.opcoes); },programas);
                 if(!quitting) {
                     if(capture!=null) capture.Speaking();
                     Mudou();

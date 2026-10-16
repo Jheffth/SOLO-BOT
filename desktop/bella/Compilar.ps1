@@ -64,7 +64,7 @@ if (-not (Test-Path -LiteralPath $compiladorBella)) { throw 'A Bella precisa de 
 $fontesBella = (Get-ChildItem -LiteralPath $raizBella -Filter '*.cs').FullName
 $falaBella = [Reflection.Assembly]::LoadWithPartialName('System.Speech')
 if ($null -eq $falaBella) { throw 'O componente de voz do .NET Framework não está disponível.' }
-& $compiladorBella /nologo /target:winexe /platform:x64 /optimize+ /codepage:65001 /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Net.Http.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:Microsoft.VisualBasic.dll "/r:$($falaBella.Location)" "/r:$coreWebView2" "/r:$formsWebView2" "/out:$saidaBella\Bella.exe" $fontesBella
+& $compiladorBella /nologo /target:winexe /platform:x64 /optimize+ /codepage:65001 /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Net.Http.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:Microsoft.CSharp.dll /r:Microsoft.VisualBasic.dll "/r:$($falaBella.Location)" "/r:$coreWebView2" "/r:$formsWebView2" "/out:$saidaBella\Bella.exe" $fontesBella
 if ($LASTEXITCODE -ne 0) { throw 'Erro ao compilar a Bella.' }
 Copy-Item -LiteralPath (Join-Path $raizBella 'LEIA-ME.md'), (Join-Path $raizBella 'TERCEIROS.md') -Destination $saidaBella -Force
 $licencasBella = Join-Path $saidaBella 'licencas'

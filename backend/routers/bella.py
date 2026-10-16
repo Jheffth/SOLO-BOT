@@ -252,6 +252,32 @@ class PedidoComandoLocal(BaseModel):
     comandos: list[ComandoLocal] = Field(min_length=1, max_length=53)  # 50 cadastros + 3 pesquisas básicas
 
 
+class ComandoPrograma(BaseModel):
+    model_config = {"extra": "forbid"}
+    id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    frase: str = Field(min_length=3, max_length=200)
+    tipo: Literal["word", "programa"]
+
+
+class PedidoPrograma(BaseModel):
+    model_config = {"extra": "forbid"}
+    texto: str = Field(min_length=1, max_length=2000)
+    comandos: list[ComandoPrograma] = Field(min_length=1, max_length=50)
+
+
+_JANELAS_PROGRAMAS = {}
+
+
+@router.post("/api/bella/programa")
+def programa(p: PedidoPrograma, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    conta = _autenticar(db, x_bella_chave)
+    _limitar(conta, _JANELAS_PROGRAMAS)
+    if len({c.id for c in p.comandos}) != len(p.comandos):
+        raise HTTPException(422, "Comandos com identificadores repetidos.")
+    from nucleo import programas
+    return programas.interpretar(p.texto, [c.model_dump() for c in p.comandos])
+
+
 @router.post("/api/bella/interpretar-comando")
 def interpretar_comando(p: PedidoComandoLocal, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
     """Só interpreta uma frase: nenhum comando é executado ou armazenado no hub."""

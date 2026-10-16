@@ -107,8 +107,10 @@
 
       <section class="grupo">
         <h3>Escuta</h3>
+        <label class="linha"><span>Ativação rápida<small>Depois da frase de ativação, já escuta o pedido, sem saudação falada.</small></span><input type="checkbox" class="sw" id="cfg-rapida"></label>
+        <p class="ajuda" id="cfg-tempos">O tempo das etapas do último pedido aparecerá aqui.</p>
         <form id="cfg-chamadas">
-          <p class="ajuda">Frases de ativação: cadastre de uma a três. Diga a frase completa, aguarde a saudação e depois faça o pedido. Prefira frases com duas ou mais palavras.</p>
+          <p class="ajuda">Frases de ativação: cadastre de uma a três. Diga a frase completa e faça uma pausa. Quando aparecer “Pode falar”, faça o pedido. Prefira frases com duas ou mais palavras.</p>
           <label class="campo"><span>Frase de ativação 1</span><input id="cfg-frase-1" maxlength="80" placeholder="Olá Bella" autocomplete="off"></label>
           <label class="campo"><span>Frase de ativação 2 (opcional)</span><input id="cfg-frase-2" maxlength="80" placeholder="Oi Bella" autocomplete="off"></label>
           <label class="campo"><span>Frase de ativação 3 (opcional)</span><input id="cfg-frase-3" maxlength="80" placeholder="E aí Bella" autocomplete="off"></label>
@@ -176,6 +178,8 @@
                 <option value="pasta">Abrir pasta</option><option value="site">Abrir site</option>
                 <option value="google">Pesquisar no Google</option><option value="youtube">Buscar vídeos no YouTube</option>
                 <option value="maps">Buscar lugares no Maps</option>
+                <option value="word">Microsoft Word — abrir, ditar ou criar texto</option>
+                <option value="programa">Abrir outro programa instalado</option>
               </select>
             </label>
             <label class="campo"><span>Frase do comando</span>
@@ -185,6 +189,7 @@
               <input id="comando-caminho" required placeholder="C:\JEFFERSON\PROJETOS" spellcheck="false">
             </label>
             <div class="botoes" id="campo-comando-pasta"><button class="btn" id="btn-comando-pasta" type="button">Escolher pasta</button></div>
+            <div class="botoes" id="campo-comando-programa" hidden><button class="btn" id="btn-comando-programa" type="button">Escolher programa</button></div>
             <div id="campo-comando-pesquisa" hidden>
               <label class="linha"><span>Usar o assunto que eu disser</span><input id="comando-variavel" class="sw" type="checkbox" checked></label>
               <label class="campo" id="campo-comando-termo" hidden><span>Assunto fixo</span><input id="comando-termo" maxlength="500" placeholder="Escrita criativa"></label>

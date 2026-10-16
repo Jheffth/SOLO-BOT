@@ -65,7 +65,7 @@
     config = Object.assign(config, c);
     aplicarAvatar();
     const vazio = document.querySelector(".vazio");
-    if (vazio) vazio.textContent = config.apertarParaFalar ? "Segure a tecla configurada para falar, ou escreva aqui embaixo." : "Diga “" + config.frasesAtivacao[0] + "” e aguarde a saudação. Também dá para escrever aqui embaixo.";
+    if (vazio) vazio.textContent = config.apertarParaFalar ? "Segure a tecla configurada para falar, ou escreva aqui embaixo." : "Diga “" + config.frasesAtivacao[0] + "”" + (config.ativacaoRapida ? ", faça uma pausa e depois o pedido." : " e aguarde a saudação.") + " Também dá para escrever aqui embaixo.";
     if (MINI) { aplicarEstado({}); return; }
     $("btn-recortar").disabled = !config.foto;
     $("btn-remover").disabled = !config.foto;
@@ -73,6 +73,7 @@
     $("cfg-iniciar").checked = !!config.iniciar;
     $("cfg-mini").checked = !!config.mini;
     $("cfg-apertar").checked = !!config.apertarParaFalar;
+    $("cfg-rapida").checked = !!config.ativacaoRapida;
     for (let i = 0; i < 3; i++) $("cfg-frase-" + (i + 1)).value = (config.frasesAtivacao || [])[i] || "";
     $("btn-chamadas").disabled = false;
     $("cfg-atalho-fala").hidden = !config.apertarParaFalar;
@@ -115,14 +116,17 @@
     tipoComando();
   }
   function tipoComando() {
-    const tipo = $("comando-tipo").value, pasta = tipo === "pasta", site = tipo === "site", pesquisa = !pasta && !site;
+    const tipo = $("comando-tipo").value, pasta = tipo === "pasta", site = tipo === "site", programa = tipo === "programa", word = tipo === "word", pesquisa = ["google", "youtube", "maps"].includes(tipo);
     const variavel = $("comando-variavel").checked;
-    $("campo-comando-caminho").hidden = pesquisa; $("comando-caminho").required = !pesquisa;
+    $("campo-comando-caminho").hidden = pesquisa || word; $("comando-caminho").required = pasta || site || programa;
+    $("campo-comando-programa").hidden = !programa;
     $("campo-comando-pasta").hidden = !pasta; $("campo-comando-pesquisa").hidden = !pesquisa;
     $("campo-comando-termo").hidden = !pesquisa || variavel; $("comando-termo").required = pesquisa && !variavel;
-    $("rotulo-comando-caminho").textContent = pasta ? "Caminho da pasta" : "Endereço do site";
+    $("rotulo-comando-caminho").textContent = pasta ? "Caminho da pasta" : programa ? "Programa instalado (.exe)" : "Endereço do site";
     $("comando-caminho").placeholder = pasta ? "C:\\JEFFERSON\\PROJETOS" : "https://mail.google.com";
     $("ajuda-comando").textContent = pasta ? "O comando abre somente a pasta cadastrada. Para buscar ou alterar arquivos nela, adicione também o acesso nas Configurações." : site ? "O site abre no seu navegador padrão." : variavel ? "Use {assunto} na frase, como Pesquisar sobre {assunto}. Na hora, diga Pesquisar sobre escrita criativa. Os resultados abrem no navegador padrão." : "Este comando sempre pesquisa o assunto fixo que você definir. Os resultados abrem no navegador padrão.";
+    if (word) $("ajuda-comando").textContent = "Usa o Microsoft Word instalado. Exemplos: Abrir Word, Escreva {pedido}, Faça {pedido} ou No Word {pedido}. Interpreta abrir, ditar ou criar texto; reutiliza o documento aberto sem apagar a seleção. Não salva nem fecha o documento.";
+    if (programa) { $("comando-caminho").placeholder = "Selecione o arquivo .exe do programa"; $("ajuda-comando").textContent = "Abre o programa cadastrado ou traz a janela existente para a frente. Escolha o executável instalado, sem argumentos. A escrita automática está disponível no tipo Microsoft Word."; }
   }
   function preencherComando(c, editar) {
     comandoEmEdicao = editar ? c.Id : null;
@@ -142,8 +146,8 @@
     comandos.forEach(c => {
       const card = document.createElement("div"); card.className = "comando-salvo";
       const frase = document.createElement("b"); frase.textContent = c.Frase;
-      const nomes = { pasta: "Pasta", site: "Site", google: "Google", youtube: "YouTube", maps: "Maps" };
-      const caminho = document.createElement("p"); caminho.textContent = (nomes[c.Tipo || "pasta"] || "Ação") + " · " + (c.Caminho || c.Termo || "Assunto informado por voz ou texto");
+      const nomes = { pasta: "Pasta", site: "Site", google: "Google", youtube: "YouTube", maps: "Maps", word: "Microsoft Word", programa: "Programa" };
+      const caminho = document.createElement("p"); caminho.textContent = (nomes[c.Tipo || "pasta"] || "Ação") + " · " + (c.Caminho || c.Termo || (c.Tipo === "word" ? "Usa o documento aberto" : "Assunto informado por voz ou texto"));
       const acoes = document.createElement("div"); acoes.className = "botoes";
       const botao = (rotulo, acao) => { const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = rotulo; b.onclick = acao; acoes.appendChild(b); };
       botao("Testar", () => { if (estado.ocupada) return toast("Espere o pedido atual terminar.", true); $("btn-fechar-config").click(); enviar("enviar", { texto: "/arquivos comando " + c.Id, exibir: c.Frase.replace("{assunto}", "…") }); });
@@ -163,7 +167,7 @@
     falando: ["Respondendo", ""]
   };
   function textosEstado() {
-    if (!config.apertarParaFalar && estado.modo === "espera") return ["Esperando sua chamada", "diga “" + config.frasesAtivacao[0] + "” e aguarde"];
+    if (!config.apertarParaFalar && estado.modo === "espera") return ["Esperando sua chamada", "diga “" + config.frasesAtivacao[0] + "”" + (config.ativacaoRapida ? ", pause e faça o pedido" : " e aguarde")];
     if (config.apertarParaFalar && !estado.escutando) return ["Apertar para falar pausado", "ative a escuta no botão acima"];
     if (config.apertarParaFalar && estado.escutando) {
       const tecla = config.nomeTeclaFalar || "F8";
@@ -175,6 +179,11 @@
   }
   function aplicarEstado(s) {
     estado = Object.assign(estado, s);
+    if (!MINI) {
+      const tempos = Object.entries(estado.tempos || {}).map(([nome, ms]) => nome + ": " + (ms / 1000).toFixed(1) + " s");
+      if (estado.tempoChamada > 0) tempos.unshift("Chamada: " + (estado.tempoChamada / 1000).toFixed(1) + " s");
+      if (tempos.length) $("cfg-tempos").textContent = "Tempo das etapas · " + tempos.join(" · ");
+    }
     const modo = estado.modo;
     if (MINI) { $("mini").dataset.modo = modo; atualizarMini(); return; }
     $("presenca").dataset.modo = modo;
@@ -377,6 +386,7 @@
       $("btn-chamadas").disabled = true;
       enviar("chamadas", { frases });
     };
+    $("cfg-rapida").onchange = e => enviar("preferencias", { ativacaoRapida: e.target.checked });
     $("cfg-apertar").onchange = e => enviar("preferencias", { apertarParaFalar: e.target.checked });
     $("cfg-espera-fala").onchange = e => {
       const segundos = Number(e.target.value);
@@ -420,12 +430,13 @@
     $("btn-painel").onclick = () => enviar("abrir_painel", { servidor: $("cfg-servidor").value.trim() });
     $("btn-sair").onclick = () => enviar("sair");
     $("btn-pasta").onclick = () => enviar("pasta_arquivos");
+    $("btn-comando-programa").onclick = () => enviar("comando_escolher_programa");
     $("btn-comando-pasta").onclick = () => enviar("comando_escolher_pasta");
     $("btn-comando-cancelar").onclick = limparComando;
     $("comando-tipo").onchange = tipoComando; $("comando-variavel").onchange = tipoComando;
     $("form-comando").onsubmit = e => {
       e.preventDefault();
-      const tipo = $("comando-tipo").value, pesquisa = tipo !== "pasta" && tipo !== "site";
+      const tipo = $("comando-tipo").value, pesquisa = ["google", "youtube", "maps"].includes(tipo);
       let frase = $("comando-frase").value.trim();
       if (pesquisa && $("comando-variavel").checked && !frase.includes("{assunto}")) frase += " {assunto}";
       if (pesquisa && !$("comando-variavel").checked && frase.includes("{assunto}")) return toast("Retire {assunto} da frase para usar um assunto fixo.", true);

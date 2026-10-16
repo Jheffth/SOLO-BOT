@@ -259,6 +259,11 @@ para o usuário Windows; no servidor, fica somente seu hash.
   Durante processamento e reprodução, a escuta não gera pedidos. Interromper voz para a reprodução.
 - **Sessão:** o modo Finanças/Rotinas e as opções ficam no canal `bella`, separados do WhatsApp,
   Telegram e Siri. “Dois” escolhe a segunda opção e “sim” responde a uma confirmação do sistema.
+- **Aplicativos:** a aba Comandos permite escolher Microsoft Word ou outro executável local.
+  Word entende abertura, ditado e criação de texto; reutiliza o documento ativo, preserva
+  o conteúdo e não salva automaticamente. Outros programas aceitam somente abertura.
+- **Desempenho:** Ativação rápida pula a saudação. Os tempos das etapas ficam visíveis
+  nas configurações; o ditado literal e a abertura direta não pedem interpretação por IA.
 - **Reentrega:** um identificador de pedido impede executar a mesma chamada duas vezes. Se a resposta
   se perder, confira o resultado no sistema antes de repetir; o aplicativo não reenvia sozinho.
 

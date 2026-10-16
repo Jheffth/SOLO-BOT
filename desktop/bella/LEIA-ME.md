@@ -5,6 +5,43 @@ O computador precisa de um microfone padrão e conexão ao Solo Bot para executa
 
 ## Arquivos no Windows
 
+### Word e programas instalados
+
+Na aba **Comandos**, escolha **Microsoft Word — abrir, ditar ou criar texto** e
+cadastre uma frase. Os modelos **Word: abrir ou retomar**, **Word: ditado direto**,
+**Word: criar conteúdo** e **Word: pedido livre** já preenchem os campos; clique em
+**Salvar comando** para habilitar cada um. Exemplos:
+
+- `Abrir Word`: abre ou reutiliza o Word instalado, com um documento disponível.
+- `Escreva {pedido}`: diga “Escreva o amor é lindo”. O ditado literal é inserido
+  diretamente, sem chamada de interpretação ao Gemini.
+- `Faça {pedido}`: diga “Faça uma rima com amor”. Uma chamada ao Gemini interpreta
+  e gera o conteúdo antes de inseri-lo. Não precisa cadastrar cada assunto.
+- `No Word {pedido}`: permite pedidos mais livres, como “No Word, crie uma carta”.
+
+Um cadastro do tipo Word também habilita abertura e ditados claros por esse aplicativo.
+A escrita ocorre no ponto de edição do documento ativo; se houver uma seleção, o texto
+novo entra depois dela, sem apagá-la. Sem documento aberto, cria um novo. Documentos
+protegidos ou somente para leitura exigem liberar a edição no próprio Word. Esta versão
+usa o Microsoft Word para Windows instalado; não automatiza Word na web ou outros editores.
+O documento fica aberto, sem salvar ou fechar automaticamente. Confira o documento
+antes de repetir uma ação que apresentou erro. O conteúdo existente nunca é enviado à IA.
+
+Para outros aplicativos, escolha **Abrir outro programa instalado** e **Escolher programa**.
+São aceitos executáveis `.exe` locais, sem argumentos, atalhos ou scripts. A Bella tenta
+trazer a janela existente para a frente antes de iniciar outra instância. O tipo genérico
+apenas abre o aplicativo; escrita automática está disponível no tipo Word.
+
+### Tempo de resposta
+
+**Configurações → Escuta → Ativação rápida** pula a saudação falada e libera o pedido
+após a frase de ativação. É opcional e não muda o modo apertar para falar. A mesma seção
+mostra os tempos recentes de chamada, transcrição, interpretação, aplicativo, sistemas
+e busca de voz na rede, sem armazenar o conteúdo dos pedidos em um log de desempenho.
+As confirmações dos comandos de aplicativo usam a voz do Windows para evitar outra
+espera por síntese na rede. Ditados por texto e abertura direta dispensam Gemini;
+pedidos por voz ainda precisam de transcrição, e criação de conteúdo precisa da IA.
+
 ### Frases de ativação
 
 Em **Configurações → Escuta**, edite até três frases e clique em **Salvar frases**.

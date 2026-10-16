@@ -66,6 +66,10 @@ namespace Bella {
         }
         public static object[] Modelos() {
             return new object[] {
+                new {Titulo="Word: abrir ou retomar",Tipo="word",Frase="Abrir Word",Caminho="",Termo=""},
+                new {Titulo="Word: ditado direto",Tipo="word",Frase="Escreva {pedido}",Caminho="",Termo=""},
+                new {Titulo="Word: criar conteúdo",Tipo="word",Frase="Faça {pedido}",Caminho="",Termo=""},
+                new {Titulo="Word: pedido livre",Tipo="word",Frase="No Word {pedido}",Caminho="",Termo=""},
                 new {Titulo="Pesquisa livre no Google",Tipo="google",Frase="Pesquisar sobre {assunto}",Caminho="",Termo=""},
                 new {Titulo="Escrita criativa",Tipo="google",Frase="Pesquisar escrita criativa",Caminho="",Termo="Escrita criativa"},
                 new {Titulo="Buscar vídeos",Tipo="youtube",Frase="Pesquisar vídeos sobre {assunto}",Caminho="",Termo=""},

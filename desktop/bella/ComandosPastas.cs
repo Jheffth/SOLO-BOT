@@ -46,11 +46,14 @@ namespace Bella {
                 throw new InvalidOperationException("Use uma frase de 3 a 200 caracteres, como Abrir minha pasta de Projetos. Números e respostas de confirmação não podem ser comandos.");
             if(lista.Any(c=>c.Id!=id && Chave(c.Frase)==chave)) throw new InvalidOperationException("Essa frase já está cadastrada. Edite o comando existente ou escolha outra frase.");
             tipo=String.IsNullOrEmpty(tipo) ? "pasta" : tipo;
-            if(tipo!="pasta" && tipo!="site" && !Navegador.Pesquisa(tipo)) throw new InvalidOperationException("Escolha um tipo de comando da lista.");
+            if(tipo!="pasta" && tipo!="site" && !Navegador.Pesquisa(tipo) && !Programas.Tipo(tipo)) throw new InvalidOperationException("Escolha um tipo de comando da lista.");
+            bool pedido=frase.Contains("{pedido}");
+            if(pedido && (tipo!="word" || frase.Split(new[] {"{pedido}"},StringSplitOptions.None).Length!=2 || frase.Replace("{pedido}","").Trim().Length<3))
+                throw new InvalidOperationException("Use {pedido} uma única vez em comandos do Word, com uma frase antes dele.");
             bool variavel=frase.Contains("{assunto}");
             if(variavel && (!Navegador.Pesquisa(tipo) || frase.Split(new[] {"{assunto}"},StringSplitOptions.None).Length!=2 || frase.Replace("{assunto}","").Trim().Length<3))
                 throw new InvalidOperationException("Use {assunto} uma única vez, apenas em comandos de pesquisa.");
-            string alvo=tipo=="pasta" ? ConferirPasta(caminho) : tipo=="site" ? Navegador.Site(caminho) : "";
+            string alvo=tipo=="pasta" ? ConferirPasta(caminho) : tipo=="site" ? Navegador.Site(caminho) : tipo=="programa" ? Programas.Executavel(caminho) : "";
             termo=Navegador.Pesquisa(tipo) && !variavel ? Navegador.Assunto(termo) : "";
             var novo=new ComandoPasta {Id=i<0 ? Guid.NewGuid().ToString("N") : id,Frase=frase,Caminho=alvo,Tipo=tipo,Termo=termo};
             if(i<0) lista.Add(novo); else lista[i]=novo;

@@ -14,6 +14,10 @@ namespace Bella {
 
         [STAThread] static int Main(string[] args) {
             ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;
+            if(args.Contains("--word-self-test")) {
+                try {ProgramasTestes.WordReal(); File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"word-self-test.txt"),"OK"); return 0;}
+                catch(Exception e) {File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"word-self-test.txt"),e.ToString()); return 1;}
+            }
             if(args.Contains("--self-test")) {
                 try { SelfTest.Run(); File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"self-test.txt"),"OK"); return 0; }
                 catch(Exception e) { File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"self-test.txt"),e.ToString()); return 1; }
@@ -54,6 +58,7 @@ namespace Bella {
         sealed class Wake : IWake { public bool Trigger; public bool Hear(byte[] b) { return Trigger; } public void Reset() { Trigger=false; } public void Dispose() {} }
         static void Check(bool condition,string name) { if(!condition) throw new Exception(name); }
         public static void Run() {
+            ProgramasTestes.Run();
             ArquivosTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
             NavegadorTestes.Run();
             var wake=new Wake(); var c=new Capture(wake); int requests=0; byte[] result=null;

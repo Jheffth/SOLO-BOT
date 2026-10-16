@@ -30,7 +30,7 @@ namespace Bella {
         public void Cancelar() { escolhas=null; identidade=null; confirmacao=false; assuntoPendente=null; }
         public bool TemEscolha { get { return escolhas!=null || assuntoPendente!=null; } }
         public ComandoPasta[] CatalogoComandos { get {
-            var salvos=(comandos() ?? new ComandoPasta[0]).ToArray();
+            var salvos=(comandos() ?? new ComandoPasta[0]).Where(c=>!Programas.Tipo(c.Tipo)).ToArray();
             return salvos.Concat(Navegador.Padrao().Where(c=>!salvos.Any(s=>ComandosPastas.Chave(s.Frase)==ComandosPastas.Chave(c.Frase)))).ToArray();
         } }
         public bool PedidoLocal(string text) {

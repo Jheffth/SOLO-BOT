@@ -160,6 +160,11 @@ namespace Bella {
                             if(pastaComando.ShowDialog(this)==DialogResult.OK) tela.Postar(new {tipo="comando_caminho",caminho=pastaComando.SelectedPath});
                         }
                         break;
+                    case "comando_escolher_programa":
+                        using(var programaComando=new OpenFileDialog {Title="Escolha o programa instalado",Filter="Aplicativos (*.exe)|*.exe",CheckFileExists=true,Multiselect=false}) {
+                            if(programaComando.ShowDialog(this)==DialogResult.OK) tela.Postar(new {tipo="comando_caminho",caminho=programaComando.FileName});
+                        }
+                        break;
                     case "pasta_arquivos":
                         if(bella.Ocupada) throw new InvalidOperationException("Espere o pedido atual terminar.");
                         var remover=Vista.Inteiro(d,"remover");
@@ -185,7 +190,7 @@ namespace Bella {
                     case "preferencias":
                         try {
                             await bella.Preferencias(Vista.Logico(d,"iniciar"),Vista.Logico(d,"mini"),Vista.Inteiro(d,"sensibilidade"),Vista.Texto(d,"aparencia"),
-                                Vista.Logico(d,"apertarParaFalar"),Vista.Inteiro(d,"teclaFalar"),Vista.Inteiro(d,"modificadoresFalar"),Vista.Inteiro(d,"esperaFalar"));
+                                Vista.Logico(d,"apertarParaFalar"),Vista.Inteiro(d,"teclaFalar"),Vista.Inteiro(d,"modificadoresFalar"),Vista.Inteiro(d,"esperaFalar"),Vista.Logico(d,"ativacaoRapida"));
                             if(d.ContainsKey("apertarParaFalar") || d.ContainsKey("teclaFalar") || d.ContainsKey("esperaFalar") || d.ContainsKey("modificadoresFalar")) AtualizarAtalho();
                         } catch(Exception e) { tela.Postar(new {tipo="toast",texto=e.Message,erro=true}); }
                         PostarConfig(); AtualizarMini();
@@ -217,6 +222,7 @@ namespace Bella {
             return new { tipo="config", temChave=bella.TemChave, servidor=c.Server, chaveFinal=final, iniciar=c.Startup,
                          apertarParaFalar=c.PushToTalk, teclaFalar=c.TalkKey, modificadoresFalar=c.TalkModifiers, esperaFalar=c.TalkSeconds,
                          frasesAtivacao=c.WakePhrases,
+                         ativacaoRapida=c.FastWake,
                          nomeTeclaFalar=ApertarParaFalar.Nome(c.TalkKey,c.TalkModifiers),
                          mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto, pastasArquivos=c.PastasArquivos,
                          comandosPastas=c.ComandosPastas, modelosComandos=Navegador.Modelos() };
@@ -243,7 +249,7 @@ namespace Bella {
             var modo=bella.Modo;
             if(!bella.Escutando && modo==Modo.Listening) modo=Modo.Paused;
             var m=new { tipo="estado", modo=NomeDoModo(modo), escutando=bella.Escutando, ocupada=bella.Ocupada,
-                        segurando=esperaTecla.Contando, restante=esperaTecla.Restantes };
+                        segurando=esperaTecla.Contando, restante=esperaTecla.Restantes, tempos=bella.Tempos, tempoChamada=bella.TempoChamada };
             tela.Postar(m); if(mini!=null) mini.Postar(m);
             tray.Icon=Visual.Icone(modo,SystemInformation.SmallIconSize.Width*2);
             var dica="Bella · "+(bella.Escutando && modo==Modo.Listening ? (bella.Config.PushToTalk ? "segure "+ApertarParaFalar.Nome(bella.Config.TalkKey,bella.Config.TalkModifiers) : "diga “"+bella.Config.WakePhrases[0]+"”") : Dica[modo]); tray.Text=dica.Length>63?dica.Substring(0,63):dica;
