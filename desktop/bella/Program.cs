@@ -77,6 +77,7 @@ namespace Bella {
             c.Listen(); c.Begin(); c.Pause(); c.RecordAfterGreeting();
             Check(c.State==Capture.Mode.Paused,"pausar durante saudacao nao reabre microfone");
             ApertarParaFalarTestes.Run();
+            ChamadasTestes.Run();
             var cacheDirectory=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"self-test-saudacoes");
             try { GreetingLibrary.SelfTest(cacheDirectory); }
             finally { if(Directory.Exists(cacheDirectory)) Directory.Delete(cacheDirectory,true); }

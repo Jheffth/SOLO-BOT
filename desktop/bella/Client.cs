@@ -17,6 +17,7 @@ namespace Bella {
         public int Threshold=220;
         public bool MiniBella=true;          // a pílula sobre a barra de tarefas quando a janela está fechada
         public bool PushToTalk;
+        public string[] WakePhrases=Chamadas.Padrao();
         public int TalkKey=119;              // F8
         public int TalkModifiers;
         public int TalkSeconds=5;
@@ -34,6 +35,7 @@ namespace Bella {
         public void Save() {
             Validate(Server,Key);
             ApertarParaFalar.Validar(TalkKey,TalkModifiers,TalkSeconds);
+            WakePhrases=Chamadas.Validar(WakePhrases);
             var bytes=Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(this));
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
             File.WriteAllBytes(FilePath,ProtectedData.Protect(bytes,null,DataProtectionScope.CurrentUser));

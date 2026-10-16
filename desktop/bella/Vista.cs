@@ -69,6 +69,17 @@ namespace Bella {
         public static bool? Logico(Dictionary<string,object> d,string k) {
             object v; if(!d.TryGetValue(k,out v) || !(v is bool)) return null; return (bool)v;
         }
+        public static string[] Textos(Dictionary<string,object> d,string k) {
+            object v;
+            if(!d.TryGetValue(k,out v) || v is string || !(v is System.Collections.IEnumerable))
+                throw new InvalidOperationException("Informe de uma a três frases de ativação.");
+            var textos=new List<string>();
+            foreach(var item in (System.Collections.IEnumerable)v) {
+                if(!(item is string)) throw new InvalidOperationException("As frases precisam ser textos.");
+                textos.Add((string)item);
+            }
+            return textos.ToArray();
+        }
         public static int? Inteiro(Dictionary<string,object> d,string k) {
             object v; if(!d.TryGetValue(k,out v) || v==null) return null;
             try {

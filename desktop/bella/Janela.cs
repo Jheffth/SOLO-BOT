@@ -80,7 +80,7 @@ namespace Bella {
                 e.Cancel=true; Hide();
                 if(!avisouBandeja) { avisouBandeja=true; tray.ShowBalloonTip(1500,"Bella",bella.Config.PushToTalk
                     ? "Continuo perto do relógio. Segure "+ApertarParaFalar.Nome(bella.Config.TalkKey,bella.Config.TalkModifiers)+" para falar."
-                    : "Continuo aqui perto do relógio. Diga “Bella” quando precisar.",ToolTipIcon.None); }
+                    : "Continuo aqui perto do relógio. Diga “"+bella.Config.WakePhrases[0]+"” quando precisar.",ToolTipIcon.None); }
             };
             VisibleChanged+=(s,e)=>AtualizarMini();
             Resize+=(s,e)=>AtualizarMini();
@@ -175,6 +175,13 @@ namespace Bella {
                         tela.Postar(new { tipo="salvo", texto="Acesso salvo neste usuário do Windows." });
                         if(!bella.Escutando) await bella.StartListening();
                         break;
+                    case "chamadas":
+                        try {
+                            await bella.SalvarChamadas(Vista.Textos(d,"frases"));
+                            tela.Postar(new {tipo="toast",texto="Frases de ativação salvas neste computador.",erro=false});
+                        } catch(Exception e) { tela.Postar(new {tipo="toast",texto=e.Message,erro=true}); }
+                        PostarConfig(); AoMudar();
+                        break;
                     case "preferencias":
                         try {
                             await bella.Preferencias(Vista.Logico(d,"iniciar"),Vista.Logico(d,"mini"),Vista.Inteiro(d,"sensibilidade"),Vista.Texto(d,"aparencia"),
@@ -209,6 +216,7 @@ namespace Bella {
             string final=String.IsNullOrEmpty(c.Key) || c.Key.Length<4 ? "" : c.Key.Substring(c.Key.Length-4);
             return new { tipo="config", temChave=bella.TemChave, servidor=c.Server, chaveFinal=final, iniciar=c.Startup,
                          apertarParaFalar=c.PushToTalk, teclaFalar=c.TalkKey, modificadoresFalar=c.TalkModifiers, esperaFalar=c.TalkSeconds,
+                         frasesAtivacao=c.WakePhrases,
                          nomeTeclaFalar=ApertarParaFalar.Nome(c.TalkKey,c.TalkModifiers),
                          mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto, pastasArquivos=c.PastasArquivos,
                          comandosPastas=c.ComandosPastas, modelosComandos=Navegador.Modelos() };
@@ -226,7 +234,7 @@ namespace Bella {
             }
         }
         static readonly Dictionary<Modo,string> Dica=new Dictionary<Modo,string> {
-            { Modo.Paused, "escuta pausada" }, { Modo.Listening, "esperando “Bella”" },
+            { Modo.Paused, "escuta pausada" }, { Modo.Listening, "esperando chamada" },
             { Modo.Greeting, "respondendo à chamada" }, { Modo.Recording, "pode falar" },
             { Modo.Processing, "pensando" }, { Modo.Speaking, "respondendo" }
         };
@@ -238,7 +246,7 @@ namespace Bella {
                         segurando=esperaTecla.Contando, restante=esperaTecla.Restantes };
             tela.Postar(m); if(mini!=null) mini.Postar(m);
             tray.Icon=Visual.Icone(modo,SystemInformation.SmallIconSize.Width*2);
-            var dica="Bella · "+(bella.Config.PushToTalk && bella.Escutando && modo==Modo.Listening ? "segure "+ApertarParaFalar.Nome(bella.Config.TalkKey,bella.Config.TalkModifiers) : Dica[modo]); tray.Text=dica.Length>63?dica.Substring(0,63):dica;
+            var dica="Bella · "+(bella.Escutando && modo==Modo.Listening ? (bella.Config.PushToTalk ? "segure "+ApertarParaFalar.Nome(bella.Config.TalkKey,bella.Config.TalkModifiers) : "diga “"+bella.Config.WakePhrases[0]+"”") : Dica[modo]); tray.Text=dica.Length>63?dica.Substring(0,63):dica;
             itemEscuta.Text=bella.Escutando?"Pausar escuta":"Ligar escuta";
             AtualizarMini();
         }

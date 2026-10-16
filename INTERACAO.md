@@ -249,7 +249,7 @@ em **Painel → Bella no computador**, cole no aplicativo e clique em **Começar
 da Siri; trocar ou revogar uma chave não afeta os outros canais. No computador, a chave é cifrada
 para o usuário Windows; no servidor, fica somente seu hash.
 
-- **Ativar escuta:** a chamada “Bella” é detectada localmente. Ela responde com uma saudação falada;
+- **Ativar escuta:** uma das até três frases editáveis (padrões: “Olá Bella”, “Oi Bella”, “E aí Bella”) é detectada localmente. Só a frase completa, ao terminar, com confiança em cada palavra ativa a saudação;
   quando terminar e aparecer “Pode falar”, fale o pedido; a
   pausa envia um WAV de até 30 segundos ao hub. O áudio ambiente de espera não é enviado.
 - **Ctrl + Alt + B** ou **Falar agora:** grava o pedido sem precisar da chamada. Também aceita texto.

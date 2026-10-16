@@ -5,6 +5,20 @@ O computador precisa de um microfone padrão e conexão ao Solo Bot para executa
 
 ## Arquivos no Windows
 
+### Frases de ativação
+
+Em **Configurações → Escuta**, edite até três frases e clique em **Salvar frases**.
+Os padrões são **Olá Bella**, **Oi Bella** e **E aí Bella**. Mantenha pelo menos uma;
+deixe os outros campos vazios se quiser menos opções. A mudança vale na hora e fica
+salva neste usuário do Windows. Acentos, caixa e pontuação não mudam a chamada.
+
+Diga a frase completa, faça uma pausa e aguarde a saudação antes do pedido. A Bella
+ignora resultados parciais, palavras extras e falas com baixa confiança. O detector
+usa as frases cadastradas junto de uma saída para falas desconhecidas.
+O modelo local verifica as palavras ao salvar e avisa se alguma não é reconhecida.
+Prefira duas ou mais palavras para reduzir ativações acidentais. Reconhecimento de
+voz pode errar em ambientes barulhentos; use **Apertar para falar** para ativação por tecla.
+
 ### Apertar para falar
 
 Em **Configurações → Escuta**, marque **Apertar para falar**. Por padrão, segure **F8
@@ -12,7 +26,7 @@ por 5 segundos**, até aparecer **Pode falar**. Fale mantendo a tecla pressionad
 solte para enviar. **Trocar tecla** aceita outra tecla e combinações com Ctrl, Alt
 ou Shift; o tempo pode variar de 1 a 30 segundos. As preferências ficam salvas.
 
-Nesse modo, o microfone fica fechado durante a espera e “Bella” não ativa a gravação.
+Nesse modo, o microfone fica fechado durante a espera e as frases não ativam a gravação.
 Soltar cedo ou sem falar não envia nada. Funciona em segundo plano; você também pode
 pausar pelo botão de escuta. O texto continua disponível. Desmarcar a opção restaura
 a chamada por voz e o atalho Ctrl+Alt+B. A gravação tem limite de 29 segundos.
@@ -114,7 +128,7 @@ Para nomes com “para” ou “em”, use aspas por texto, como `abrir arquivo 
 1. Extraia **todo** o `Bella-Windows.zip` numa pasta permanente. Abra `Bella/Bella.exe`.
 2. Na primeira vez, a Bella mostra três passos. No painel da Conta Solo, seção **Bella no computador**,
    gere uma chave, cole no campo e clique em **Começar**. Ela já começa a ouvir.
-3. Diga **Bella** e aguarde a saudação falada com seu login. Quando ela terminar, fale o pedido.
+3. Diga **Olá Bella** (ou outra frase cadastrada) e aguarde a saudação falada com seu login. Quando ela terminar, fale o pedido.
    A pausa no fim da frase envia o pedido.
 4. Exemplos: “rotinas hoje”, “recebi 92,60 na conta Uber”, “terminei o treino”. Também dá para
    escrever no campo de baixo, inclusive comandos exatos como `/fin saldo`.
@@ -126,7 +140,7 @@ Para nomes com “para” ou “em”, use aspas por texto, como `abrir arquivo 
 - **No centro, a Bella**: a foto dela (ou o orbe colorido) com um **anel vivo** que mostra o estado:
   apagado com a escuta pausada, girando devagar esperando o nome, **ciano e reagindo à sua voz**
   enquanto ouve, girando rápido enquanto pensa, pulsando enquanto fala.
-- **O selo no alto** (“Ouvindo ‘Bella’”) liga e pausa a escuta. Pausada, o microfone fica livre.
+- **O selo no alto** (“Esperando chamada”) liga e pausa a escuta. Pausada, o microfone fica livre.
 - **A conversa** vem em balões, com o sistema que respondeu (💰 Finances, ⚔️ Rotinas) e, em cinza,
   o que a Bella entendeu (“🧭 Entendi: …”).
 - **🎤** (ou **Ctrl + Alt + B**) chama a Bella sem dizer o nome. **■** interrompe a voz.
@@ -156,7 +170,7 @@ Windows 10 atualizados. Se faltar, a Bella avisa e abre a página oficial de dow
 
 ## Áudio e acesso
 
-- A chamada “Bella” é reconhecida localmente pelo Vosk com o modelo português. A grafia fonética no modelo é “bela”; isso não altera o nome do aplicativo.
+- As frases cadastradas são reconhecidas localmente pelo Vosk com o modelo português. A grafia fonética no modelo é “bela”; isso não altera o nome do aplicativo.
 - O áudio ambiente de espera não é enviado. Só o pedido ativado é enviado como WAV ao Solo Bot para transcrição. A gravação termina após pausa, com limite de 30 segundos. Sem fala, volta à espera sem enviar.
 - Durante processamento e resposta falada, o detector ignora o áudio para não ouvir a própria resposta. Não há envio automático de um segundo pedido.
 - ElevenLabs gera a resposta na voz configurada no Solo Bot. Se o servidor não enviar áudio, o aplicativo usa a voz disponível no Windows (o idioma depende das vozes instaladas).

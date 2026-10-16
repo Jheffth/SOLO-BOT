@@ -46,6 +46,7 @@ namespace Bella {
             criarMicrofone=microphoneFactory ?? (()=>new Microphone());
             if(Config.PastasArquivos==null) Config.PastasArquivos=Arquivos.PastasPadrao();
             if(Config.ComandosPastas==null) Config.ComandosPastas=new ComandoPasta[0];
+            Config.WakePhrases=Chamadas.Validar(Config.WakePhrases ?? Chamadas.Padrao());
             try { ApertarParaFalar.Validar(Config.TalkKey,Config.TalkModifiers,Config.TalkSeconds); }
             catch { Config.TalkKey=119; Config.TalkModifiers=0; Config.TalkSeconds=5; }
             arquivos=new Arquivos(()=>Config.PastasArquivos,commands:()=>Config.ComandosPastas);
@@ -103,7 +104,28 @@ namespace Bella {
             return new Settings { Server=Config.Server, Key=Config.Key, Startup=Config.Startup, Threshold=Config.Threshold,
                                   MiniBella=Config.MiniBella, Aparencia=Config.Aparencia, PastasArquivos=(string[])Config.PastasArquivos.Clone(),
                                   PushToTalk=Config.PushToTalk, TalkKey=Config.TalkKey, TalkModifiers=Config.TalkModifiers, TalkSeconds=Config.TalkSeconds,
+                                  WakePhrases=(string[])Config.WakePhrases.Clone(),
                                   ComandosPastas=(ComandoPasta[])Config.ComandosPastas.Clone() };
+        }
+
+        public async Task SalvarChamadas(string[] frases) {
+            if(busy || starting) throw new InvalidOperationException("Espere o pedido atual terminar antes de trocar as frases.");
+            var validas=Chamadas.Validar(frases);
+            LocalWake novoDetector=null;
+            starting=true;
+            try {
+                novoDetector=await Task.Run(()=>new LocalWake(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"modelo"),validas));
+                if(quitting) return;
+                var novo=Copia(); novo.WakePhrases=validas;
+                if(TemChave) novo.Save();
+                bool retomar=listening;
+                Pause(); capture=null;
+                if(wake!=null) wake.Dispose();
+                wake=novoDetector; novoDetector=null; Config=novo;
+                starting=false;
+                if(retomar) await StartListening();
+                Mudou();
+            } finally { starting=false; if(novoDetector!=null) novoDetector.Dispose(); }
         }
 
         public void ComandoPasta(string id,string frase,string caminho,bool remover,string tipo=null,string termo=null) {
@@ -139,7 +161,7 @@ namespace Bella {
             try {
                 Settings.Validate(Config.Server,Config.Key);
                 if(!Config.PushToTalk && wake==null)
-                    wake=await Task.Run(()=>new LocalWake(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"modelo")));
+                    wake=await Task.Run(()=>new LocalWake(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"modelo"),Config.WakePhrases));
                 if(quitting) return;
                 if(capture==null) {
                     var origem=new Capture(Config.PushToTalk ? null : wake) {PushToTalk=Config.PushToTalk};

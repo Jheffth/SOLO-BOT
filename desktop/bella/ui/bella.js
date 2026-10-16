@@ -11,7 +11,7 @@
   const MINI = new URLSearchParams(location.search).has("mini");
   const ponteReal = !!(window.chrome && window.chrome.webview);
 
-  let config = { temChave: false, servidor: "", chaveFinal: "", iniciar: false, mini: true, sensibilidade: 220, aparencia: "foto", foto: null };
+  let config = { temChave: false, servidor: "", chaveFinal: "", iniciar: false, mini: true, sensibilidade: 220, aparencia: "foto", foto: null, frasesAtivacao: ["Olá Bella", "Oi Bella", "E aí Bella"] };
   let estado = { modo: "pausada", escutando: false, ocupada: false, segurando: false, restante: 0 };
   let escolhendoTecla = false;
   let primeiraMensagem = true;
@@ -64,6 +64,8 @@
   function aplicarConfig(c) {
     config = Object.assign(config, c);
     aplicarAvatar();
+    const vazio = document.querySelector(".vazio");
+    if (vazio) vazio.textContent = config.apertarParaFalar ? "Segure a tecla configurada para falar, ou escreva aqui embaixo." : "Diga “" + config.frasesAtivacao[0] + "” e aguarde a saudação. Também dá para escrever aqui embaixo.";
     if (MINI) { aplicarEstado({}); return; }
     $("btn-recortar").disabled = !config.foto;
     $("btn-remover").disabled = !config.foto;
@@ -71,13 +73,16 @@
     $("cfg-iniciar").checked = !!config.iniciar;
     $("cfg-mini").checked = !!config.mini;
     $("cfg-apertar").checked = !!config.apertarParaFalar;
+    for (let i = 0; i < 3; i++) $("cfg-frase-" + (i + 1)).value = (config.frasesAtivacao || [])[i] || "";
+    $("btn-chamadas").disabled = false;
     $("cfg-atalho-fala").hidden = !config.apertarParaFalar;
     $("cfg-espera-fala").value = config.esperaFalar || 5;
     if (!escolhendoTecla) $("cfg-tecla-fala").textContent = (config.nomeTeclaFalar || "F8") + " · trocar tecla";
-    $("entrada").placeholder = config.apertarParaFalar ? "Escreva uma mensagem…" : "Escreva ou diga “Bella”…";
+    $("entrada").placeholder = config.apertarParaFalar ? "Escreva uma mensagem…" : "Escreva ou diga “" + config.frasesAtivacao[0] + "”…";
     document.querySelector(".compositor .tecla").textContent = config.apertarParaFalar ? (config.nomeTeclaFalar || "F8") : "Ctrl Alt B";
     $("cfg-iniciar").closest("label").querySelector("small").textContent = config.apertarParaFalar ? "Abre escondida, aguardando a tecla." : "Abre escondida, já ouvindo.";
     $("atalho-voz-dica").textContent = config.apertarParaFalar ? "desativada neste modo" : "chama por voz";
+    $("atalho-voz-frase").textContent = "“" + config.frasesAtivacao[0] + "”";
     $("atalho-fala-tecla").textContent = config.apertarParaFalar ? (config.nomeTeclaFalar || "F8") : "Ctrl + Alt + B";
     $("atalho-fala-dica").textContent = config.apertarParaFalar ? "segure por " + (config.esperaFalar || 5) + " s; solte para enviar" : "fala sem dizer o nome";
     document.querySelector(".rodape").lastChild.textContent = config.apertarParaFalar ? "Microfone fechado até ativar pela tecla" : "A escuta de espera fica no seu computador";
@@ -151,13 +156,14 @@
   // ── Estado (o que a Bella está fazendo) ────────────────────
   const TEXTOS = {
     pausada: ["Escuta pausada", "Ctrl + Alt + B para falar"],
-    espera: ["Esperando “Bella”", "a escuta fica no seu computador"],
+    espera: ["Esperando sua chamada", "a escuta fica no seu computador"],
     saudando: ["Respondendo à chamada…", ""],
     ouvindo: ["Pode falar", "eu paro quando você fizer uma pausa"],
     pensando: ["Pensando…", ""],
     falando: ["Respondendo", ""]
   };
   function textosEstado() {
+    if (!config.apertarParaFalar && estado.modo === "espera") return ["Esperando sua chamada", "diga “" + config.frasesAtivacao[0] + "” e aguarde"];
     if (config.apertarParaFalar && !estado.escutando) return ["Apertar para falar pausado", "ative a escuta no botão acima"];
     if (config.apertarParaFalar && estado.escutando) {
       const tecla = config.nomeTeclaFalar || "F8";
@@ -182,7 +188,7 @@
     if (modo !== "ouvindo") document.documentElement.style.setProperty("--nivel", 0);
     const chip = $("chip-escuta");
     chip.classList.toggle("ativa", !!estado.escutando);
-    $("chip-texto").textContent = estado.escutando ? (config.apertarParaFalar ? "Apertar para falar" : "Ouvindo “Bella”") : "Escuta pausada";
+    $("chip-texto").textContent = estado.escutando ? (config.apertarParaFalar ? "Apertar para falar" : "Esperando chamada") : "Escuta pausada";
     chip.title = estado.escutando ? "Pausar a escuta e liberar o microfone" : "Ligar a escuta";
     $("btn-parar").hidden = !(modo === "falando" || modo === "saudando");
     $("btn-falar").disabled = !!estado.ocupada && modo !== "ouvindo";
@@ -364,6 +370,13 @@
     });
     $("cfg-iniciar").onchange = e => enviar("preferencias", { iniciar: e.target.checked });
     $("cfg-mini").onchange = e => enviar("preferencias", { mini: e.target.checked });
+    $("cfg-chamadas").onsubmit = e => {
+      e.preventDefault();
+      const frases = [1, 2, 3].map(i => $("cfg-frase-" + i).value.trim()).filter(Boolean);
+      if (!frases.length) return toast("Informe pelo menos uma frase de ativação.", true);
+      $("btn-chamadas").disabled = true;
+      enviar("chamadas", { frases });
+    };
     $("cfg-apertar").onchange = e => enviar("preferencias", { apertarParaFalar: e.target.checked });
     $("cfg-espera-fala").onchange = e => {
       const segundos = Number(e.target.value);
@@ -521,6 +534,7 @@
       if (m.acao === "salvar") { r({ tipo: "config", temChave: true, chaveFinal: (m.chave || "Zq4x").slice(-4) }); r({ tipo: "salvo", texto: "Acesso salvo neste usuário do Windows." }); demo.escutar(true); }
       if (m.acao === "escuta") demo.escutar(!estado.escutando);
       if (m.acao === "preferencias") r(Object.assign({ tipo: "config" }, m));
+      if (m.acao === "chamadas") { r({ tipo: "config", frasesAtivacao: m.frases }); r({ tipo: "toast", texto: "Frases de ativação salvas." }); }
       if (m.acao === "foto") r({ tipo: "config", foto: m.dataUrl || null, aparencia: "foto" });
       if (m.acao === "foto_original") r({ tipo: "foto_original", dataUrl: config.foto });
       if (m.acao === "falar") demo.pedido("o que eu tenho para hoje", true);
@@ -570,7 +584,7 @@
   } else {
     ligarJanela(); ligarRecorte();
     const v = document.createElement("div"); v.className = "vazio";
-    v.innerHTML = "Diga <b>“Bella”</b> ou aperte <b>Ctrl + Alt + B</b>.<br>Também dá para escrever aqui embaixo.";
+    v.textContent = "Diga “" + config.frasesAtivacao[0] + "” e aguarde a saudação. Também dá para escrever aqui embaixo.";
     $("conversa").appendChild(v);
   }
   if (ponteReal) enviar("pronto"); else demo.iniciar();
