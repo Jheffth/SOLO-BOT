@@ -214,6 +214,17 @@ numa voz própria (admin → Voz do bot → 👁 Voz do Sistema; sem escolha, a 
 instável e dramática, e sussurrada de verdade nos modelos expressivos. O texto vai em itálico. A frase
 é falada **exatamente como veio**, nunca resumida. Tom que o Solo Bot não conhece é ignorado.
 
+**Gravações dos Ecos:** a primeira síntese de cada texto no tom `sussurro` é salva no
+servidor. Repetições usam o áudio salvo, sem nova síntese na ElevenLabs, inclusive após
+reinício ou deploy. O cache considera texto falado, voz, modelo, ajustes e formato do
+canal (MP3 para WhatsApp; Opus para Telegram). Alterar algum desses itens cria outra
+gravação; voltar à combinação anterior reutiliza a existente. Frases com valores ou
+nomes diferentes são textos diferentes. Não há geração antecipada do catálogo.
+O perfil usado pelos Ecos, inclusive conta/modelo de reserva, fica separado da voz da
+Bella. Os arquivos privados compartilham o volume persistente `bella-audios`; o nome
+histórico da configuração `BELLA_AUDIO_DIR` é preservado. Envios simultâneos no processo
+aguardam a mesma gravação; resposta inválida do provedor não entra no cache.
+
 Avisos respeitam o **horário de silêncio**: o que chega na janela espera numa fila e sai quando ela
 termina. Aviso com **validade** (`valido_ate`) que vence na fila é descartado, porque um "faltam 15 min"
 entregue às 7h da manhã só atrapalha.

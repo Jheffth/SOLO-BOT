@@ -139,6 +139,10 @@ As chaves de provedor continuam exclusivamente no servidor.
 As saudações usam `/api/bella/saudacoes` e `/api/bella/saudacao`, catálogo com 20 frases
 personalizadas pelo login e cache por voz em `nucleo/saudacoes.py` e `nucleo/audio_cache.py`.
 O volume `bella-audios` preserva os MP3 entre deploys; o cliente também guarda cópias locais.
+O mesmo cache persistente guarda os Ecos (`tom: sussurro`), por texto, voz, modelo,
+ajustes e formato do canal. `fala.sintetizar` ativa a gravação automaticamente para esse
+tom; o perfil de reserva do Sistema é separado do perfil das saudações da Bella.
+Os testes de Ecos verificam repetição pela ponte, reinício, concorrência e troca de voz.
 Os testes internos verificam saudação antes da captura, ausência de repetição no ciclo,
 reutilização do cache, troca de perfil e bloqueio após revogação da chave.
 `Arquivos.cs` executa operações locais somente nas pastas escolhidas pelo usuário Windows;

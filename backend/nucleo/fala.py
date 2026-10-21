@@ -135,39 +135,45 @@ CHAVE_VOZ_SISTEMA = "voz_sistema_elevenlabs"
 CHAVE_VOZ_ATIVA = "voz_ativa_elevenlabs"
 
 
-def _assinatura_voz() -> str:
+def _assinatura_voz(tom: Optional[str] = None) -> str:
     from database import ler_config
     dados = [conta_escolhida(), config.ELEVENLABS_VOICE_ID, ler_config(CHAVE_VOZ), modelo(),
              [(c["id"], hashlib.sha256(c["chave"].encode()).hexdigest()) for c in contas()]]
+    if tom:
+        dados[2] = ler_config(CHAVE_VOZ_SISTEMA) or dados[2]
+        dados.append(tom)
     return hashlib.sha256(json.dumps(dados, sort_keys=True).encode()).hexdigest()
 
 
-def perfil_ativo() -> dict:
+def perfil_ativo(tom: Optional[str] = None) -> dict:
     """Voz realmente usada, inclusive reserva automática; configuração nova invalida a anterior."""
     from database import ler_config
-    assinatura = _assinatura_voz()
+    assinatura = _assinatura_voz(tom)
+    chave_perfil = CHAVE_VOZ_ATIVA + ("_" + tom if tom else "")
     try:
-        salvo = json.loads(ler_config(CHAVE_VOZ_ATIVA) or "{}")
+        salvo = json.loads(ler_config(chave_perfil) or "{}")
     except (TypeError, ValueError):
         salvo = {}
     if salvo.get("assinatura") == assinatura and all(salvo.get(k) for k in ("conta", "voz", "modelo")):
         return {k: salvo[k] for k in ("conta", "voz", "modelo")}
     permitidas = [c for c in contas() if c["chave"] in _chaves()]
-    return {"conta": permitidas[0]["id"] if permitidas else None, "voz": voz() if permitidas else None,
+    return {"conta": permitidas[0]["id"] if permitidas else None, "voz": voz_para(tom) if permitidas else None,
             "modelo": modelo()}
 
 
-def _guardar_perfil(chave: str, id_voz: str, modelo_id: str, assinatura: str):
+def _guardar_perfil(chave: str, id_voz: str, modelo_id: str, assinatura: str,
+                    tom: Optional[str] = None):
     from database import SessionLocal, gravar_config, ler_config
-    if assinatura != _assinatura_voz():
+    if assinatura != _assinatura_voz(tom):
         return  # Não atribuir uma resposta em andamento à configuração que mudou depois.
     perfil = {"assinatura": assinatura, "conta": next(c["id"] for c in contas() if c["chave"] == chave),
               "voz": id_voz, "modelo": modelo_id}
     valor = json.dumps(perfil, sort_keys=True)
-    if ler_config(CHAVE_VOZ_ATIVA) != valor:
+    chave_perfil = CHAVE_VOZ_ATIVA + ("_" + tom if tom else "")
+    if ler_config(chave_perfil) != valor:
         try:
             with SessionLocal() as db:
-                gravar_config(db, CHAVE_VOZ_ATIVA, valor)
+                gravar_config(db, chave_perfil, valor)
         except Exception:
             log.warning("Não consegui guardar o perfil da voz ativa")
 
@@ -281,9 +287,12 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
     if not disponivel() or not texto:
         return None
     tom = tom_valido(tom)
+    # Ecos são frases reutilizáveis: a primeira síntese fica no volume
+    # persistente. O perfil do Sistema não pode substituir o da Bella.
+    guardar = guardar or bool(tom)
     voz_explicita = id_voz
-    assinatura = _assinatura_voz()
-    perfil = perfil_ativo() if guardar else None
+    assinatura = _assinatura_voz(tom)
+    perfil = perfil_ativo(tom) if guardar and not voz_explicita else None
     id_voz = id_voz or (perfil["voz"] if perfil else voz_para(tom))
     formato, mime = FORMATOS.get(canal, FORMATOS["whatsapp"])
     modelo_id = perfil["modelo"] if perfil else modelo()
@@ -327,7 +336,8 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
                     audio = audio_cache.ler(cache_id, mime) if guardar else None
                     if audio:
                         _estado["ultimo_erro"] = None
-                        _guardar_perfil(chave, voz_atual, c_atual["model_id"], assinatura)
+                        if not voz_explicita:
+                            _guardar_perfil(chave, voz_atual, c_atual["model_id"], assinatura, tom)
                         return {**audio, "perfil_voz": {"conta": next(c["id"] for c in contas() if c["chave"] == chave),
                                                        "voz": voz_atual, "modelo": c_atual["model_id"]}}
                     with httpx.Client(timeout=40) as c:
@@ -340,8 +350,8 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
                 break
             if r.status_code == 200 and r.content:
                 _estado["ultimo_erro"] = None
-                if not voz_explicita and not tom:
-                    _guardar_perfil(chave, voz_atual, c_atual["model_id"], assinatura)
+                if not voz_explicita:
+                    _guardar_perfil(chave, voz_atual, c_atual["model_id"], assinatura, tom)
                 audio = {"base64": base64.b64encode(r.content).decode("ascii"), "mime": mime}
                 if guardar:
                     audio.update(cache_id=cache_id, perfil_voz={"conta": next(c["id"] for c in contas() if c["chave"] == chave),

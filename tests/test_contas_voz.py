@@ -9,7 +9,8 @@ from test_voz_admin import admin  # noqa: F401
 
 
 @pytest.fixture()
-def contas(monkeypatch):
+def contas(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "BELLA_AUDIO_DIR", str(tmp_path))
     monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "segredo-principal")
     monkeypatch.setattr(config, "ELEVENLABS_API_KEY_SECONDARY", "segredo-secundaria")
     monkeypatch.setattr(config, "ELEVENLABS_CONTAS_EXTRAS", {"3": "segredo-terceira"})

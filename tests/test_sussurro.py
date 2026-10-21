@@ -62,7 +62,8 @@ def test_sussurro_guardado_no_silencio_mantem_o_tom(pronto, caixa, voz_tom, monk
     assert voz_tom[-1]["tom"] == "sussurro" and "_Ele não dorme._" in caixa[-2][2]
 
 
-def test_sintetizar_sussurro_marca_e_ajusta_a_atuacao(monkeypatch):
+def test_sintetizar_sussurro_marca_e_ajusta_a_atuacao(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "BELLA_AUDIO_DIR", str(tmp_path))
     monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "k")
     monkeypatch.setattr(config, "ELEVENLABS_API_KEY_SECONDARY", "")
     monkeypatch.setattr(config, "ELEVENLABS_VOICE_ID", "V")
