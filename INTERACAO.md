@@ -408,6 +408,10 @@ A chave GROK_API_KEY fica no servidor. Para ver o saldo pré-pago do Grok em Adm
 A rota autenticada /api/bella/conversa separa a geração da síntese existente por voz_id.
 O backend atualizado precisa estar publicado antes de usar esse modo na Bella.
 
+No WhatsApp e no Telegram, `/bella` entra na mesma conversa pessoal (mesmo estilo e mesmo
+`BELLA_CONTEUDO_ADULTO`), com memória curta própria de cada canal. `/esquecer` limpa a memória,
+`/sair` volta ao hub e o modo expira após `MODO_MINUTOS` sem mensagem.
+
 ## Imagens pelo Grok
 
 O botão Imagens abre um painel recolhível, separado do chat. Gere pela descrição

@@ -263,3 +263,37 @@ def test_eco_do_proprio_aparelho(logado, sistemas, caixa):
     assert len(caixa) == n
     _wa_eu(logado, "/conta", dono)
     assert len(caixa) == n + 1
+
+
+# ── modo Bella (conversa pessoal) ─────────────────────────────────
+def test_modo_bella_conversa_e_sai(logado, sistemas, caixa, monkeypatch):
+    from nucleo import bella_conversa, grok
+    logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
+    logado.post("/api/conectar", json={"app": "rot", "codigo": "CODROT1"})
+    _ligar_telegram(logado)
+    chamadas = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: chamadas.append((instr, texto, kw)) or f"bella:{texto}")
+    bella_conversa._MEMORIA.clear()
+
+    antes = len(sistemas.recebidos)
+    _tg(logado, "/bella")
+    assert "sou a Bella" in caixa[-1][2] and not chamadas
+    _tg(logado, "oi gata")
+    assert "bella:oi gata" in caixa[-1][2] and len(sistemas.recebidos) == antes
+    _tg(logado, "e agora")
+    assert chamadas[-1][2]["historico"] == [("user", "oi gata"), ("assistant", "bella:oi gata")]
+    _tg(logado, "/esquecer")
+    assert "esqueci" in caixa[-1][2]
+    _tg(logado, "/sair")
+    assert "De volta ao hub" in caixa[-1][2]
+    _tg(logado, "comprei pão 8")
+    assert "Para qual sistema" in caixa[-1][2]
+
+
+def test_modo_bella_falha_do_grok_nao_quebra(logado, sistemas, caixa, monkeypatch):
+    from nucleo import grok
+    logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
+    _ligar_telegram(logado)
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: None)
+    _tg(logado, "/bella oi")
+    assert "Não consegui responder" in caixa[-1][2]

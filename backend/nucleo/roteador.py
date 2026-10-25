@@ -238,7 +238,7 @@ def menu(db: Session, conta: Conta, prefixo: str = "") -> Resposta:
         opcoes = [{"titulo": "", "acoes": [{"rotulo": f"{m.emoji} {m.nome.replace('Solo ', '')}",
                                             "dados": f"hub:app|{m.chave}"} for m in ligados]}]
         atalhos = " · ".join(f"`/{m.chave}`" for m in ligados)
-        corpo += f"\n_Atalhos: {atalhos} · `/sair` volta aqui._"
+        corpo += f"\n_Atalhos: {atalhos} · `/bella` conversa · `/sair` volta aqui._"
     else:
         opcoes = []
         corpo += ("Você ainda não conectou nenhum sistema.\n\n"
@@ -266,6 +266,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/menu` — o cartão inicial",
         "▸ `/sair` — volta ao hub",
         "▸ `/conta` — canais e sistemas ligados",
+        "▸ `/bella` — conversar com a Bella (modo adulto, `/esquecer` limpa a memória)",
         "▸ `/voz` — responder falando (áudio, sempre ou nunca)",
         "",
         "_Dentro de um sistema, `/ajuda` mostra os comandos dele. "
@@ -462,6 +463,13 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _conta_resumo(db, conta)
     if cmd == "/voz":
         return _cmd_voz(db, conta, resto.strip().lower())
+    if cmd in ("/bella", "/safada"):
+        _entrar_modo(db, s, MODO_BELLA)
+        return _bella_entrar(canal, conta, resto.strip())
+    if cmd == "/esquecer" and _modo_valido(s) == MODO_BELLA:
+        from nucleo import bella_conversa
+        bella_conversa.esquecer(_chave_bella(canal, conta))
+        return Resposta().diz("🧹 Pronto, esqueci o que conversamos.")
 
     if cmd.startswith("/"):
         mod = _comando_de_modulo(cmd)
@@ -473,6 +481,10 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
                                 resumo=f"/{mod.chave}", via_audio=via_audio)
 
     modo = _modo_valido(s)
+
+    if modo == MODO_BELLA:
+        _entrar_modo(db, s, MODO_BELLA)          # renova a validade
+        return _bella_responder(db, conta, canal, txt)
 
     if cmd in ("/ajuda", "/help", "ajuda") and not modo:
         return _ajuda_hub(db, conta)
@@ -514,6 +526,30 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     opcoes = [{"titulo": "", "acoes": [{"rotulo": f"{m.emoji} {m.nome.replace('Solo ', '')}",
                                         "dados": f"hub:app|{m.chave}"} for m in ligados]}]
     return Resposta().diz("🤔 Para qual sistema é isso?", opcoes)
+
+
+# ── Modo Bella: conversa pessoal (a mesma do Bella.exe), sem sistemas ──
+MODO_BELLA = "bella"
+
+
+def _chave_bella(canal: str, conta: Conta) -> str:
+    return f"{canal}:{conta.id}"          # memória própria deste canal, separada do Bella.exe
+
+
+def _bella_entrar(canal: str, conta: Conta, primeira: str) -> Resposta:
+    if primeira:
+        return _bella_responder(None, conta, canal, primeira)
+    return Resposta().diz("💋 Oi, sou a Bella. Pode falar. `/esquecer` apaga a conversa, `/sair` volta ao hub.")
+
+
+def _bella_responder(db, conta: Conta, canal: str, txt: str) -> Resposta:
+    from nucleo import bella_conversa
+    if db is not None:
+        _registrar(db, conta, canal, None, "bella", "conversa")
+    texto = bella_conversa.responder(txt, _chave_bella(canal, conta))
+    if not texto:
+        return Resposta().diz("😶 Não consegui responder agora. Tente de novo em instantes.")
+    return Resposta().diz(texto)
 
 
 def _entregar_intencao(db, conta, canal, origem, mod, txt, it, via_audio) -> Resposta:
