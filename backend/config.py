@@ -137,3 +137,10 @@ CODIGO_MINUTOS = 10        # tokens de canal
 TENTATIVAS_MAX = 5         # erros por origem antes do castigo
 CASTIGO_MINUTOS = 15
 MANIFESTO_MINUTOS = int(_env("MANIFESTO_MINUTOS", "0" if AMBIENTE == "test" else "10"))  # 0 = não busca
+
+# Motor secundario: vazio desativa, ElevenLabs continua sempre em primeiro lugar.
+VOICESTUDIO_URL = _env("VOICESTUDIO_URL")
+VOICESTUDIO_API_KEY = _env("VOICESTUDIO_API_KEY")
+VOICESTUDIO_VOICE_ID = _env("VOICESTUDIO_VOICE_ID")
+VOICESTUDIO_MODEL = _env("VOICESTUDIO_MODEL", "omnivoice")
+VOICESTUDIO_TIMEOUT = _inteiro("VOICESTUDIO_TIMEOUT", 120, 5, 300)

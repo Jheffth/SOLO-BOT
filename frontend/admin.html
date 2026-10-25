@@ -102,8 +102,8 @@
       ? '<span class="chip ok"><span class="ponto"></span>Ouve áudio</span>'
       : '<span class="chip aguarda">Não ouve: defina GEMINI_API_KEY ou GROK_API_KEY</span>') + ' ' +
       (s.voz.fala
-        ? (s.voz.fala_erro ? `<span class="chip aguarda" title="${esc(s.voz.fala_erro)}">Fala com erro</span>` : '<span class="chip ok"><span class="ponto"></span>Fala (ElevenLabs)</span>')
-        : '<span class="chip aguarda">Não fala: defina ELEVENLABS_API_KEY</span>');
+        ? (s.voz.fala_erro ? `<span class="chip aguarda" title="${esc(s.voz.fala_erro)}">Fala com erro</span>` : '<span class="chip ok"><span class="ponto"></span>Fala</span>')
+        : '<span class="chip aguarda">Voz indisponível: confira o motor selecionado</span>');
     document.getElementById("sistemas").innerHTML = `<tr><th>Sistema</th><th>Endereço interno</th><th>Token</th><th>Manifesto</th><th>Contas</th></tr>` +
       s.sistemas.map(m => `<tr><td><span class="linha" style="gap:.6rem"><span style="font-size:1.2rem">${esc(m.emoji)}</span><b style="font-weight:550">${esc(m.nome)}</b><code>/${esc(m.chave)}</code></span></td>
         <td class="mono pequeno muted">${esc(m.url)}</td><td>${m.configurado ? '<span class="chip ok">definido</span>' : '<span class="chip aguarda">faltando</span>'}</td>
@@ -154,7 +154,46 @@
     const alvo = document.getElementById("voz-corpo");
     let v;
     try { v = await api("/api/admin/voz"); } catch (e) { alvo.innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
-    if (!v.disponivel) { alvo.innerHTML = '<p class="muted" style="margin-top:14px">Defina <code>ELEVENLABS_API_KEY</code> no .env do Solo Bot para o bot falar.</p>'; return; }
+    const motor = v.motor || { atual: "automatico", opcoes: [] };
+    const seletor = `<h3 style="margin:22px 0 10px">Motor de voz</h3>
+      <div class="linha" style="flex-wrap:wrap">
+        <label for="voz-motor">Usar motor</label>
+        <select id="voz-motor">${motor.opcoes.map(m => `<option value="${esc(m.id)}" ${m.id === motor.atual ? "selected" : ""} ${!m.configurado ? "disabled" : ""}>${esc(m.nome)}${!m.configurado ? " (não configurado)" : ""}</option>`).join("")}</select>
+        <button class="btn pequeno primario" id="voz-motor-salvar">Aplicar motor</button>
+      </div>
+      <p class="muted pequeno">Automático usa ElevenLabs primeiro e VoiceStudio como reserva. A escolha manual usa somente o motor selecionado, inclusive nas saudações da Bella.</p>`;
+    const ligarMotor = () => {
+      document.getElementById("voz-motor-salvar").onclick = async function () {
+        carregando(this, true);
+        try {
+          await api("/api/admin/voz", { method: "PUT", body: { motor: document.getElementById("voz-motor").value } });
+          if (tocando) { tocando.pause(); tocando = null; }
+          toast("Motor de voz atualizado.");
+          await carregarVoz();
+        } catch (e) { carregando(this, false); toast(e.message, "erro"); }
+      };
+    };
+    if (!v.disponivel || motor.atual === "voicestudio") {
+      alvo.innerHTML = seletor + (!v.disponivel
+        ? '<p class="muted">Configure o motor no servidor para ativar a voz.</p>'
+        : `<p class="muted">VoiceStudio selecionado. A voz clonada configurada no servidor será usada em português, com velocidade natural.</p>
+           <div class="linha" style="flex-wrap:wrap"><input id="voz-frase" maxlength="200" aria-label="Frase de teste" value="Olá! Estou aqui. Pode falar comigo."><button class="btn pequeno primario" id="voz-testar">Ouvir</button></div>
+           <small class="faint">O VoiceStudio precisa estar aberto e acessível pelo servidor.</small>
+           ${v.ultimo_erro ? `<p class="erro-form">${esc(v.ultimo_erro)}</p>` : ""}`);
+      ligarMotor();
+      const testar = document.getElementById("voz-testar");
+      if (testar) testar.onclick = async function () {
+        carregando(this, true);
+        try {
+          const r = await fetch("/api/admin/voz/amostra", { method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" }, body: JSON.stringify({ texto: document.getElementById("voz-frase").value }) });
+          if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "Não gerou a amostra.");
+          tocar(URL.createObjectURL(await r.blob()));
+        } catch (e) { toast(e.message, "erro"); }
+        carregando(this, false);
+      };
+      return;
+    }
 
     const conta = v.conta || { atual: "automatica", opcoes: [] };
     const contas = [{ id: "automatica", nome: "Automática" }, ...conta.opcoes];
@@ -194,14 +233,14 @@
         </div>
       </div>`).join("") || '<p class="muted">Nenhuma voz na conta da ElevenLabs.</p>';
 
-    alvo.innerHTML = `
-      <h3 style="margin:22px 0 10px">Conta de voz</h3>
+    alvo.innerHTML = seletor + `
+      <h3 style="margin:22px 0 10px">Conta ElevenLabs</h3>
       <div class="linha" style="flex-wrap:wrap">
         <label for="voz-conta">Usar conta</label>
         <select id="voz-conta">${contas.map(c => `<option value="${esc(c.id)}" ${c.id === conta.atual ? "selected" : ""}>${esc(c.nome)}</option>`).join("")}</select>
         <button class="btn pequeno primario" id="voz-conta-salvar">Aplicar conta</button>
       </div>
-      <p class="muted pequeno">Automática tenta a principal, a secundária e as demais, nessa ordem, quando faltam créditos ou ocorre uma falha. Ao escolher uma conta, somente ela será usada em todos os sistemas.</p>
+      <p class="muted pequeno">Automática tenta a principal, a secundária e as demais, nessa ordem, quando faltam créditos ou ocorre uma falha. Ao escolher uma conta, somente ela será usada na ElevenLabs. No motor Automático, o VoiceStudio continua como reserva.</p>
       <p class="muted pequeno">Ao trocar, as vozes escolhidas no painel voltam à seleção automática da conta. Você pode escolhê-las novamente abaixo. Novas contas configuradas no servidor aparecem nesta lista.</p>
       <div class="saldos">${saldo || '<p class="muted">Sem chave para consultar.</p>'}</div>
       <div class="voz-grade">
@@ -233,6 +272,7 @@
         </div>
       </div>`;
 
+    ligarMotor();
     document.getElementById("voz-conta-salvar").onclick = async function () {
       carregando(this, true);
       try {

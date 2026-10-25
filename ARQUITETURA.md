@@ -173,3 +173,15 @@ python -m pytest -q tests
 
 `01 - SOLO ROTINAS/webapp/docker-compose.yml` (serviço `whatsapp`, `DATABASE_CONNECTION_URI`)
 ainda carrega a senha do Postgres em texto puro num arquivo versionado. Mover para `.env` e trocar a senha.
+
+## Motor secundario de voz
+
+A sintese em `backend/nucleo/fala.py` tenta primeiro a cadeia ElevenLabs existente.
+Somente depois de falhar usa `backend/nucleo/voicestudio.py`, se configurado.
+A reserva preserva os formatos dos canais e o cache de saudacoes e Ecos, sem
+alterar a preferencia do principal. Configuracao: [VOICESTUDIO.md](VOICESTUDIO.md).
+
+O painel Administração > Voz do bot permite escolher o motor global: Automático,
+ElevenLabs ou VoiceStudio. A seleção manual usa exclusivamente o provedor escolhido
+e fica persistida em `Configuracao.motor_voz`; o padrão continua Automático.
+A Bella recebe o perfil do motor selecionado para separar o cache das saudações.

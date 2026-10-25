@@ -43,7 +43,32 @@ _estado = {"voz": None, "ultimo_erro": None}
 
 
 def disponivel() -> bool:
-    return bool(contas())
+    from nucleo import voicestudio
+    motor = motor_escolhido()
+    if motor == "voicestudio":
+        return voicestudio.disponivel()
+    if motor == "elevenlabs":
+        return bool(contas())
+    return bool(contas()) or voicestudio.disponivel()
+
+
+CHAVE_MOTOR = "motor_voz"
+MOTORES = ("automatico", "elevenlabs", "voicestudio")
+
+
+def motor_escolhido() -> str:
+    from database import ler_config
+    motor = ler_config(CHAVE_MOTOR)
+    return motor if motor in MOTORES else "automatico"
+
+
+def motores() -> dict:
+    from nucleo import voicestudio
+    return {"atual": motor_escolhido(), "opcoes": [
+        {"id": "automatico", "nome": "Automático", "configurado": True},
+        {"id": "elevenlabs", "nome": "ElevenLabs", "configurado": bool(contas())},
+        {"id": "voicestudio", "nome": "VoiceStudio", "configurado": voicestudio.disponivel()},
+    ]}
 
 
 def ultimo_erro() -> Optional[str]:
@@ -148,6 +173,9 @@ def _assinatura_voz(tom: Optional[str] = None) -> str:
 def perfil_ativo(tom: Optional[str] = None) -> dict:
     """Voz realmente usada, inclusive reserva automática; configuração nova invalida a anterior."""
     from database import ler_config
+    if motor_escolhido() == "voicestudio":
+        from nucleo import voicestudio
+        return voicestudio.perfil()
     assinatura = _assinatura_voz(tom)
     chave_perfil = CHAVE_VOZ_ATIVA + ("_" + tom if tom else "")
     try:
@@ -281,10 +309,10 @@ def creditos() -> list:
     return saida
 
 
-def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
+def _sintetizar_elevenlabs(texto: str, canal: str, id_voz: Optional[str] = None,
                tom: Optional[str] = None, guardar: bool = False) -> Optional[dict]:
     """{base64, mime} pronto para a entrega, ou None (sem chave, sem crédito, fora do ar)."""
-    if not disponivel() or not texto:
+    if not contas() or not texto:
         return None
     tom = tom_valido(tom)
     # Ecos são frases reutilizáveis: a primeira síntese fica no volume
@@ -367,6 +395,26 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
             break                                      # 401/429/402 no Flash: tenta a outra chave
     log.warning("Fala falhou: %s", _estado["ultimo_erro"])
     return None
+
+
+def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
+               tom: Optional[str] = None, guardar: bool = False) -> Optional[dict]:
+    """Escolha manual exclusiva; no automático, ElevenLabs e depois VoiceStudio."""
+    if not texto:
+        return None
+    motor = motor_escolhido()
+    if motor != "voicestudio":
+        audio = _sintetizar_elevenlabs(texto, canal, id_voz=id_voz, tom=tom, guardar=guardar)
+        if audio or motor == "elevenlabs":
+            return audio
+    from nucleo import voicestudio
+    tom = tom_valido(tom)
+    audio = voicestudio.sintetizar(texto, canal, tom=tom, guardar=guardar or bool(tom))
+    if audio:
+        _estado["ultimo_erro"] = None
+    elif motor == "voicestudio":
+        _estado["ultimo_erro"] = "VoiceStudio indisponível ou não configurado. Confira a conexão e o perfil de voz."
+    return audio
 
 
 # ── Decidir e anexar ─────────────────────────────────────────────

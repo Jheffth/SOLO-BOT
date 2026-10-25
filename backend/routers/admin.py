@@ -114,8 +114,13 @@ def conectar_whatsapp(_: Conta = Depends(conta_admin)):
 def painel_voz(_: Conta = Depends(conta_admin)):
     from database import ler_config
     from nucleo import fala
+    motores = fala.motores()
+    if motores["atual"] == "voicestudio":
+        from nucleo import voicestudio
+        return {"disponivel": fala.disponivel(), "motor": motores,
+                "perfil_voicestudio": voicestudio.perfil(), "ultimo_erro": fala.ultimo_erro()}
     if not fala.disponivel():
-        return {"disponivel": False}
+        return {"disponivel": False, "motor": motores}
     vozes = fala.listar_vozes()
     atual = fala.voz()
     nome = next((v["nome"] for v in vozes if v["voice_id"] == atual), None)
@@ -123,6 +128,7 @@ def painel_voz(_: Conta = Depends(conta_admin)):
     sis = fala.voz_do_sistema()
     return {
         "disponivel": True,
+        "motor": motores,
         "conta": {"atual": fala.conta_escolhida(),
                   "opcoes": [{"id": c["id"], "nome": c["nome"]} for c in fala.contas()]},
         "creditos": fala.creditos(),
@@ -145,6 +151,7 @@ def painel_grok(_: Conta = Depends(conta_admin), atualizar: bool = False):
 
 
 class AjusteVoz(BaseModel):
+    motor: Optional[str] = None
     conta: Optional[str] = None
     voice_id: Optional[str] = None
     modelo: Optional[str] = None
@@ -155,6 +162,17 @@ class AjusteVoz(BaseModel):
 def ajustar_voz(dados: AjusteVoz, _: Conta = Depends(conta_admin), db: Session = Depends(get_db)):
     from database import gravar_config
     from nucleo import fala
+    if dados.motor is not None:
+        if dados.motor not in fala.MOTORES:
+            raise HTTPException(422, "Motor de voz desconhecido.")
+        if any(x is not None for x in (dados.conta, dados.voice_id, dados.modelo, dados.voice_id_sistema)):
+            raise HTTPException(422, "Troque o motor separadamente dos ajustes da ElevenLabs.")
+        opcao = next(m for m in fala.motores()["opcoes"] if m["id"] == dados.motor)
+        if not opcao["configurado"]:
+            raise HTTPException(409, "Configure esse motor no servidor antes de selecioná-lo.")
+        gravar_config(db, fala.CHAVE_MOTOR, dados.motor)
+        fala._estado["ultimo_erro"] = None
+        return {"ok": True, "motor": fala.motor_escolhido()}
     if dados.conta is not None:
         if dados.conta not in {"automatica"} | {c["id"] for c in fala.contas()}:
             raise HTTPException(422, "Conta de voz não configurada.")
@@ -207,5 +225,5 @@ def amostra_voz(dados: Amostra, _: Conta = Depends(conta_admin)):
     r = (fala.sintetizar(dados.texto, "whatsapp", dados.voice_id, tom=dados.tom) if fala.tom_valido(dados.tom)
          else fala.sintetizar(dados.texto, "whatsapp", dados.voice_id))
     if not r:
-        raise HTTPException(502, fala.ultimo_erro() or "A ElevenLabs não gerou a amostra.")
+        raise HTTPException(502, fala.ultimo_erro() or "O motor de voz não gerou a amostra.")
     return Response(base64.b64decode(r["base64"]), media_type="audio/mpeg")
