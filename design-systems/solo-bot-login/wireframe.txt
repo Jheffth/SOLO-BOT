@@ -1,0 +1,61 @@
++------------------------------------------------------------------------------------+
+| header                                                                             |
+| [img: solo-logo] [t1: Solo Bot]                         [btn: Alternar tema]         |
++------------------------------------------------------------------------------------+
+| main                                                                               |
+| +------------------------------------------+ +-----------------------------------+ |
+| | hero                                     | | access                            | |
+| | [t3: Um bot · todos os sistemas]          | | [h2: Bem-vindo de volta]          | |
+| | [h1: Sua vida Solo em uma conversa só.]   | | [t2: Entre na sua Conta Solo.]    | |
+| | [t2: Lance gastos, conclua missões e      | | +-------------------------------+ | |
+| | receba avisos do Finances e do Rotinas   | | | tabs                          | | |
+| | pelo Telegram ou pelo WhatsApp, com     | | | [btn-active: Entrar]          | | |
+| | uma única conta.]                       | | | [btn: Criar conta]            | | |
+| |                                          | | +-------------------------------+ | |
+| | +--------------------------------------+ | | +-------------------------------+ | |
+| | | integrations                         | | | | login-form                    | | |
+| | | [t2: Solo Finances] [t2: Solo Rotinas] | | | | [input: Usuário ou e-mail]     | | |
+| | | [ico: telegram] [t2: Telegram]        | | | | [input: Senha]                | | |
+| | | [ico: whatsapp] [t2: WhatsApp]        | | | | [btn: Mostrar senha]          | | |
+| | +--------------------------------------+ | | | [t2: mensagem de erro]        | | |
+| |                                          | | | [btn: Entrar] [ico: arrow]     | | |
+| | +--------------------------------------+ | | +-------------------------------+ | |
+| | | chat                                 | | | [ico: shield]                     | |
+| | | [img: solo-logo] [t1: Solo Bot]       | | | [t3: Sua senha dos sistemas       | |
+| | | [t3: online]                         | | | nunca passa por aqui.]            | |
+| | | +----------------------------------+ | | +-----------------------------------+ |
+| | | | message-user                     | | |                                       |
+| | | | [t2: /fin gastei 42 no mercado]   | | |                                       |
+| | | +----------------------------------+ | |                                       |
+| | | +----------------------------------+ | |                                       |
+| | | | message-bot                      | | |                                       |
+| | | | [t3: Finances]                   | | |                                       |
+| | | | [t2: Despesa de R$ 42,00 — Mercado]| |                                       |
+| | | | [t3: Saldo Nubank: R$ 1.318,40]   | | |                                       |
+| | | +----------------------------------+ | |                                       |
+| | | [t2: /rot hoje]                      | | |                                       |
+| | | [t3: Rotinas]                        | | |                                       |
+| | | [t2: 3 missões hoje · 1 concluída]   | | |                                       |
+| | | [t2: Treino] [t2: Leitura]           | | |                                       |
+| | | [t2: Missão concluída! +40 XP]       | | |                                       |
+| | | [t3: corrente de 12 dias]            | | |                                       |
+| | +--------------------------------------+ | |                                       |
+| +------------------------------------------+ |                                       |
++------------------------------------------------------------------------------------+
+| footer                                                                             |
+| [t3: Solo Bot]                                              [t3: Brasília · 2026]  |
++------------------------------------------------------------------------------------+
+
++------------------------------------------------------------------------------------+
+| registration-state                                                                 |
+| [h2: Crie sua Conta Solo] [t2: Uma conta para todos os seus sistemas.]              |
+| [btn: Entrar] [btn-active: Criar conta]                                             |
+| [input: Nome] [input: Usuário] [input: E-mail (opcional)] [input: Senha]             |
+| [btn: Mostrar senha] [t3: força da senha] [t2: mensagem de erro]                     |
+| [btn: Criar conta]                                                                 |
++------------------------------------------------------------------------------------+
+
++------------------------------------------------------------------------------------+
+| connection-context                                                                 |
+| [ico: link] [t2: Entre ou crie sua Conta Solo para concluir a conexão.]             |
++------------------------------------------------------------------------------------+
