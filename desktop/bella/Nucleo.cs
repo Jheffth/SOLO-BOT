@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
@@ -28,12 +29,14 @@ namespace Bella {
         GreetingLibrary greetings;
         string greetingConnection;
         bool listening, starting, busy, quitting;
+        CancellationTokenSource voiceWait;
         readonly Stopwatch relogioNivel=Stopwatch.StartNew();
         long ultimoNivel;
 
         public Settings Config { get; private set; }
         public bool Escutando { get { return listening; } }
         public bool Ocupada { get { return busy; } }
+        public bool EsperandoVoz { get; private set; }
         public Capture.Mode Modo { get { return capture==null ? (listening?Capture.Mode.Listening:Capture.Mode.Paused) : capture.State; } }
 
         /// <summary>Mudou o que a Bella está fazendo (modo, escuta, ocupada).</summary>
@@ -205,7 +208,7 @@ namespace Bella {
         }
 
         public void Pause() {
-            listening=false; player.Stop(); if(capture!=null) capture.Pause();
+            listening=false; PararVoz(); if(capture!=null) capture.Pause();
             if(mic!=null) { try { mic.Dispose(); mic=null; } catch(Exception e) { Note(e.Message,true); } }
             Mudou();
         }
@@ -220,7 +223,7 @@ namespace Bella {
             if(listening) capture.Begin();
         }
 
-        public void PararVoz() { player.Stop(); }
+        public void PararVoz() { if(voiceWait!=null) voiceWait.Cancel(); player.Stop(); }
 
         void AbrirMicrofone() {
             var origem=capture;
@@ -263,14 +266,15 @@ namespace Bella {
         }
         async Task Greet() {
             if(busy || !listening || capture.State!=Capture.Mode.Greeting) return;
-            busy=true; Mudou();
+            busy=true; voiceWait=new CancellationTokenSource(); var voiceToken=voiceWait.Token; Mudou();
             var tempo=Stopwatch.StartNew();
             try {
                 if(Config.FastWake) return;
                 try {
                     var value=Config; var library=GreetingsFor(value);
-                    using(var client=new Client(value.Server,value.Key)) {
+                    using(var client=new Client(value.Server,value.Key,voiceToken:voiceToken)) {
                         var reply=await library.Next(client);
+                        voiceToken.ThrowIfCancellationRequested();
                         if(!listening || quitting || capture.State!=Capture.Mode.Greeting) return;
                         Falou("bella",reply.texto,"voz",null);
                         await player.Say(reply);
@@ -280,13 +284,14 @@ namespace Bella {
                 catch(UnauthorizedAccessException e) { Pause(); if(!quitting) Note(e.Message,true); }
                 catch(OperationCanceledException) { }
                 catch(Exception e) {
-                    if(listening && !quitting) { Note("Voz ElevenLabs indisponível: "+e.Message+" Pode falar seu pedido.",true); }
+                    if(listening && !quitting) { Note("Voz configurada indisponível: "+e.Message+" Pode falar seu pedido.",true); }
                 }
                 await Task.Delay(180);
             } finally {
                 // O detector ignora a saudação inteira; só depois captura o pedido.
                 TempoChamada=tempo.ElapsedMilliseconds;
-                busy=false;
+                voiceWait.Dispose(); voiceWait=null;
+                EsperandoVoz=false; busy=false;
                 if(!quitting && listening) capture.RecordAfterGreeting();
                 Mudou();
             }
@@ -299,6 +304,7 @@ namespace Bella {
         }
         async Task Send(string text,byte[] audio,string exibir=null) {
             if(busy) return; busy=true; player.Stop();
+            voiceWait=new CancellationTokenSource(); var voiceToken=voiceWait.Token;
             if(capture!=null) capture.Processing();
             if(text!=null) {
                 if(text.StartsWith("/arquivos escolher ") || text.StartsWith("/solo-escolher ")) exibir=exibir ?? "Escolher opção";
@@ -307,12 +313,15 @@ namespace Bella {
             Mudou();
             try {
                 var value=Config;
-                var reply=await pedidos.Enviar(text,audio,arquivos,()=>new Client(value.Server,value.Key),
+                var reply=await pedidos.Enviar(text,audio,arquivos,()=>new Client(value.Server,value.Key,voiceToken:voiceToken),
                     t=>Falou("eu",t ?? "pedido por voz","voz",null),()=>!quitting,
                     r=> { if(!quitting) {
                         if(!String.IsNullOrEmpty(r.imagem_base64) && ImagemRecebida!=null) ImagemRecebida(r);
                         Falou("bella",r.texto,audio!=null?"voz":"texto",r.opcoes);
+                        EsperandoVoz=true; Mudou();
                     } },programas,value.ModoSafada);
+                voiceToken.ThrowIfCancellationRequested();
+                EsperandoVoz=false;
                 if(!quitting) {
                     if(capture!=null) capture.Speaking();
                     Mudou();
@@ -322,7 +331,8 @@ namespace Bella {
             catch(UnauthorizedAccessException e) { if(!quitting) Note(e.Message,true); }
             catch(Exception e) { if(!quitting) Note(e.Message,true); }
             finally {
-                busy=false;
+                voiceWait.Dispose(); voiceWait=null;
+                EsperandoVoz=false; busy=false;
                 if(!quitting && BuscaMudou!=null) BuscaMudou(null);
                 if(!quitting && capture!=null) { if(listening) capture.Listen(); else capture.Pause(); }
                 if(!quitting) Mudou();
@@ -331,7 +341,7 @@ namespace Bella {
 
         public void Encerrar() { quitting=true; indicePastas.Dispose(); arquivos.Cancelar(); pedidos.Cancelar(); Pause(); }
         public void Dispose() {
-            quitting=true;
+            quitting=true; PararVoz();
             if(mic!=null) { try { mic.Dispose(); } catch { } mic=null; }
             if(wake!=null) { wake.Dispose(); wake=null; }
             indicePastas.Dispose();

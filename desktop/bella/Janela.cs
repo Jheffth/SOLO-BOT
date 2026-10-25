@@ -280,7 +280,7 @@ namespace Bella {
         void AoMudar() {
             var modo=bella.Modo;
             if(!bella.Escutando && modo==Modo.Listening) modo=Modo.Paused;
-            var m=new { tipo="estado", modo=NomeDoModo(modo), escutando=bella.Escutando, ocupada=bella.Ocupada,
+            var m=new { tipo="estado", modo=NomeDoModo(modo), escutando=bella.Escutando, ocupada=bella.Ocupada, esperandoVoz=bella.EsperandoVoz,
                         segurando=esperaTecla.Contando, restante=esperaTecla.Restantes, tempos=bella.Tempos, tempoChamada=bella.TempoChamada };
             tela.Postar(m); if(mini!=null) mini.Postar(m);
             tray.Icon=Visual.Icone(modo,SystemInformation.SmallIconSize.Width*2);

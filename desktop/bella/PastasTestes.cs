@@ -119,7 +119,7 @@ namespace Bella {
                     bool semFallback=false;
                     using(var player=new Playback()) {
                         try { player.Say(new Reply {ExigirVozConfigurada=true,falar="Não usar voz do Windows"}).GetAwaiter().GetResult(); }
-                        catch(InvalidOperationException e) {semFallback=e.Message.Contains("ElevenLabs");}
+                        catch(InvalidOperationException e) {semFallback=e.Message.Contains("voz configurada");}
                     }
                     Check(semFallback,"falha do áudio configurado não troca silenciosamente para voz do Windows");
                     var repeticoes=Stopwatch.StartNew();

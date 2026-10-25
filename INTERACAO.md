@@ -359,8 +359,8 @@ O cliente novo pede `voz_separada: true` em `/api/bella/mensagem` e recebe um `v
 `/api/bella/voz-resposta` prepara somente a fala daquela resposta, sem executar o comando
 novamente. O identificador vale três minutos, uma vez, vinculado à conta e à chave atual;
 o servidor mantém no máximo 256 respostas em memória. Reinício ou falha da voz preserva
-o resultado na tela, sem voz de reserva do Windows. O cliente limita essa espera a 12 segundos (8 nas respostas
-locais). Clientes anteriores continuam recebendo texto e áudio juntos.
+o resultado na tela, sem voz de reserva do Windows. O cliente limita a espera pela geração de voz a 145 segundos, com cancelamento pelo
+botão Interromper voz; respostas prontas retornam imediatamente. Clientes anteriores continuam recebendo texto e áudio juntos.
 
 Identificação de pessoa pela voz, memória geral de conversa e controle geral dos aplicativos
 do Windows ainda não fazem parte dela. A precisão da chamada deve ser ajustada ao microfone e ruído.

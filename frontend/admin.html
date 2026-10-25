@@ -10,8 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/solo.css">
 <link rel="stylesheet" href="/static/painel.css">
+<link rel="stylesheet" href="/static/admin.css">
 </head>
-<body>
+<body class="admin-page">
 <header class="topo">
   <div class="dentro">
     <a class="marca" href="/painel"><span class="logo"></span><b>Solo</b><span>Bot</span></a>
@@ -24,14 +25,19 @@
   </div>
 </header>
 
-<main class="painel">
+<main class="painel" id="visao-geral">
   <section class="saudacao entrar-animado">
-    <div><span class="eyebrow">Administração</span><h1>Sala de <span class="grad">máquinas</span></h1>
-      <p class="muted">Canais, sistemas e a saúde do bot.</p></div>
+    <div><span class="eyebrow">Seu espaço de controle</span><h1>Configurações <span class="grad">do Solo</span></h1>
+      <p class="muted">Voz, conexões e sistemas. Tudo no seu ritmo.</p></div>
     <button class="btn pequeno" id="atualizar"><span data-i="activity"></span>Atualizar</button>
   </section>
 
+  <nav class="admin-nav" aria-label="Seções das configurações">
+    <a href="#visao-geral">Visão geral</a><a href="#canais-admin">Conexões</a>
+    <a href="#voz-admin">Voz da Bella</a><a href="#grok-admin">Grok</a><a href="#sistemas-admin">Sistemas</a>
+  </nav>
   <div class="numeros" id="numeros"></div>
+  <div class="admin-section-heading" id="canais-admin"><div><span class="eyebrow">Sempre por perto</span><h2>Suas conexões</h2></div><p class="muted pequeno">Os canais por onde a conversa acontece.</p></div>
 
   <div class="cartoes dois" style="margin-bottom:28px">
     <article class="cartao vidro canal" style="--c:#229ed9" id="tg"></article>
@@ -41,7 +47,7 @@
   <section class="cartao vidro entrar-animado voz-admin" id="voz-admin" style="margin-bottom:28px">
     <div class="linha entre" style="flex-wrap:wrap;gap:10px">
       <div><h2>Voz do bot</h2><p class="muted pequeno" style="margin:4px 0 0">ElevenLabs · vale para todos os sistemas.</p></div>
-      <button class="btn pequeno" id="voz-recarregar"><span data-i="activity"></span>Atualizar saldo</button>
+      <button class="btn pequeno" id="voz-recarregar"><span data-i="activity"></span>Atualizar voz</button>
     </div>
     <div id="voz-corpo"><div class="esqueleto" style="height:160px;margin-top:16px"></div></div>
   </section>
@@ -54,8 +60,8 @@
     <div id="grok-corpo"><div class="esqueleto" style="height:90px;margin-top:16px"></div></div>
   </section>
 
-  <section class="cartao vidro entrar-animado">
-    <div class="linha entre"><h2>Sistemas registrados</h2><span class="linha" style="gap:.5rem"><span id="voz"></span><button class="btn pequeno" id="sincronizar"><span data-i="activity"></span>Buscar manifestos</button></span></div>
+  <section class="cartao vidro entrar-animado" id="sistemas-admin">
+    <div class="linha entre"><h2>Sistemas conectados</h2><span class="linha" style="gap:.5rem"><span id="voz"></span><button class="btn pequeno" id="sincronizar"><span data-i="activity"></span>Buscar manifestos</button></span></div>
     <div style="overflow-x:auto"><table class="tabela" id="sistemas"></table></div>
   </section>
 </main>
@@ -155,31 +161,61 @@
     let v;
     try { v = await api("/api/admin/voz"); } catch (e) { alvo.innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
     const motor = v.motor || { atual: "automatico", opcoes: [] };
-    const seletor = `<h3 style="margin:22px 0 10px">Motor de voz</h3>
-      <div class="linha" style="flex-wrap:wrap">
-        <label for="voz-motor">Usar motor</label>
-        <select id="voz-motor">${motor.opcoes.map(m => `<option value="${esc(m.id)}" ${m.id === motor.atual ? "selected" : ""} ${!m.configurado ? "disabled" : ""}>${esc(m.nome)}${!m.configurado ? " (não configurado)" : ""}</option>`).join("")}</select>
-        <button class="btn pequeno primario" id="voz-motor-salvar">Aplicar motor</button>
-      </div>
-      <p class="muted pequeno">Automático usa ElevenLabs primeiro e VoiceStudio como reserva. A escolha manual usa somente o motor selecionado, inclusive nas saudações da Bella.</p>`;
+    const detalhesMotor = {
+      automatico: { icon: "activity", titulo: "Automático", selo: "RECOMENDADO", descricao: "ElevenLabs primeiro. VoiceStudio assume se precisar." },
+      elevenlabs: { icon: "play", titulo: "ElevenLabs", selo: "NA NUVEM", descricao: "Sua voz com a rapidez e a qualidade da ElevenLabs." },
+      voicestudio: { icon: "chat", titulo: "VoiceStudio", selo: "NO SEU PC", descricao: "Seu clone de voz, gerado no seu computador." }
+    };
+    const atual = detalhesMotor[motor.atual]?.titulo || "Automático";
+    const seletor = `<div class="motor-section">
+      <div class="motor-heading"><div><h3>Como você quer ouvir a Bella?</h3><p class="muted pequeno">Escolha o motor que combina com seu momento.</p></div><span class="chip motor-atual">Em uso: ${esc(atual)}</span></div>
+      <fieldset class="motor-options" id="motor-options"><legend class="sr-only">Motor de voz</legend>
+        ${motor.opcoes.map(m => {
+          const d = detalhesMotor[m.id] || {icon:"activity",titulo:m.nome,selo:"",descricao:""};
+          return `<label class="motor-card ${!m.configurado ? "indisponivel" : ""}">
+            <input type="radio" name="voz-motor" value="${esc(m.id)}" ${m.id === motor.atual ? "checked" : ""} ${!m.configurado ? "disabled" : ""}>
+            <span class="motor-card-top"><span class="motor-icon">${icon(d.icon)}</span><span class="motor-check" aria-hidden="true"></span></span>
+            <span class="motor-eyebrow">${esc(d.selo)}</span><strong>${esc(d.titulo)}</strong>
+            <span class="motor-description">${esc(d.descricao)}</span>
+            ${!m.configurado ? '<span class="motor-unavailable">Configuração pendente</span>' : ""}
+          </label>`;
+        }).join("")}
+      </fieldset>
+      <div class="motor-footer"><p id="motor-status" class="muted pequeno" role="status">A escolha vale para todos os canais e saudações.</p><button class="btn pequeno primario" id="voz-motor-salvar" type="button" disabled>Aplicar motor</button></div>
+    </div>`;
     const ligarMotor = () => {
-      document.getElementById("voz-motor-salvar").onclick = async function () {
+      const botao = document.getElementById("voz-motor-salvar");
+      alvo.querySelectorAll('input[name="voz-motor"]').forEach(input => input.onchange = () => {
+        botao.disabled = input.value === motor.atual;
+        document.getElementById("motor-status").textContent = input.value === motor.atual
+          ? "A escolha vale para todos os canais e saudações."
+          : "Clique em Aplicar motor para confirmar sua escolha.";
+      });
+      botao.onclick = async function () {
+        const escolhido = alvo.querySelector('input[name="voz-motor"]:checked');
+        if (!escolhido || escolhido.value === motor.atual) return;
+        const opcoes = document.getElementById("motor-options");
+        opcoes.disabled = true;
         carregando(this, true);
         try {
-          await api("/api/admin/voz", { method: "PUT", body: { motor: document.getElementById("voz-motor").value } });
+          await api("/api/admin/voz", { method: "PUT", body: { motor: escolhido.value } });
           if (tocando) { tocando.pause(); tocando = null; }
           toast("Motor de voz atualizado.");
           await carregarVoz();
-        } catch (e) { carregando(this, false); toast(e.message, "erro"); }
+        } catch (e) { opcoes.disabled = false; carregando(this, false); toast(e.message, "erro"); }
       };
     };
     if (!v.disponivel || motor.atual === "voicestudio") {
       alvo.innerHTML = seletor + (!v.disponivel
-        ? '<p class="muted">Configure o motor no servidor para ativar a voz.</p>'
-        : `<p class="muted">VoiceStudio selecionado. A voz clonada configurada no servidor será usada em português, com velocidade natural.</p>
-           <div class="linha" style="flex-wrap:wrap"><input id="voz-frase" maxlength="200" aria-label="Frase de teste" value="Olá! Estou aqui. Pode falar comigo."><button class="btn pequeno primario" id="voz-testar">Ouvir</button></div>
-           <small class="faint">O VoiceStudio precisa estar aberto e acessível pelo servidor.</small>
-           ${v.ultimo_erro ? `<p class="erro-form">${esc(v.ultimo_erro)}</p>` : ""}`);
+        ? '<div class="voice-notice"><b>Vamos conectar sua voz?</b><p>Configure o motor no servidor para começar a ouvir a Bella.</p></div>'
+        : `<div class="voice-preview"><div class="voice-preview-icon">${icon("play")}</div>
+            <div class="voice-preview-content"><div class="voice-preview-heading"><h3>Uma prévia da sua voz</h3><span class="chip">Português · ritmo natural</span></div>
+              <p class="muted pequeno">O clone da Bella já está selecionado no VoiceStudio.</p>
+              <label class="sr-only" for="voz-frase">Frase para testar a voz</label>
+              <div class="voice-preview-form"><input id="voz-frase" maxlength="200" value="Olá! Estou aqui. Pode falar comigo."><button class="btn primario" id="voz-testar" type="button">${icon("play")}Ouvir amostra</button></div>
+              <small class="faint">Mantenha o VoiceStudio aberto e o computador conectado.</small>
+            </div></div>
+           ${v.ultimo_erro ? `<p class="erro-form" role="alert">${esc(v.ultimo_erro)}</p>` : ""}`);
       ligarMotor();
       const testar = document.getElementById("voz-testar");
       if (testar) testar.onclick = async function () {
@@ -237,7 +273,7 @@
       <h3 style="margin:22px 0 10px">Conta ElevenLabs</h3>
       <div class="linha" style="flex-wrap:wrap">
         <label for="voz-conta">Usar conta</label>
-        <select id="voz-conta">${contas.map(c => `<option value="${esc(c.id)}" ${c.id === conta.atual ? "selected" : ""}>${esc(c.nome)}</option>`).join("")}</select>
+        <select id="voz-conta" aria-label="Conta ElevenLabs">${contas.map(c => `<option value="${esc(c.id)}" ${c.id === conta.atual ? "selected" : ""}>${esc(c.nome)}</option>`).join("")}</select>
         <button class="btn pequeno primario" id="voz-conta-salvar">Aplicar conta</button>
       </div>
       <p class="muted pequeno">Automática tenta a principal, a secundária e as demais, nessa ordem, quando faltam créditos ou ocorre uma falha. Ao escolher uma conta, somente ela será usada na ElevenLabs. No motor Automático, o VoiceStudio continua como reserva.</p>
@@ -250,7 +286,7 @@
           <div class="modelos">${modelos}</div>
           <h3 style="margin:22px 0 10px">Testar a frase</h3>
           <div class="linha" style="flex-wrap:wrap">
-            <div class="entrada" style="flex:1;min-width:200px"><span>${icon("chat")}</span><input id="voz-frase" maxlength="200" value="Lancei quarenta e cinco reais no mercado. Faltam duas missões hoje."></div>
+            <div class="entrada" style="flex:1;min-width:200px"><span>${icon("chat")}</span><input id="voz-frase" aria-label="Frase para testar a voz" maxlength="200" value="Lancei quarenta e cinco reais no mercado. Faltam duas missões hoje."></div>
             <button class="btn pequeno primario" id="voz-testar">Ouvir</button>
           </div>
           <small class="faint">Gasta créditos: é a frase de verdade, na voz e no modelo escolhidos.</small>
@@ -259,7 +295,7 @@
             <h3 style="margin:0 0 4px">👁 Voz do Sistema <span class="muted pequeno" style="font-weight:500">· ${esc(sis.origem === "tela" ? (sis.nome || sis.id) : "a mesma do bot")}</span></h3>
             <p class="muted pequeno" style="margin:0 0 10px">Os sussurros (os Ecos do Rotinas) saem nesta voz, baixos e instáveis${v.modelo.opcoes.find(m => m.id === v.modelo.atual)?.expressivo ? ", sussurrados de verdade pelo modelo expressivo" : ". No modelo Expressivo, ela sussurra de verdade"}. Escolha com o 👁 na lista.</p>
             <div class="linha" style="flex-wrap:wrap">
-              <div class="entrada" style="flex:1;min-width:200px"><span>${icon("chat")}</span><input id="sussurro-frase" maxlength="200" value="Fio dental. O Sistema anotou."></div>
+              <div class="entrada" style="flex:1;min-width:200px"><span>${icon("chat")}</span><input id="sussurro-frase" aria-label="Frase para testar o sussurro" maxlength="200" value="Fio dental. O Sistema anotou."></div>
               <button class="btn pequeno" id="sussurro-testar">Ouvir o sussurro</button>
               ${sis.origem === "tela" ? '<button class="btn pequeno fantasma" id="sussurro-limpar" title="Volta a usar a voz do bot">Usar a do bot</button>' : ""}
             </div>

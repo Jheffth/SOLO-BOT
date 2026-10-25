@@ -107,7 +107,7 @@ namespace Bella {
             using(var player=new Playback()) {
                 bool erro=false;
                 try {player.Say(new Reply {falar="Resposta comum sem áudio"}).GetAwaiter().GetResult();}
-                catch(InvalidOperationException e) {erro=e.Message.Contains("ElevenLabs");}
+                catch(InvalidOperationException e) {erro=e.Message.Contains("voz configurada");}
                 Check(erro,"respostas comuns também não usam voz Windows");
             }
         }

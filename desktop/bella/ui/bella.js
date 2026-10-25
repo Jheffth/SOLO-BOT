@@ -243,7 +243,8 @@
     chip.classList.toggle("ativa", !!estado.escutando);
     $("chip-texto").textContent = estado.escutando ? (config.apertarParaFalar ? "Apertar para falar" : "Esperando chamada") : "Escuta pausada";
     chip.title = estado.escutando ? "Pausar a escuta e liberar o microfone" : "Ligar a escuta";
-    $("btn-parar").hidden = !(modo === "falando" || modo === "saudando");
+    $("btn-parar").hidden = !(estado.esperandoVoz || modo === "falando" || modo === "saudando");
+    $("btn-parar").title = estado.esperandoVoz ? "Cancelar espera pela voz" : "Interromper voz";
     $("btn-falar").disabled = !!estado.ocupada && modo !== "ouvindo";
     $("btn-falar").classList.toggle("gravando", modo === "ouvindo");
     $("btn-falar").title = config.apertarParaFalar ? "Segure " + (config.nomeTeclaFalar || "F8") + " por " + (config.esperaFalar || 5) + " s" : "Falar agora (Ctrl + Alt + B)";

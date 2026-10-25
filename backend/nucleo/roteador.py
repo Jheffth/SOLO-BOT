@@ -508,6 +508,14 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
             return _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod)
 
     # 5. hub com texto livre
+    it = intencao.interpretar(db, txt, ligados) if ligados else intencao.Intencao()
+
+    # Papo livre: se não é de nenhum sistema, quem responde é a Bella.
+    if (not it.app or it.confianca < intencao.CONFIANCA_MINIMA) and not txt.startswith("/") and not (ligados and any(c.isdigit() for c in txt)):
+        papo = _bella_responder(db, conta, canal, txt, so_se_responder=True)
+        if papo:
+            return papo
+
     if not ligados:
         return menu(db, conta)
     if len(ligados) == 1:
@@ -515,7 +523,6 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, ligados[0])
 
     # Entender pelo que foi dito, antes de perguntar.
-    it = intencao.interpretar(db, txt, ligados)
     alvo = modulos.por_chave(it.app) if it.app else None
     if alvo and it.mensagem:
         _entrar_modo(db, s, alvo.chave)
@@ -542,11 +549,13 @@ def _bella_entrar(canal: str, conta: Conta, primeira: str) -> Resposta:
     return Resposta().diz("💋 Oi, sou a Bella. Pode falar. `/esquecer` apaga a conversa, `/sair` volta ao hub.")
 
 
-def _bella_responder(db, conta: Conta, canal: str, txt: str) -> Resposta:
+def _bella_responder(db, conta: Conta, canal: str, txt: str, so_se_responder: bool = False) -> Optional[Resposta]:
     from nucleo import bella_conversa
+    texto = bella_conversa.responder(txt, _chave_bella(canal, conta))
+    if not texto and so_se_responder:
+        return None                          # sem Grok: o hub segue como antes
     if db is not None:
         _registrar(db, conta, canal, None, "bella", "conversa")
-    texto = bella_conversa.responder(txt, _chave_bella(canal, conta))
     if not texto:
         return Resposta().diz("😶 Não consegui responder agora. Tente de novo em instantes.")
     return Resposta().diz(texto)

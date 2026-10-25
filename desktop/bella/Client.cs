@@ -81,8 +81,11 @@ namespace Bella {
     public sealed class Client : IDisposable {
         readonly HttpClient http;
         readonly string server,key;
-        public Client(string url,string credential,HttpMessageHandler handler=null) {
-            Settings.Validate(url,credential); server=url.TrimEnd('/'); key=credential;
+        readonly CancellationToken voiceCancellation;
+        // Limite de espera, não atraso: respostas prontas retornam imediatamente.
+        const int VoiceWaitSeconds=145;
+        public Client(string url,string credential,HttpMessageHandler handler=null,CancellationToken voiceToken=default(CancellationToken)) {
+            Settings.Validate(url,credential); server=url.TrimEnd('/'); key=credential; voiceCancellation=voiceToken;
             // Não encaminha a chave a outro domínio por redirecionamento.
             http=new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect=false });
             http.Timeout=TimeSpan.FromSeconds(150);
@@ -98,10 +101,10 @@ namespace Bella {
                 {"pedido_id",Guid.NewGuid().ToString()}, {"audio_base64",Convert.ToBase64String(wave)} },130);
         }
         public Task<Reply> LocalVoice(string code) {
-            return Request<Reply>(HttpMethod.Post,"/api/bella/voz-local",new Dictionary<string,object> { {"codigo",code} },8);
+            return Request<Reply>(HttpMethod.Post,"/api/bella/voz-local",new Dictionary<string,object> { {"codigo",code} },VoiceWaitSeconds,voiceCancellation);
         }
         public Task<Reply> ResponseVoice(string id) {
-            return Request<Reply>(HttpMethod.Post,"/api/bella/voz-resposta",new {voz_id=id},12);
+            return Request<Reply>(HttpMethod.Post,"/api/bella/voz-resposta",new {voz_id=id},VoiceWaitSeconds,voiceCancellation);
         }
         public Task<InterpretacaoComando> InterpretarComando(string text,ComandoPasta[] comandos) {
             var catalogo=new List<object>();
@@ -123,31 +126,39 @@ namespace Bella {
         }
         public Task<GreetingSet> Greetings() { return Request<GreetingSet>(HttpMethod.Get,"/api/bella/saudacoes",null,8); }
         public Task<GreetingReply> Greeting(int id) {
-            return Request<GreetingReply>(HttpMethod.Post,"/api/bella/saudacao",new Dictionary<string,object> { {"id",id} },100);
+            return Request<GreetingReply>(HttpMethod.Post,"/api/bella/saudacao",new Dictionary<string,object> { {"id",id} },VoiceWaitSeconds,voiceCancellation);
         }
-        async Task<T> Request<T>(HttpMethod method,string path,object body,int seconds) {
+        async Task<T> Request<T>(HttpMethod method,string path,object body,int seconds,CancellationToken cancellation=default(CancellationToken)) {
             var request=new HttpRequestMessage(method,server+path);
             request.Headers.Add("X-Bella-Chave",key);
             if(body!=null) request.Content=new StringContent(new JavaScriptSerializer().Serialize(body),Encoding.UTF8,"application/json");
             try {
-                using(var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(seconds)))
-                using(request) using(var response=await http.SendAsync(request,timeout.Token)) {
-                    var json=await response.Content.ReadAsStringAsync();
-                    var parser=new JavaScriptSerializer { MaxJsonLength=16*1024*1024 };
-                    if(!response.IsSuccessStatusCode) {
-                        string detail="O Solo Bot respondeu HTTP "+(int)response.StatusCode+".";
-                        try {
-                            var data=parser.Deserialize<Dictionary<string,object>>(json);
-                            object value; if(data.TryGetValue("detail",out value) && value is string) detail=(string)value;
-                        } catch { }
-                        if(path=="/api/bella/imagem" && (response.StatusCode==HttpStatusCode.NotFound || response.StatusCode==HttpStatusCode.MethodNotAllowed))
-                            throw new InvalidOperationException("O Solo Bot no servidor ainda não está atualizado para gerar imagens. Publique o backend de imagens e tente novamente; este pedido não chegou ao Grok.");
-                        if(response.StatusCode==HttpStatusCode.Unauthorized) throw new UnauthorizedAccessException(detail);
-                        throw new InvalidOperationException(detail);
+                using(var timeout=CancellationTokenSource.CreateLinkedTokenSource(cancellation))
+                using(request) {
+                    timeout.CancelAfter(TimeSpan.FromSeconds(seconds));
+                    cancellation.ThrowIfCancellationRequested();
+                    using(var response=await http.SendAsync(request,timeout.Token)) {
+                        var json=await response.Content.ReadAsStringAsync();
+                        var parser=new JavaScriptSerializer { MaxJsonLength=16*1024*1024 };
+                        if(!response.IsSuccessStatusCode) {
+                            string detail="O Solo Bot respondeu HTTP "+(int)response.StatusCode+".";
+                            try {
+                                var data=parser.Deserialize<Dictionary<string,object>>(json);
+                                object value; if(data.TryGetValue("detail",out value) && value is string) detail=(string)value;
+                            } catch { }
+                            if(path=="/api/bella/imagem" && (response.StatusCode==HttpStatusCode.NotFound || response.StatusCode==HttpStatusCode.MethodNotAllowed))
+                                throw new InvalidOperationException("O Solo Bot no servidor ainda não está atualizado para gerar imagens. Publique o backend de imagens e tente novamente; este pedido não chegou ao Grok.");
+                            if(response.StatusCode==HttpStatusCode.Unauthorized) throw new UnauthorizedAccessException(detail);
+                            throw new InvalidOperationException(detail);
+                        }
+                        cancellation.ThrowIfCancellationRequested();
+                        return parser.Deserialize<T>(json);
                     }
-                    return parser.Deserialize<T>(json);
                 }
-            } catch(TaskCanceledException) {
+            } catch(OperationCanceledException) {
+                cancellation.ThrowIfCancellationRequested();
+                if(path=="/api/bella/voz-local" || path=="/api/bella/voz-resposta" || path=="/api/bella/saudacao")
+                    throw new InvalidOperationException("O motor de voz demorou para gerar o áudio. A resposta continua na tela.");
                 throw new InvalidOperationException("A resposta demorou. Confira o resultado no sistema antes de repetir o pedido.");
             } catch(HttpRequestException) {
                 throw new InvalidOperationException("A conexão falhou. Confira no sistema se o pedido foi executado antes de repetir.");

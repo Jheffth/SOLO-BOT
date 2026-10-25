@@ -32,7 +32,7 @@ namespace Bella {
                     }
                 }
                 token.ThrowIfCancellationRequested();
-                throw new InvalidOperationException("Não foi possível reproduzir a voz configurada da ElevenLabs. Confira a conexão e a voz no painel; a resposta está na tela.");
+                throw new InvalidOperationException("Não foi possível reproduzir a voz configurada no Solo Bot. Confira a conexão e a voz no painel; a resposta está na tela.");
             } finally {
                 mciSendString("close BellaReply",null,0,IntPtr.Zero);
                 if(temporary && path!=null && File.Exists(path)) File.Delete(path);

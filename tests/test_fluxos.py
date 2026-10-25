@@ -297,3 +297,21 @@ def test_modo_bella_falha_do_grok_nao_quebra(logado, sistemas, caixa, monkeypatc
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: None)
     _tg(logado, "/bella oi")
     assert "Não consegui responder" in caixa[-1][2]
+
+
+def test_papo_livre_vai_para_a_bella_sem_comando(logado, sistemas, caixa, monkeypatch):
+    from nucleo import bella_conversa, grok, intencao
+    logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
+    logado.post("/api/conectar", json={"app": "rot", "codigo": "CODROT1"})
+    _ligar_telegram(logado)
+    bella_conversa._MEMORIA.clear()
+    monkeypatch.setattr(intencao, "_ia", lambda *a, **k: None)
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: f"bella:{texto}")
+    antes = len(sistemas.recebidos)
+    _tg(logado, "me conta uma fantasia sua")
+    assert "bella:me conta uma fantasia sua" in caixa[-1][2] and len(sistemas.recebidos) == antes
+    _tg(logado, "comprei pão 8")                 # com número e sem IA: continua perguntando o sistema
+    assert "Para qual sistema" in caixa[-1][2]
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: None)
+    _tg(logado, "outra conversa qualquer")        # sem Grok: o hub pergunta como antes
+    assert "Para qual sistema" in caixa[-1][2]

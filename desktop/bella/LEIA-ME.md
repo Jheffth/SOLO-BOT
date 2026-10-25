@@ -336,3 +336,13 @@ A rota autenticada POST /api/bella/imagem gera uma imagem por pedido, limita
 concorrência, bloqueia IDs repetidos e não tenta novamente após falha ou timeout.
 Cada geração utiliza o saldo da conta xAI. Não há geração automática ao abrir a aba.
 O backend precisa ser atualizado antes de usar a função no aplicativo.
+
+## Voz ElevenLabs e VoiceStudio
+
+A escolha é feita no painel do Solo Bot, em Administração > Voz do bot > Motor de voz.
+A Bella recebe o MP3 do motor selecionado. Texto e comandos locais continuam aparecendo
+antes da síntese; áudio pronto é reproduzido imediatamente. Somente o limite máximo de
+espera pela voz passa a 145 segundos para acomodar a geração local e a reserva.
+Interromper voz cancela também a espera pelo áudio, sem repetir o comando e sem tocar
+uma resposta atrasada. Pausar ou sair também cancela essa espera. Os prazos da
+transcrição, interpretação, conversa, imagens e consulta do catálogo permanecem iguais.
