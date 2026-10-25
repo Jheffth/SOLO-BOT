@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solo Bot — Entrar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=JetBrains+Mono:wght@500&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="ceu" aria-hidden="true"><i></i></div>
+
+<div class="palco">
+  <header class="nav">
+    <a class="marca" href="/">
+      <svg class="ico-logo" viewBox="0 0 40 40" aria-hidden="true">
+        <defs><linearGradient id="g-logo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset=".5" stop-color="#22d3ee"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs>
+        <g transform="rotate(-35 20 20)"><ellipse class="anel v" cx="20" cy="20" rx="14" ry="6" fill="none" stroke="#8b9cfb" stroke-width="2.4"/></g>
+        <g transform="rotate(35 20 20)"><ellipse class="anel e" cx="20" cy="20" rx="14" ry="6" fill="none" stroke="#5eb8f5" stroke-width="2.4"/></g>
+        <circle class="nucleo" cx="20" cy="20" r="4.6" fill="url(#g-logo)"/>
+      </svg>
+      <span class="t1"><b>Solo</b> Bot</span>
+    </a>
+    <button class="btn3" type="button" id="tema" aria-label="Alternar tema">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="cheio" d="m12 3.2 2.6 5.5 6 .7-4.4 4.1 1.2 5.9L12 16.5l-5.4 2.9 1.2-5.9-4.4-4.1 6-.7Z"/></svg>
+    </button>
+  </header>
+
+  <main class="corpo">
+    <section class="hero">
+      <span class="t3 eyebrow">Um bot · todos os sistemas</span>
+      <h1 class="h1">
+        <span>Sua vida Solo em</span>
+        <span class="grad">uma conversa</span>
+        <span class="grad grad-fim">só.</span>
+      </h1>
+      <p class="t2 lead">Lance gastos, conclua missões e receba avisos do Finances e do Rotinas pelo Telegram ou pelo WhatsApp, com uma única conta.</p>
+
+      <div class="media" aria-hidden="true">
+        <img class="media-arte" src="assets/orbita.webp" alt="" width="1620" height="694">
+        <span class="card2 selo-fin">
+          <svg viewBox="0 0 24 24"><circle class="moeda" cx="12" cy="12" r="9"/><path class="moeda-traco" d="M12 7v10M9.5 9.5h3.8a1.7 1.7 0 0 1 0 3.4h-2.6a1.7 1.7 0 0 0 0 3.4h3.8"/></svg>
+          <span class="t3">Solo Finances</span>
+        </span>
+        <span class="card2 selo-wa">
+          <svg viewBox="0 0 24 24"><path class="linha wa" d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3.1 3.1l-4.6 1.4Z"/><path class="linha wa" d="M9 8.6c0 3.3 3 6.4 6.4 6.4l1.2-1.5-2-1-1 .8a4.5 4.5 0 0 1-2.4-2.4l.8-1-1-2-1.5 1.1c-.3.2-.5.5-.5.6Z"/></svg>
+          <span class="t3">WhatsApp</span>
+        </span>
+        <span class="card2 selo-tg">
+          <svg viewBox="0 0 24 24"><path class="cheio tg" d="M21.4 3.6 2.9 10.8c-1 .4-1 1.7 0 2l4.5 1.5 1.8 5.4c.3.8 1.3 1 1.9.4l2.6-2.4 4.7 3.4c.7.5 1.7.1 1.9-.8l3-15.1c.2-1-.8-1.9-1.9-1.6Z"/></svg>
+          <span class="t3">Telegram</span>
+        </span>
+        <span class="card2 selo-rot">
+          <svg viewBox="0 0 24 24"><path class="linha" d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>
+          <span class="t3">Solo Rotinas</span>
+        </span>
+      </div>
+    </section>
+
+    <section class="form" id="acesso">
+      <h2 class="h2" id="titulo">Bem-vindo de volta</h2>
+      <p class="t2 sub" id="sub">Entre na sua Conta Solo.</p>
+
+      <div class="section abas" id="abas" role="tablist" aria-label="Acesso à Conta Solo" data-aba="entrar">
+        <button class="btn aba" id="aba-entrar" type="button" role="tab" aria-selected="true">Entrar</button>
+        <button class="lnk aba" id="aba-cadastro" type="button" role="tab" aria-selected="false">Criar conta</button>
+      </div>
+
+      <form id="form" novalidate>
+        <label class="t3 rotulo" for="login">Usuário ou e-mail</label>
+        <div class="card campo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle class="linha" cx="12" cy="8" r="4"/><path class="linha" d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <input class="in" id="login" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="seu usuário">
+        </div>
+
+        <label class="t3 rotulo" for="senha">Senha</label>
+        <div class="card campo foco">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect class="linha" x="4.5" y="10" width="15" height="11" rx="3"/><path class="linha" d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <input class="in" id="senha" type="password" autocomplete="current-password" placeholder="••••••••" value="senhademo">
+          <button class="olho" type="button" id="olho" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="linha" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle class="linha" cx="12" cy="12" r="3"/></svg></button>
+        </div>
+
+        <button class="btn2" id="enviar" type="submit">Entrar <svg viewBox="0 0 24 24" aria-hidden="true"><path class="linha" d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </form>
+
+      <p class="t3 aviso"><svg viewBox="0 0 24 24" aria-hidden="true"><circle class="linha" cx="12" cy="12" r="9"/><path class="linha" d="M12 8v5M12 16.5v.01"/></svg> Sua senha dos sistemas nunca passa por aqui.</p>
+    </section>
+  </main>
+
+  <footer class="section2">
+    <span class="t3">Solo Bot</span>
+    <span class="t3">Brasília · 2026</span>
+  </footer>
+</div>
+</body>
+</html>
