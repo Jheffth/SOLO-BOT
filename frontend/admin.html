@@ -46,6 +46,14 @@
     <div id="voz-corpo"><div class="esqueleto" style="height:160px;margin-top:16px"></div></div>
   </section>
 
+  <section class="cartao vidro entrar-animado" id="grok-admin" style="margin-bottom:28px">
+    <div class="linha entre" style="flex-wrap:wrap;gap:10px">
+      <div><h2>Saldo do Grok</h2><p class="muted pequeno" style="margin:4px 0 0">xAI · crédito pré-pago usado pela Bella.</p></div>
+      <button class="btn pequeno" id="grok-recarregar"><span data-i="activity"></span>Atualizar saldo</button>
+    </div>
+    <div id="grok-corpo"><div class="esqueleto" style="height:90px;margin-top:16px"></div></div>
+  </section>
+
   <section class="cartao vidro entrar-animado">
     <div class="linha entre"><h2>Sistemas registrados</h2><span class="linha" style="gap:.5rem"><span id="voz"></span><button class="btn pequeno" id="sincronizar"><span data-i="activity"></span>Buscar manifestos</button></span></div>
     <div style="overflow-x:auto"><table class="tabela" id="sistemas"></table></div>
@@ -274,6 +282,21 @@
   }
   document.getElementById("voz-recarregar").onclick = () => carregarVoz();
   carregarVoz();
+  async function carregarGrok(forcar) {
+    const alvo = document.getElementById("grok-corpo");
+    let g;
+    try { g = await api("/api/admin/grok" + (forcar ? "?atualizar=true" : "")); } catch (e) { alvo.innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
+    if (!g.disponivel) { alvo.innerHTML = '<p class="muted" style="margin-top:14px">Defina <code>XAI_MANAGEMENT_KEY</code> e <code>XAI_TEAM_ID</code> no .env do Solo Bot para ver o saldo (a chave de gerenciamento é criada em console.x.ai → Settings → Management Keys).</p>'; return; }
+    if (g.erro) { alvo.innerHTML = `<p class="muted" style="margin-top:14px">${esc(g.erro)}</p>`; return; }
+    const usd = Number(g.saldo_usd || 0);
+    const tom = usd < 2 ? "baixo" : usd < 10 ? "medio" : "ok";
+    alvo.innerHTML = `<div class="saldos"><div class="saldo vidro ${tom}">
+      <div class="saldo-topo"><b>Grok</b><span class="chip">pré-pago</span></div>
+      <div class="saldo-num"><b>US$ ${usd.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b><span>de crédito</span></div>
+    </div></div>`;
+  }
+  document.getElementById("grok-recarregar").onclick = () => carregarGrok(true);
+  carregarGrok(false);
 
   await carregar();
   setInterval(() => { if (!document.hidden) carregar().catch(() => {}); }, 8000);

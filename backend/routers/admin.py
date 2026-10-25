@@ -135,6 +135,15 @@ def painel_voz(_: Conta = Depends(conta_admin)):
     }
 
 
+@router.get("/grok")
+def painel_grok(_: Conta = Depends(conta_admin), atualizar: bool = False):
+    """Saldo pré-pago da xAI (Grok), pela API de gerenciamento."""
+    from nucleo import grok
+    if not grok.saldo_disponivel():
+        return {"disponivel": False}
+    return {"disponivel": True, **grok.saldo(forcar=atualizar)}
+
+
 class AjusteVoz(BaseModel):
     conta: Optional[str] = None
     voice_id: Optional[str] = None

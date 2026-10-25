@@ -247,3 +247,60 @@ def test_rota_apaga_memoria_da_conta(memoria, monkeypatch):
     bella_conversa._lembrar(conta.id, "a", "b")
     assert bella.esquecer_conversa("teste", None) == {"ok": True}
     assert bella_conversa._historico(conta.id) == []
+
+
+class _ClienteSaldo:
+    resposta = None
+    chamadas = []
+    def __init__(self, **kwargs): pass
+    def __enter__(self): return self
+    def __exit__(self, *args): pass
+    def get(self, url, **kwargs):
+        type(self).chamadas.append((url, kwargs.get("headers")))
+        return type(self).resposta
+
+
+def _saldo_cenario(monkeypatch, resposta):
+    _ClienteSaldo.resposta = resposta
+    _ClienteSaldo.chamadas = []
+    monkeypatch.setattr(config, "XAI_MANAGEMENT_KEY", "chave-gestao-falsa")
+    monkeypatch.setattr(config, "XAI_TEAM_ID", "time-1")
+    monkeypatch.setattr(grok, "_SALDO", {"quando": 0.0, "valor": None})
+    monkeypatch.setattr(grok.httpx, "Client", _ClienteSaldo)
+
+
+def test_saldo_grok_converte_centavos_e_usa_chave_de_gerenciamento(monkeypatch):
+    req = httpx.Request("GET", "https://x")
+    _saldo_cenario(monkeypatch, httpx.Response(200, request=req, json={"changes": [], "total": {"val": "-1050"}}))
+    assert grok.saldo() == {"saldo_usd": 10.5}
+    url, cab = _ClienteSaldo.chamadas[0]
+    assert url == "https://management-api.x.ai/v1/billing/teams/time-1/prepaid/balance"
+    assert cab == {"Authorization": "Bearer chave-gestao-falsa"}
+    grok.saldo()
+    assert len(_ClienteSaldo.chamadas) == 1          # cache de 60 s
+    grok.saldo(forcar=True)
+    assert len(_ClienteSaldo.chamadas) == 2
+
+
+@pytest.mark.parametrize("status,trecho", [(401, "recusou"), (403, "recusou"), (404, "time"), (500, "Não consegui")])
+def test_saldo_grok_erros_claros_sem_vazar_chave(monkeypatch, caplog, status, trecho):
+    _saldo_cenario(monkeypatch, httpx.Response(status, request=httpx.Request("GET", "https://x")))
+    r = grok.saldo()
+    assert trecho in r["erro"] and "chave-gestao-falsa" not in str(r) and "chave-gestao-falsa" not in caplog.text
+
+
+def test_saldo_grok_desligado_sem_chaves(monkeypatch):
+    monkeypatch.setattr(config, "XAI_MANAGEMENT_KEY", "")
+    monkeypatch.setattr(grok.httpx, "Client", lambda **k: pytest.fail("rede sem chave"))
+    assert grok.saldo_disponivel() is False and "erro" in grok.saldo()
+
+
+def test_rota_admin_grok(monkeypatch):
+    from routers import admin
+    monkeypatch.setattr(config, "XAI_MANAGEMENT_KEY", "")
+    assert admin.painel_grok(None) == {"disponivel": False}
+    monkeypatch.setattr(config, "XAI_MANAGEMENT_KEY", "k")
+    monkeypatch.setattr(config, "XAI_TEAM_ID", "t")
+    chamadas = []
+    monkeypatch.setattr(grok, "saldo", lambda forcar=False: chamadas.append(forcar) or {"saldo_usd": 3.0})
+    assert admin.painel_grok(None, atualizar=True) == {"disponivel": True, "saldo_usd": 3.0} and chamadas == [True]
