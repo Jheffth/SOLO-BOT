@@ -24,6 +24,7 @@ import hashlib
 import json
 import logging
 import re
+import time
 from contextlib import nullcontext
 from typing import Optional
 
@@ -368,9 +369,14 @@ def _sintetizar_elevenlabs(texto: str, canal: str, id_voz: Optional[str] = None,
                             _guardar_perfil(chave, voz_atual, c_atual["model_id"], assinatura, tom)
                         return {**audio, "perfil_voz": {"conta": next(c["id"] for c in contas() if c["chave"] == chave),
                                                        "voz": voz_atual, "modelo": c_atual["model_id"]}}
-                    with httpx.Client(timeout=40) as c:
-                        r = c.post(f"{API}/text-to-speech/{voz_atual}?output_format={formato}",
-                                   json=c_atual, headers={"xi-api-key": chave})
+                    inicio = time.monotonic()
+                    try:
+                        with httpx.Client(timeout=httpx.Timeout(40, connect=5.0)) as c:
+                            r = c.post(f"{API}/text-to-speech/{voz_atual}?output_format={formato}",
+                                       json=c_atual, headers={"xi-api-key": chave})
+                    finally:
+                        log.info("Sintese ElevenLabs: %.3fs; modelo=%s",
+                                 time.monotonic() - inicio, c_atual["model_id"])
                     if guardar and r.status_code == 200 and r.content:
                         audio_cache.gravar(cache_id, r.content)
             except Exception:  # noqa: BLE001

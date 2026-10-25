@@ -15,6 +15,7 @@ VOICESTUDIO_API_KEY=chave-do-backend-voicestudio
 VOICESTUDIO_VOICE_ID=id-do-perfil-clonado
 VOICESTUDIO_MODEL=omnivoice
 VOICESTUDIO_TIMEOUT=120
+VOICESTUDIO_STEPS=16
 ```
 
 `VOICESTUDIO_URL` aceita a base sem caminho ou terminando em `/v1`.
@@ -46,7 +47,10 @@ O clone está salvo como **Bella Solo Bot - ElevenLabs**. Consulte
 `GET /v1/audio/voices` na instalação escolhida e use o ID desse perfil em
 `VOICESTUDIO_VOICE_ID`. O ID pertence àquela instalação.
 
-São enviados português (`pt`), velocidade natural e 32 passos. Falas normais
+São enviados português (`pt`), velocidade natural e 16 passos por padrão, como
+no modo interativo do VoiceStudio. `VOICESTUDIO_STEPS` permite ajustar de 1 a 128;
+32 recupera o perfil de maior qualidade e exige mais processamento. O ganho real
+depende do hardware, tamanho da fala e carga do motor. Falas normais
 não recebem instrução de sussurro. Apenas o tom explícito `sussurro` já usado
 pelos Ecos é convertido para `instruct: whisper`.
 

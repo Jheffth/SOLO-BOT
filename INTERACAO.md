@@ -453,3 +453,17 @@ de seis novos pedidos de envio por minuto por administrador.
 O backend e os arquivos frontend atualizados precisam ser publicados juntos; não há
 mudança no Bella.exe para esta função. Os testes usam provedores simulados e não enviam
 mensagens a números reais.
+
+## Latência da voz
+
+VoiceStudio usa 16 passos por padrão, alinhado ao modo interativo do serviço;
+`VOICESTUDIO_STEPS=32` permite priorizar qualidade novamente. A velocidade da fala
+permanece natural. A Bella não pré-gera o lote de 20 saudações quando o catálogo
+identifica VoiceStudio: gera somente a saudação usada e conserva os caches existentes.
+Isso evita trabalho de fundo competindo com as respostas no mesmo computador.
+ElevenLabs mantém a ordem das contas e modelos; a conexão tem limite de 5 segundos,
+com o limite de leitura de 40 segundos preservado. Não há troca para voz do Windows.
+Os registros INFO mostram a duração de cada tentativa de síntese e do preparo do
+texto falado, sem texto, áudio ou credenciais. Eles permitem separar demora do resumo,
+do provedor e da rede. Tempos reais dependem da implantação e do hardware.
+Aplicar os ajustes requer publicar o backend e atualizar o executável Bella.

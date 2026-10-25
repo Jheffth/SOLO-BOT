@@ -194,3 +194,11 @@ contatos por conta, geração pela voz configurada e envio único via Evolution.
 `evolution.enviar_audio_confirmado` informa aceitação, recusa ou resultado incerto,
 sem repetir a chamada. A interface fica em `admin.html`, `static/disparos.js` e
 `static/admin.css`. Abrir a página ou consultar um envio nunca gera nem envia áudio.
+
+## Diagnóstico de latência de voz
+
+`fala.py` e `voicestudio.py` registram duração de cada tentativa de síntese;
+`routers/bella.py` mede separadamente o preparo do texto falado. VoiceStudio usa
+`VOICESTUDIO_STEPS` (16 por padrão, 1–128), incluído na identidade do cache.
+`GreetingLibrary.Warm` evita o lote de pré-geração quando o perfil é VoiceStudio,
+conservando geração sob demanda e cache. Consulte `VOICESTUDIO.md`.

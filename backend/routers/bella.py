@@ -118,11 +118,13 @@ def voz_resposta(p: PedidoVozResposta, x_bella_chave: str = Header(""), db: Sess
 
 
 def _preparar_voz(mensagens, fallback, tem_opcoes, com_audio):
+    inicio = time.monotonic()
     try:
         falado = fala.o_que_falar(mensagens)
     except Exception:
         log.warning("Bella: não consegui preparar o resumo falado")
         falado = None
+    log.info("Bella: preparo do texto falado em %.3fs", time.monotonic() - inicio)
     falado = falado or fallback
     if tem_opcoes:
         falado += " Para escolher, diga o número."

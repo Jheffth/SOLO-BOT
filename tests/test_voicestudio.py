@@ -21,7 +21,7 @@ def reserva(monkeypatch, tmp_path):
               "ELEVENLABS_MODEL": "eleven_flash_v2_5", "BELLA_AUDIO_DIR": str(tmp_path),
               "VOICESTUDIO_URL": "https://voice.internal", "VOICESTUDIO_API_KEY": "private-key",
               "VOICESTUDIO_VOICE_ID": "bella-clone-id", "VOICESTUDIO_MODEL": "omnivoice",
-              "VOICESTUDIO_TIMEOUT": 120}
+              "VOICESTUDIO_TIMEOUT": 120, "VOICESTUDIO_STEPS": 16}
     for key, value in values.items():
         monkeypatch.setattr(config, key, value)
     monkeypatch.setattr(fala, "_estado", {"voz": None, "ultimo_erro": None})
@@ -62,7 +62,7 @@ def test_tenta_todas_as_contas_antes_do_motor_secundario(reserva):
     url, body, headers, options = requests[-1]
     assert url == "https://voice.internal/v1/audio/speech"
     assert body == {"model": "omnivoice", "voice": "bella-clone-id", "input": "Oi",
-                    "language": "pt", "response_format": "mp3", "speed": 1.0, "num_step": 32}
+                    "language": "pt", "response_format": "mp3", "speed": 1.0, "num_step": 16}
     assert headers["Authorization"] == "Bearer private-key"
     assert options["follow_redirects"] is False
     assert options["timeout"].connect == 5
@@ -280,3 +280,40 @@ def test_listar_vozes_e_escolher(monkeypatch):
     assert vistos[0] == ("http://100.1.2.3/v1/audio/voices", {"Authorization": "Bearer k"})
     voicestudio.listar_vozes()
     assert len(vistos) == 1                         # cache
+
+
+@pytest.mark.parametrize("steps", [8, 32])
+def test_passos_configuraveis_preservam_voz_e_velocidade(reserva, monkeypatch, steps):
+    requests, _ = reserva
+    monkeypatch.setattr(config, "VOICESTUDIO_STEPS", steps)
+    assert voicestudio.sintetizar("Oi", "whatsapp")
+    body = requests[-1][1]
+    assert body["num_step"] == steps
+    assert body["speed"] == 1.0 and body["voice"] == "bella-clone-id"
+
+
+def test_troca_de_passos_isola_cache(reserva, monkeypatch):
+    first = voicestudio.sintetizar("Oi", "whatsapp", guardar=True)
+    monkeypatch.setattr(config, "VOICESTUDIO_STEPS", 32)
+    second = voicestudio.sintetizar("Oi", "whatsapp", guardar=True)
+    assert first["cache_id"] != second["cache_id"]
+    assert voicestudio.sintetizar("Oi", "whatsapp", guardar=True) == second
+    assert len(reserva[0]) == 2
+
+
+def test_tempos_nao_registram_texto_ou_segredos(reserva, caplog):
+    caplog.set_level("INFO")
+    assert fala.sintetizar("private-text", "whatsapp")
+    assert "Sintese ElevenLabs:" in caplog.text
+    assert "Sintese VoiceStudio:" in caplog.text
+    assert "passos=16" in caplog.text
+    assert "private-text" not in caplog.text and "private-key" not in caplog.text
+
+
+def test_elevenlabs_limita_conexao_sem_encurtar_geracao(reserva):
+    requests, status = reserva
+    status["k1"] = 200
+    assert fala.sintetizar("Oi", "whatsapp")
+    timeout = requests[0][3]["timeout"]
+    assert timeout.connect == 5 and timeout.read == 40
+    assert len(requests) == 1

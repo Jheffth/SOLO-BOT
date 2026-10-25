@@ -108,6 +108,9 @@ namespace Bella {
             try {
                 await Load(client);
                 if(current.voz==null || String.IsNullOrEmpty(current.voz["voz"])) return;
+                // O motor local compartilha CPU/GPU com as respostas. Nao gerar 20 frases ao fundo.
+                string engine;
+                if(current.voz.TryGetValue("conta",out engine) && engine=="voicestudio") return;
                 foreach(var id in current.saudacoes.Select(x=>x.id).ToArray()) {
                     if(!keepGoing()) return;
                     var expected=current;
@@ -145,6 +148,14 @@ namespace Bella {
                 var changed=real.Next(client).GetAwaiter().GetResult();
                 if(!changed.AudioPath.Contains(b.Substring(0,24)) || handler.Posts!=21)
                     throw new Exception("detecta troca de voz no servidor");
+                handler.Engine="voicestudio";
+                handler.Profile=new string('c',64);
+                int postsBefore=handler.Posts;
+                real.Warm(client,()=>true).GetAwaiter().GetResult();
+                if(handler.Posts!=postsBefore) throw new Exception("VoiceStudio nao gera saudacoes ao fundo");
+                var onDemand=real.Next(client).GetAwaiter().GetResult();
+                if(String.IsNullOrEmpty(onDemand.AudioPath) || handler.Posts!=postsBefore+1)
+                    throw new Exception("VoiceStudio gera somente a saudacao solicitada");
                 handler.Revoked=true; rejected=false;
                 try { real.Next(client).GetAwaiter().GetResult(); } catch(UnauthorizedAccessException) { rejected=true; }
                 if(!rejected) throw new Exception("chave revogada nao usa cache antigo");
@@ -154,13 +165,14 @@ namespace Bella {
             readonly GreetingLine[] lines;
             readonly JavaScriptSerializer parser=new JavaScriptSerializer();
             public string Profile;
+            public string Engine="principal";
             public bool Revoked;
             public int Posts;
             public GreetingTestHandler(GreetingLine[] values,string a,string b) { lines=values; Profile=a; }
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token) {
                 if(!request.Headers.Contains("X-Bella-Chave")) throw new Exception("autentica saudacoes");
                 if(Revoked) return new HttpResponseMessage(HttpStatusCode.Unauthorized) { Content=new StringContent("{}") };
-                var voice=new Dictionary<string,string> { {"conta","principal"},{"voz",Profile},{"modelo","flash"} };
+                var voice=new Dictionary<string,string> { {"conta",Engine},{"voz",Profile},{"modelo","flash"} };
                 object body;
                 if(request.Method==HttpMethod.Get) body=new GreetingSet { perfil=Profile,usuario="jeff",voz=voice,saudacoes=lines };
                 else {

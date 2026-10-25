@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import logging
+import time
 from contextlib import nullcontext
 from urllib.parse import urlsplit
 
@@ -103,7 +104,7 @@ def sintetizar(texto: str, canal: str, tom=None, guardar=False, id_voz=None):
     formato, mime = ("opus", "audio/ogg") if canal == "telegram" else ("mp3", "audio/mpeg")
     corpo = {"model": config.VOICESTUDIO_MODEL, "voice": voz,
              "input": fala._TAGS.sub("", texto).strip(), "language": "pt",
-             "response_format": formato, "speed": 1.0, "num_step": 32}
+             "response_format": formato, "speed": 1.0, "num_step": config.VOICESTUDIO_STEPS}
     if not corpo["input"] or len(corpo["input"]) > 4096:
         return None
     if tom == "sussurro":
@@ -120,9 +121,14 @@ def sintetizar(texto: str, canal: str, tom=None, guardar=False, id_voz=None):
             audio = audio_cache.ler(cache_id, mime) if guardar else None
             if audio:
                 return {**audio, "perfil_voz": perfil_voz}
-            with httpx.Client(timeout=httpx.Timeout(config.VOICESTUDIO_TIMEOUT, connect=5.0),
-                              follow_redirects=False) as cliente:
-                resposta = cliente.post(endpoint, json=corpo, headers=headers)
+            inicio = time.monotonic()
+            try:
+                with httpx.Client(timeout=httpx.Timeout(config.VOICESTUDIO_TIMEOUT, connect=5.0),
+                                  follow_redirects=False) as cliente:
+                    resposta = cliente.post(endpoint, json=corpo, headers=headers)
+            finally:
+                log.info("Sintese VoiceStudio: %.3fs; passos=%d",
+                         time.monotonic() - inicio, config.VOICESTUDIO_STEPS)
             tipo = resposta.headers.get("content-type", "").split(";", 1)[0].lower()
             tipos = {"audio/ogg", "audio/opus"} if formato == "opus" else {"audio/mpeg", "audio/mp3"}
             if resposta.status_code != 200 or not resposta.content or tipo not in tipos:
