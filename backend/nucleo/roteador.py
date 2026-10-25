@@ -559,7 +559,10 @@ def prompts_bella_pedido(txt: str, canal: str, conta: Conta) -> Optional[str]:
 def _prompt_responder(db, conta: Conta, canal: str, pedido: str) -> Resposta:
     """A Bella cria um prompt de imagem (realismo sensual). A voz diz só que está pronto."""
     from nucleo import prompts_bella
-    texto = prompts_bella.criar(pedido, _chave_bella(canal, conta))
+    try:
+        texto = prompts_bella.criar(pedido, _chave_bella(canal, conta))
+    except prompts_bella.Recusa as erro:
+        return Resposta().diz(f"🖼️ Não usei a referência: {erro}. Mande outra imagem ou `/prompt sem referência ...`.")
     if not texto:
         return Resposta().diz("😶 Não consegui criar o prompt agora. Tente de novo em instantes.")
     _registrar(db, conta, canal, None, "bella", "prompt")
@@ -634,6 +637,29 @@ def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod) -> Res
 # ══════════════════════════════════════════════════════════════════════
 # A ENTRADA — áudio
 # ══════════════════════════════════════════════════════════════════════
+def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: str,
+                   legenda: str = "", rotulo: Optional[str] = None) -> Resposta:
+    """Imagem de referência para os prompts da Bella: só a roupa, a menos que o pedido peça mais."""
+    from nucleo import prompts_bella
+    origem = str(origem)
+    conta = conta_de(db, canal, origem)
+    if not conta:
+        return _boas_vindas()
+    chave = _chave_bella(canal, conta)
+    erro = prompts_bella.guardar_referencia(chave, mime, conteudo)
+    if erro:
+        return Resposta().diz(erro)
+    pedido = prompts_bella.pedido_da_legenda(legenda, chave)
+    if pedido:
+        return _prompt_responder(db, conta, canal, pedido)
+    return Resposta().diz(
+        "📎 Recebi a referência (vale por 15 min). Vou usar só a *roupa*.\n\n"
+        "Agora diga o resto: `/prompt bar à noite`.\n"
+        "Para usar também o penteado, a maquiagem ou o cenário da foto, peça: "
+        "`/prompt use o penteado e o cenário da foto`.\n"
+        "`/prompt sem referência ...` descarta a imagem.")
+
+
 def atender_audio(db: Session, canal: str, origem: str, conteudo: bytes, mime: str,
                   rotulo: Optional[str] = None, segundos: int = 0) -> Resposta:
     """

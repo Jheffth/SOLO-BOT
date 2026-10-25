@@ -317,6 +317,8 @@ class PedidoConversa(BaseModel):
     texto: str = Field(min_length=1, max_length=2000)
     modo: Literal["safada"]
     voz_separada: bool = True
+    imagem_base64: Optional[str] = Field(default=None, max_length=9_000_000)   # referência de roupa para prompts
+    imagem_mime: Optional[str] = Field(default=None, max_length=40)
 
 
 _JANELAS_CONVERSA = {}
@@ -331,8 +333,22 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
     from nucleo import bella_conversa, prompts_bella
     chave = f"bella:{conta.id}"
     pedido = prompts_bella.pedido_de(p.texto, chave)
+    if p.imagem_base64:
+        import base64
+        try:
+            conteudo = base64.b64decode(p.imagem_base64, validate=True)
+        except ValueError:
+            raise HTTPException(422, "A imagem de referência veio corrompida.") from None
+        erro = prompts_bella.guardar_referencia(chave, p.imagem_mime or "", conteudo)
+        if erro:
+            raise HTTPException(422, erro)
+        if pedido is None:
+            pedido = p.texto.strip()          # com imagem anexa, o texto é o pedido do prompt
     if pedido is not None:
-        texto = prompts_bella.criar(pedido, chave)
+        try:
+            texto = prompts_bella.criar(pedido, chave)
+        except prompts_bella.Recusa as erro:
+            raise HTTPException(422, f"Não usei a referência: {erro}.") from None
         falar = prompts_bella.FALADO
     else:
         texto = bella_conversa.responder(p.texto, conta.id)

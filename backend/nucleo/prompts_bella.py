@@ -4,16 +4,26 @@ O modelo abaixo veio da conversa "REALISMO SENSUAL" do Grok: o texto fixo (câme
 não muda; só mudam o cenário, o gesto, a expressão, a roupa, a luz e o fundo. Só gera texto: nunca
 imagens, e só entrega o prompt a quem pediu.
 """
+import base64
 import re
 import threading
 import time
 
+import config
 from nucleo import grok
 
 MAX_PROMPT = 3900            # cabe numa mensagem do Telegram (4096)
 _CONTEXTO_MIN = 30
 _ULTIMA = {}
 _TRAVA = threading.Lock()
+_REFERENCIA_MIN = 15
+_REFERENCIAS = {}                       # chave -> (quando, mime, base64): só na RAM, some em 15 min
+MIMES_IMAGEM = ("image/jpeg", "image/png", "image/webp")
+MAX_IMAGEM = 6 * 1024 * 1024
+
+
+class Recusa(Exception):
+    """O Grok recusou o pedido ou a referência (menor de idade, sem roupa visível etc.)."""
 
 CATEGORIAS = {"realismo": "Realismo sensual (selfie de smartphone, modelo própria)"}
 
@@ -70,6 +80,19 @@ Regras do trabalho:
 MODELO:
 """ + MODELO_REALISMO
 
+INSTRUCAO_REFERENCIA = """
+
+REFERÊNCIA ANEXADA: junto do pedido há uma imagem.
+- Use dela SOMENTE a roupa e os acessórios (peças, cores, tecido, corte, costuras, estampa, joias, caimento),
+  descritos de forma concreta na parte "A roupa é". A pessoa da imagem NÃO é a modelo: nunca copie o rosto,
+  o corpo, a identidade, a tatuagem nem diga quem é. A modelo continua sendo a da imagem de referência do modelo.
+- Penteado, maquiagem e cenário/fundo/luz da imagem: NÃO use, a menos que o pedido peça de forma explícita
+  (por exemplo "use o penteado", "com a maquiagem da foto", "no mesmo cenário"). Se pedir o penteado, descreva
+  corte, comprimento e estilo, mantendo a cor do cabelo da referência da modelo. Se pedir a maquiagem, descreva-a e
+  retire "não criar maquiagem pesada". Se pedir o cenário, descreva o local, a luz e o fundo da imagem.
+- Se a imagem não mostrar roupa utilizável, ou a pessoa nela parecer menor de idade, responda somente com uma
+  linha começando por "RECUSA:" e o motivo curto, sem prompt."""
+
 _ALEATORIO = "Pedido: aleatório. Escolha você um cenário, roupa, luz e fundo novos e diferentes dos últimos."
 
 _PEDIDO = re.compile(
@@ -108,13 +131,68 @@ def pedido_de(texto, chave=None):
     return None
 
 
+def guardar_referencia(chave, mime, conteudo):
+    """Guarda a imagem de referência desta conversa. Devolve uma mensagem de erro, ou None se guardou."""
+    mime = (mime or "").split(";")[0].strip().lower()
+    if mime == "image/jpg":
+        mime = "image/jpeg"
+    if mime not in MIMES_IMAGEM:
+        return "🖼️ Só leio referência em JPG, PNG ou WebP."
+    if not conteudo:
+        return "🖼️ Não consegui baixar a imagem. Tente enviar de novo."
+    if len(conteudo) > MAX_IMAGEM:
+        return "🖼️ A imagem passou de 6 MB. Mande uma menor."
+    with _TRAVA:
+        _REFERENCIAS.pop(chave, None)
+        _REFERENCIAS[chave] = (time.monotonic(), mime, base64.b64encode(conteudo).decode("ascii"))
+        while len(_REFERENCIAS) > 64:
+            _REFERENCIAS.pop(next(iter(_REFERENCIAS)))
+    return None
+
+
+def referencia(chave):
+    """(mime, base64) da referência ainda válida, ou None."""
+    with _TRAVA:
+        item = _REFERENCIAS.get(chave)
+        if item and time.monotonic() - item[0] >= _REFERENCIA_MIN * 60:
+            _REFERENCIAS.pop(chave, None)
+            item = None
+    return (item[1], item[2]) if item else None
+
+
+def limpar_referencia(chave):
+    with _TRAVA:
+        _REFERENCIAS.pop(chave, None)
+
+
+def pedido_da_legenda(legenda, chave=None):
+    """Com imagem anexa, a legenda é o pedido (com ou sem 'crie um prompt'). '' se não há legenda útil."""
+    legenda = (legenda or "").strip()
+    pedido = pedido_de(legenda, chave)
+    return pedido if pedido is not None else legenda
+
+
 def criar(pedido, chave=None):
-    """O prompt pronto (texto simples), ou None se o Grok não respondeu ou a resposta não serve."""
+    """O prompt pronto (texto simples), ou None se o Grok não respondeu ou a resposta não serve.
+    Levanta Recusa se o Grok recusar a referência."""
+    pedido = pedido or ""
+    sem = re.match(r"^\s*sem\s+refer[eê]ncia\b[\s:,\-–]*(.*)$", pedido, re.I | re.S)
+    if sem:
+        if chave is not None:
+            limpar_referencia(chave)
+        pedido = sem.group(1).strip()
+    ref = referencia(chave) if chave is not None and not sem else None
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
-    saida = grok.gerar(INSTRUCAO, entrada, max_tokens=2048, temperatura=.9, timeout=40)
+    if ref and not pedido:
+        entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
+    saida = grok.gerar(INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else ""), entrada, max_tokens=2048, temperatura=.9,
+                       timeout=60 if ref else 40, imagens=[ref] if ref else None,
+                       modelo=(config.GROK_VISION_MODEL or None) if ref else None)
     if not saida:
         return None
     saida = re.sub(r"^```[a-z]*\s*|\s*```$", "", saida.strip()).strip()
+    if ref and saida.upper().startswith("RECUSA"):
+        raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
     if (len(saida) < 800 or len(saida) > MAX_PROMPT or "referência" not in saida.lower()
             or any(ord(c) < 32 and c not in "\n\r\t" for c in saida)):
         return None

@@ -335,3 +335,52 @@ def test_prompt_pelo_whatsapp_e_telegram(logado, sistemas, caixa, monkeypatch):
     monkeypatch.setattr(prompts_bella, "criar", lambda *a, **k: None)
     _tg(logado, "/prompt bar")
     assert "Não consegui criar o prompt" in caixa[-1][2]
+
+
+def test_imagem_de_referencia_no_telegram(logado, sistemas, caixa, monkeypatch):
+    from canais import telegram
+    from nucleo import prompts_bella
+    logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
+    _ligar_telegram(logado)
+    prompts_bella._REFERENCIAS.clear()
+    monkeypatch.setattr(telegram, "baixar", lambda f: b"\xff\xd8JPEGDATA")
+    pedidos = []
+    monkeypatch.setattr(prompts_bella, "criar", lambda pedido, chave=None: pedidos.append(pedido) or "PROMPT:" + pedido)
+
+    def foto(legenda=None, uid=[90000]):
+        uid[0] += 1
+        msg = {"chat": {"id": 777, "type": "private"}, "from": {"username": "jeff"}, "photo": [{"file_id": "a"}, {"file_id": "b"}]}
+        if legenda:
+            msg["caption"] = legenda
+        return logado.post("/api/telegram/webhook", headers=TG, json={"update_id": uid[0], "message": msg})
+
+    foto()
+    assert "Recebi a referência" in caixa[-1][2] and pedidos == []
+    assert prompts_bella.referencia("telegram:" + str(next(iter(k for k in prompts_bella._REFERENCIAS)).split(":")[1]))
+    foto("bar à noite, use o penteado")
+    assert pedidos == ["bar à noite, use o penteado"] and "PROMPT:bar à noite" in caixa[-1][2]
+
+
+def test_imagem_de_referencia_no_whatsapp(logado, sistemas, caixa, monkeypatch):
+    import base64
+    from nucleo import prompts_bella
+    logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
+    prompts_bella._REFERENCIAS.clear()
+    pedidos = []
+    monkeypatch.setattr(prompts_bella, "criar", lambda pedido, chave=None: pedidos.append(pedido) or "PROMPT:" + pedido)
+    jid = "5561988887777@s.whatsapp.net"
+    codigo = logado.post("/api/conta/canais/whatsapp/codigo").json()["codigo"]
+    _wa(logado, f"SOLO {codigo}", jid)
+
+    def imagem(legenda, mid=[7000]):
+        mid[0] += 1
+        return logado.post("/api/whatsapp/webhook/wa-secreto", json={
+            "event": "messages.upsert", "data": {"key": {"remoteJid": jid, "id": f"img{mid[0]}", "fromMe": False},
+                                                 "pushName": "Jeff", "message": {
+                "imageMessage": {"mimetype": "image/jpeg", "caption": legenda},
+                "base64": base64.b64encode(b"\xff\xd8DADOS").decode()}}})
+
+    imagem("")
+    assert len(prompts_bella._REFERENCIAS) == 1 and pedidos == []
+    imagem("cozinha à noite")
+    assert pedidos == ["cozinha à noite"]

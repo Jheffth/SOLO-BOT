@@ -352,3 +352,52 @@ def test_rota_conversa_cria_prompt_e_fala_curto(monkeypatch):
     monkeypatch.setattr(bella, "_guardar_fala", lambda c, mensagens, falar, x: guardado.update(m=mensagens, f=falar) or "vid")
     r = bella.conversa(bella.PedidoConversa(texto="crie um prompt de bar", modo="safada"), "k", None)
     assert r["texto"] == "PROMPT:de bar" and r["falar"] == pb.FALADO and guardado["f"] == pb.FALADO
+
+
+def test_referencia_vai_ao_grok_so_para_roupa(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    assert "JPG" in pb.guardar_referencia("c", "image/gif", b"x")
+    assert pb.guardar_referencia("c", "image/jpg", b"\xff\xd8abc") is None
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or _prompt_valido())
+    assert pb.criar("bar à noite", "c")
+    instr, entrada, kw = vistos[0]
+    assert "SOMENTE a roupa" in instr and kw["imagens"][0][0] == "image/jpeg" and entrada == "Pedido: bar à noite"
+    assert pb.criar("", "c") and "roupa da imagem" in vistos[1][1]
+    assert pb.criar("sem referência cozinha", "c") and vistos[2][2]["imagens"] is None and "SOMENTE a roupa" not in vistos[2][0]
+    assert pb.referencia("c") is None                                 # "sem referência" descartou
+    assert pb.criar("outro", "c") and vistos[3][2]["imagens"] is None
+
+
+def test_referencia_expira_e_recusa(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pb.guardar_referencia("c", "image/png", b"abc")
+    monkeypatch.setattr(pb, "_REFERENCIA_MIN", 0)
+    assert pb.referencia("c") is None
+    monkeypatch.setattr(pb, "_REFERENCIA_MIN", 15)
+    pb.guardar_referencia("c", "image/png", b"abc")
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "RECUSA: a pessoa parece menor de idade")
+    with pytest.raises(pb.Recusa):
+        pb.criar("x", "c")
+    assert pb.pedido_da_legenda("bar à noite") == "bar à noite" and pb.pedido_da_legenda("crie um prompt bar") == "bar"
+
+
+def test_grok_envia_imagem(monkeypatch):
+    enviados = []
+    class Cliente:
+        def __init__(self, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def post(self, url, **kw):
+            enviados.append(kw["json"])
+            return httpx.Response(200, request=httpx.Request("POST", url), json={"status": "completed", "output": [
+                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "ok"}]}]})
+    monkeypatch.setattr(config, "GROK_API_KEY", "k")
+    monkeypatch.setattr(grok.httpx, "Client", Cliente)
+    assert grok.gerar("regra", "veja", imagens=[("image/png", "QUJD")], modelo="grok-visao") == "ok"
+    corpo = enviados[0]
+    assert corpo["model"] == "grok-visao"
+    assert corpo["input"][-1]["content"] == [{"type": "input_text", "text": "veja"},
+                                             {"type": "input_image", "image_url": "data:image/png;base64,QUJD"}]

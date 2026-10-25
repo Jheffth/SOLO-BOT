@@ -413,7 +413,7 @@ trata como lançamento) é respondida direto pela Bella. `/bella` fixa a convers
 `BELLA_CONTEUDO_ADULTO`), com memória curta própria de cada canal. `/esquecer` limpa a memória,
 `/sair` volta ao hub e o modo expira após `MODO_MINUTOS` sem mensagem.
 
-A Bella também cria prompts de imagem (categoria atual: realismo sensual, no modelo da conversa "REALISMO SENSUAL" do Grok). No WhatsApp, no Telegram e no Bella.exe (Modo Safada), `/prompt cozinha, cosplay de odalisca` ou "crie um prompt de ..." devolve o prompt pronto para colar no Grok Imagine; `/prompt` sozinho ou "próximo aleatório" sorteia um cenário. A voz só diz que o prompt está pronto. O texto fixo fica em `backend/nucleo/prompts_bella.py`.
+A Bella também cria prompts de imagem (categoria atual: realismo sensual, no modelo da conversa "REALISMO SENSUAL" do Grok). No WhatsApp, no Telegram e no Bella.exe (Modo Safada), `/prompt cozinha, cosplay de odalisca` ou "crie um prompt de ..." devolve o prompt pronto para colar no Grok Imagine; `/prompt` sozinho ou "próximo aleatório" sorteia um cenário. A voz só diz que o prompt está pronto. O texto fixo fica em `backend/nucleo/prompts_bella.py`. Imagem de referência: mande uma foto no WhatsApp/Telegram (com legenda, ela vira o pedido; sem legenda, vale por 15 min para o próximo `/prompt`). A Bella usa só a roupa; penteado, maquiagem e cenário só se o pedido pedir. `/prompt sem referência ...` descarta. O Grok lê a imagem pelo modelo `GROK_VISION_MODEL` (vazio = o modelo de texto). A rota `/api/bella/conversa` aceita `imagem_base64` e `imagem_mime`.
 
 ## Imagens pelo Grok
 

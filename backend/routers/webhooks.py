@@ -56,8 +56,17 @@ def _processar_telegram(update: dict):
                                            int(som.get("duration") or 0))
                 entrega.entregar(db, "telegram", str(chat["id"]), r, entrada_audio=True)
                 return
+            foto = (msg.get("photo") or [None])[-1] or (
+                msg.get("document") if str((msg.get("document") or {}).get("mime_type", "")).startswith("image/") else None)
+            if foto and not texto:
+                if not roteador.conta_de(db, "telegram", str(chat["id"])) and not config.RESPONDER_DESCONHECIDOS:
+                    return
+                r = roteador.atender_imagem(db, "telegram", str(chat["id"]), telegram.baixar(foto.get("file_id", "")),
+                                            foto.get("mime_type") or "image/jpeg", msg.get("caption") or "", rotulo)
+                entrega.entregar(db, "telegram", str(chat["id"]), r)
+                return
             if not texto:
-                telegram.enviar(str(chat["id"]), "Por enquanto eu leio texto e áudio. 🙂")
+                telegram.enviar(str(chat["id"]), "Por enquanto eu leio texto, áudio e imagem de referência. 🙂")
                 return
             r = roteador.atender_texto(db, "telegram", str(chat["id"]), texto, rotulo)
             entrega.entregar(db, "telegram", str(chat["id"]), r)
@@ -133,6 +142,16 @@ def _processar_whatsapp(evento: dict):
             r = roteador.atender_audio(db, "whatsapp", jid, conteudo, mime, data.get("pushName"),
                                        int(audio.get("seconds") or 0))
             entrega.entregar(db, "whatsapp", jid, r, entrada_audio=True)
+            return
+        imagem = mensagem.get("imageMessage")
+        if jid and imagem and not chave.get("fromMe"):
+            if roteador.ja_processada(db, "whatsapp", chave.get("id")):
+                return
+            if not roteador.conta_de(db, "whatsapp", jid) and not config.RESPONDER_DESCONHECIDOS:
+                return
+            conteudo, mime = _bytes_do_audio(data, mensagem, {**imagem, "mimetype": imagem.get("mimetype") or "image/jpeg"})
+            r = roteador.atender_imagem(db, "whatsapp", jid, conteudo, mime, imagem.get("caption") or "", data.get("pushName"))
+            entrega.entregar(db, "whatsapp", jid, r)
             return
         if not jid or not texto:
             return

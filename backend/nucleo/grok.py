@@ -8,16 +8,22 @@ log = logging.getLogger("solobot.grok")
 API = "https://api.x.ai/v1/responses"
 
 
-def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, timeout=18, historico=None):
+def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, timeout=18, historico=None,
+          imagens=None, modelo=None):
     if not config.GROK_API_KEY:
         return None
     regra = instrucao + ("\nResponda somente um objeto JSON válido, sem cercas Markdown." if json_saida else "")
-    corpo = {"model": config.GROK_TEXT_MODEL, "store": False,
+    modelo = modelo or config.GROK_TEXT_MODEL
+    pedido = texto
+    if imagens:       # [(mime, base64)]: o Grok olha as imagens junto com o texto
+        pedido = [{"type": "input_text", "text": texto},
+                  *[{"type": "input_image", "image_url": f"data:{mime};base64,{b64}"} for mime, b64 in imagens]]
+    corpo = {"model": modelo, "store": False,
              "input": [{"role": "system", "content": regra},
                        *[{"role": papel, "content": conteudo} for papel, conteudo in (historico or [])],
-                       {"role": "user", "content": texto}],
+                       {"role": "user", "content": pedido}],
              "max_output_tokens": max_tokens, "temperature": temperatura}
-    if config.GROK_TEXT_MODEL.startswith(("grok-4.5", "grok-4.6", "grok-4.7")):
+    if modelo.startswith(("grok-4.5", "grok-4.6", "grok-4.7")):
         corpo["reasoning"] = {"effort": "low"}
     try:
         with httpx.Client(timeout=timeout, follow_redirects=False) as cliente:
