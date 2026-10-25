@@ -55,6 +55,7 @@ GEMINI_AUDIO_MODEL = _env("GEMINI_AUDIO_MODEL", GEMINI_MODEL)
 GEMINI_AUDIO_MODEL_RESERVA = _env("GEMINI_AUDIO_MODEL_RESERVA", "gemini-3.1-flash-lite")
 GROK_API_KEY = _env("GROK_API_KEY")
 GROK_TEXT_MODEL = _env("GROK_TEXT_MODEL", "grok-4.7")
+GROK_IMAGE_MODEL = _env("GROK_IMAGE_MODEL", "grok-imagine-image-2.0")
 GROK_STT_MODEL = _env("GROK_STT_MODEL", "grok-voice-transcribe-2.0")
 # Só para o mostrador de saldo da Administração: chave de GERENCIAMENTO (console.x.ai → Settings → Management Keys),
 # diferente da GROK_API_KEY, e o ID do time. Vazias = o mostrador fica desligado.

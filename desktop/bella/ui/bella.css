@@ -300,3 +300,22 @@ body.modo-mini { background: linear-gradient(135deg, #171831, #10111d); }
 @media (max-width: 420px) { .busca-progresso { flex-wrap: wrap; } }
 
 .modo-conversa { color: #e9b6e5; font-size: 11px; white-space: nowrap; }
+
+/* Painel independente: prévias limitadas, sem imagens nos balões de conversa. */
+.galeria-imagens { position: fixed; z-index: 24; inset: 10px 10px 10px auto; width: min(450px, calc(100vw - 20px)); display: flex; flex-direction: column; background: var(--janela); border: 1px solid var(--linha2); border-radius: 18px; box-shadow: -16px 0 50px #0008; overflow: hidden; }
+.galeria-topo { display: flex; align-items: center; justify-content: space-between; padding: 16px; gap: 8px; border-bottom: 1px solid var(--linha2); }
+.galeria-topo h2 { font-size: 19px; }.galeria-topo small { display: block; font-size: 11px; font-weight: 400; color: var(--suave); }
+.imagens-form { display: grid; gap: 8px; padding: 16px 16px 8px; }
+.imagens-form textarea { resize: vertical; min-height: 72px; max-height: 160px; width: 100%; background: var(--sup); color: var(--tinta); border: 1px solid var(--linha2); border-radius: 10px; padding: 10px; font: inherit; user-select: text; }
+.imagens-status { padding: 8px 16px; font-size: 12px; color: var(--suave); }
+.imagens-status.gerando { color: var(--ciano); }.imagens-status.erro { color: var(--rosa); }
+.imagens-status.gerando::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: imagem-giro 1s linear infinite; }
+.imagens-lista { overflow-y: auto; flex: 1; min-height: 0; padding: 8px 16px 16px; }
+.imagem-card { border: 1px solid var(--linha2); background: var(--sup); border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
+.imagem-card img { display: block; width: 100%; height: auto; max-height: 440px; object-fit: contain; background: #090a10; }
+.imagem-card figcaption { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px; font-size: 11px; color: var(--suave); }
+@keyframes imagem-giro { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .imagens-status.gerando::before { animation: none; } }
+
+.topo { flex-wrap: wrap; gap: 8px; }
+.topo-acoes { flex-wrap: wrap; align-items: center; }

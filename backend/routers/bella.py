@@ -10,7 +10,7 @@ import secrets
 import time
 import wave
 from collections import OrderedDict
-from threading import Lock
+from threading import Lock, BoundedSemaphore
 from datetime import datetime
 from typing import Literal, Optional
 from uuid import UUID, uuid4
@@ -224,6 +224,7 @@ FALAS_ARQUIVOS = {
     "listagem": "Aqui estão os arquivos e pastas. Para abrir um item, diga o número.",
     "busca": "Encontrei estes resultados. Para abrir um deles, diga o número.",
     "escolha": "Qual destas opções você quer? Diga o número.",
+    "imagem_pronta": "A imagem está pronta no painel de imagens.",
     "site_aberto": "Abri o site no seu navegador padrão.",
     "pesquisa_aberta": "Abri os resultados da pesquisa no seu navegador padrão.",
     "pedir_assunto": "Qual assunto você quer pesquisar?",
@@ -277,6 +278,36 @@ def programa(p: PedidoPrograma, x_bella_chave: str = Header(""), db: Session = D
         raise HTTPException(422, "Comandos com identificadores repetidos.")
     from nucleo import programas
     return programas.interpretar(p.texto, [c.model_dump() for c in p.comandos], modo=p.modo)
+
+
+class PedidoImagem(BaseModel):
+    model_config = {"extra": "forbid"}
+    pedido_id: UUID
+    prompt: str = Field(min_length=1, max_length=1800)
+
+
+_JANELAS_IMAGENS = {}
+_IMAGENS_VAGAS = BoundedSemaphore(2)
+
+
+@router.post("/api/bella/imagem")
+def imagem(p: PedidoImagem, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    conta = _autenticar(db, x_bella_chave)
+    if not p.prompt.strip():
+        raise HTTPException(422, "Descreva a imagem que deseja criar.")
+    _limitar(conta, _JANELAS_IMAGENS)
+    if not _IMAGENS_VAGAS.acquire(blocking=False):
+        raise HTTPException(429, "Há imagens sendo geradas. Aguarde a conclusão antes de fazer outro pedido.")
+    try:
+        if roteador.ja_processada(db, "bella-img", f"{conta.id}:{p.pedido_id}"):
+            raise HTTPException(409, "Este pedido de imagem já foi recebido. Não será gerado novamente.")
+        from nucleo import grok_imagens
+        try:
+            return {"texto": "Imagem pronta. Veja no painel Imagens.", **grok_imagens.gerar(p.prompt.strip())}
+        except grok_imagens.FalhaImagem as erro:
+            raise HTTPException(502, str(erro)) from None
+    finally:
+        _IMAGENS_VAGAS.release()
 
 
 class PedidoConversa(BaseModel):

@@ -27,6 +27,7 @@
     </button>
     <div class="topo-acoes">
       <span class="modo-conversa" id="modo-conversa" hidden>Safada · Grok</span>
+      <button class="icobtn" id="btn-imagens" type="button" title="Imagens" aria-label="Abrir painel de imagens" aria-controls="galeria-imagens" aria-expanded="false"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/></svg></button>
       <button class="btn" id="btn-comandos" type="button" title="Cadastrar comandos para abrir pastas">Comandos</button>
       <button class="icobtn" id="btn-parar" type="button" title="Interromper voz" hidden>
         <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5"/></svg>
@@ -67,6 +68,18 @@
   <p class="rodape"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>A escuta de espera fica no seu computador</p>
 
   <!-- ─── Configurações ─── -->
+  <aside class="galeria-imagens" id="galeria-imagens" hidden aria-labelledby="imagens-titulo">
+    <header class="galeria-topo"><h2 id="imagens-titulo">Imagens <small>Grok Imagine</small></h2><button class="btn" id="imagens-fechar" type="button" aria-label="Recolher painel de imagens">Recolher</button></header>
+    <form id="imagens-form" class="imagens-form">
+      <label for="imagem-prompt">O que vamos criar?</label>
+      <textarea id="imagem-prompt" maxlength="1800" rows="3" placeholder="Uma cidade futurista ao pôr do sol…" required></textarea>
+      <button class="btn pri" id="imagem-gerar" type="submit">Gerar imagem</button>
+      <p class="ajuda">Uma imagem por pedido. A geração utiliza o saldo da sua conta xAI.</p>
+    </form>
+    <p id="imagens-status" class="imagens-status" role="status">As últimas seis imagens ficam aqui, fora da conversa.</p>
+    <div id="imagens-lista" class="imagens-lista"><p class="ajuda">Sua galeria ainda está vazia.</p></div>
+  </aside>
+
   <div class="veu" id="veu" hidden></div>
   <aside class="gaveta" id="gaveta" aria-hidden="true">
     <header class="gaveta-topo">

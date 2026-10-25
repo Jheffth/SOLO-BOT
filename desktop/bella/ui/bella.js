@@ -15,6 +15,7 @@
   let estado = { modo: "pausada", escutando: false, ocupada: false, segurando: false, restante: 0 };
   let escolhendoTecla = false;
   let primeiraMensagem = true;
+  let gerandoImagem = false;
   let ultimoOuvido = "", ultimaResposta = "";
   let comandoEmEdicao = null;
   let buscaAtual = null;
@@ -35,6 +36,8 @@
       case "msg": mensagem(m); break;
       case "aviso": aviso(m.texto, m.erro); break;
       case "toast": toast(m.texto, m.erro); break;
+      case "imagens": if (!MINI) renderizarImagens(m); break;
+      case "imagem_estado": if (!MINI) estadoImagem(m); break;
       case "salvo": toast(m.texto || "Salvo."); break;
       case "erro_salvar": erroSalvar(m.texto); break;
       case "comando_caminho": $("comando-caminho").value = m.caminho; break;
@@ -43,6 +46,41 @@
     }
   }
   if (ponteReal) window.chrome.webview.addEventListener("message", e => receber(e.data));
+
+  function abrirImagens(consultar) {
+    $("galeria-imagens").hidden = false;
+    $("btn-imagens").setAttribute("aria-expanded", "true");
+    if (consultar) enviar("imagens_abrir");
+  }
+  function fecharImagens() {
+    $("galeria-imagens").hidden = true;
+    $("btn-imagens").setAttribute("aria-expanded", "false");
+    $("btn-imagens").focus();
+  }
+  function estadoImagem(m) {
+    gerandoImagem = !!m.gerando;
+    const status = $("imagens-status");
+    status.classList.toggle("gerando", gerandoImagem);
+    status.classList.toggle("erro", !!m.erro);
+    status.textContent = gerandoImagem ? "Gerando no Grok… você pode recolher este painel enquanto aguarda." : m.erro || "Geração encerrada. As imagens recebidas aparecem abaixo.";
+    $("imagem-gerar").disabled = gerandoImagem || !!estado.ocupada;
+    if (gerandoImagem) abrirImagens(false);
+  }
+  function renderizarImagens(m) {
+    const lista = $("imagens-lista"); lista.replaceChildren();
+    const itens = (m.imagens || []).slice(0, 6);
+    if (!itens.length) { const vazio = document.createElement("p"); vazio.className = "ajuda"; vazio.textContent = "Sua galeria ainda está vazia."; lista.appendChild(vazio); }
+    itens.forEach((item, i) => {
+      if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(item.Previa || "")) return;
+      const card = document.createElement("figure"); card.className = "imagem-card";
+      const img = document.createElement("img"); img.src = item.Previa; img.alt = "Imagem gerada " + (i + 1); img.loading = "lazy"; img.decoding = "async";
+      const legenda = document.createElement("figcaption");
+      const data = document.createElement("span"); data.textContent = item.Criada;
+      const salvar = document.createElement("button"); salvar.type = "button"; salvar.className = "btn"; salvar.textContent = "Salvar original"; salvar.onclick = () => enviar("imagem_salvar", { id: item.Id });
+      legenda.append(data, salvar); card.append(img, legenda); lista.appendChild(card);
+    });
+    if (m.abrir) { abrirImagens(false); $("imagens-status").textContent = "Imagem pronta. Salve o original para guardar fora da galeria."; }
+  }
 
   // ── Escalas do microfone (energia RMS 50…4000, logarítmica) ──
   const MIN = 50, MAX = 4000, L = Math.log(MAX / MIN);
@@ -210,6 +248,7 @@
     $("btn-falar").classList.toggle("gravando", modo === "ouvindo");
     $("btn-falar").title = config.apertarParaFalar ? "Segure " + (config.nomeTeclaFalar || "F8") + " por " + (config.esperaFalar || 5) + " s" : "Falar agora (Ctrl + Alt + B)";
     $("btn-enviar").disabled = !!estado.ocupada;
+    $("imagem-gerar").disabled = !!estado.ocupada || gerandoImagem;
     $("cfg-safada").disabled = !!estado.ocupada;
     digitando(modo === "pensando" && !buscaAtual);
   }
@@ -395,6 +434,15 @@
     };
     const abrir = (nome = "geral") => { aba(nome); $("veu").hidden = false; $("gaveta").classList.add("aberta"); $("gaveta").setAttribute("aria-hidden", "false"); };
     const fechar = () => { $("gaveta").classList.remove("aberta"); $("gaveta").setAttribute("aria-hidden", "true"); setTimeout(() => $("veu").hidden = true, 250); enviar("medidor", { ligado: false }); };
+    $("btn-imagens").onclick = () => abrirImagens(true);
+    $("imagens-fechar").onclick = fecharImagens;
+    $("imagens-form").onsubmit = e => {
+      e.preventDefault();
+      const prompt = $("imagem-prompt").value.trim();
+      if (!prompt || estado.ocupada || gerandoImagem) return;
+      if (ponteReal) enviar("imagem_gerar", { prompt }); else toast("A geração de imagens funciona no aplicativo conectado ao Solo Bot.");
+    };
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("galeria-imagens").hidden) fecharImagens(); });
     $("btn-config").onclick = () => abrir();
     $("btn-comandos").onclick = () => abrir("comandos");
     document.querySelectorAll("[data-aba]").forEach(b => b.onclick = () => { cancelarTecla(); aba(b.dataset.aba); });
@@ -611,6 +659,7 @@
         receber({ tipo: "msg", de: "bella", texto: "⚔️ Rotinas\nLeitura concluída. +40 XP · 🔥 12 dias" });
         if (modo === "pensando") receber({ tipo: "estado", modo: "pensando" });
       }
+      if (cena === "imagens") abrirImagens(false);
       if (cena === "config") { $("btn-config").click(); let k = 0; setInterval(() => receber({ tipo: "nivel", v: 180 + 900 * Math.abs(Math.sin(k++ / 4)) }), 80); }
       if (cena === "ouvindo") { receber({ tipo: "msg", de: "bella", texto: "Oi, Jefferson. Pode falar." }); let k = 0; setInterval(() => receber({ tipo: "nivel", v: 300 + 1600 * Math.abs(Math.sin(k++ / 3)) }), 80); }
       if (cena === "recorte" && foto) abrirRecorte(foto);

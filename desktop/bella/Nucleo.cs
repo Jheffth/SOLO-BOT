@@ -45,10 +45,13 @@ namespace Bella {
         /// <summary>Energia do microfone (RMS), ~14 vezes por segundo enquanto ele está aberto.</summary>
         public event Action<double> Nivel;
         public event Action<int?> BuscaMudou;
+        public event Action<Reply> ImagemRecebida;
+        public event Action<bool,string> GerandoImagem;
         public void CancelarBusca() { arquivos.CancelarBusca(); }
 
         public Nucleo(Control ui,Settings inicial,Func<IMicrophone> microphoneFactory=null) {
             dono=ui; Config=inicial ?? new Settings();
+            pedidos.GerandoImagem+=(ativa,erro)=> {if(!quitting && GerandoImagem!=null) GerandoImagem(ativa,erro);};
             criarMicrofone=microphoneFactory ?? (()=>new Microphone());
             if(Config.PastasArquivos==null) Config.PastasArquivos=Arquivos.PastasPadrao();
             if(Config.ComandosPastas==null) Config.ComandosPastas=new ComandoPasta[0];
@@ -306,7 +309,10 @@ namespace Bella {
                 var value=Config;
                 var reply=await pedidos.Enviar(text,audio,arquivos,()=>new Client(value.Server,value.Key),
                     t=>Falou("eu",t ?? "pedido por voz","voz",null),()=>!quitting,
-                    r=> { if(!quitting) Falou("bella",r.texto,audio!=null?"voz":"texto",r.opcoes); },programas,value.ModoSafada);
+                    r=> { if(!quitting) {
+                        if(!String.IsNullOrEmpty(r.imagem_base64) && ImagemRecebida!=null) ImagemRecebida(r);
+                        Falou("bella",r.texto,audio!=null?"voz":"texto",r.opcoes);
+                    } },programas,value.ModoSafada);
                 if(!quitting) {
                     if(capture!=null) capture.Speaking();
                     Mudou();

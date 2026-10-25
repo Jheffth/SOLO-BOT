@@ -59,6 +59,8 @@ namespace Bella {
         public string audio_base64 { get; set; }
         public string mime { get; set; }
         public string voz_id { get; set; }
+        public string imagem_base64 { get; set; }
+        public string imagem_mime { get; set; }
         public Opcao[] opcoes { get; set; }
         internal string AudioPath;
         internal string CodigoVoz;
@@ -113,6 +115,9 @@ namespace Bella {
             if(safada) body["modo"]="safada";
             return Request<AcaoPrograma>(HttpMethod.Post,"/api/bella/programa",body,25);
         }
+        public Task<Reply> GerarImagem(string prompt) {
+            return Request<Reply>(HttpMethod.Post,"/api/bella/imagem",new {pedido_id=Guid.NewGuid().ToString(),prompt=prompt},135);
+        }
         public Task<Reply> Conversar(string text) {
             return Request<Reply>(HttpMethod.Post,"/api/bella/conversa",new {texto=text,modo="safada",voz_separada=true},25);
         }
@@ -135,6 +140,8 @@ namespace Bella {
                             var data=parser.Deserialize<Dictionary<string,object>>(json);
                             object value; if(data.TryGetValue("detail",out value) && value is string) detail=(string)value;
                         } catch { }
+                        if(path=="/api/bella/imagem" && (response.StatusCode==HttpStatusCode.NotFound || response.StatusCode==HttpStatusCode.MethodNotAllowed))
+                            throw new InvalidOperationException("O Solo Bot no servidor ainda não está atualizado para gerar imagens. Publique o backend de imagens e tente novamente; este pedido não chegou ao Grok.");
                         if(response.StatusCode==HttpStatusCode.Unauthorized) throw new UnauthorizedAccessException(detail);
                         throw new InvalidOperationException(detail);
                     }

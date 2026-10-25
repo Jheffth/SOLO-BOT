@@ -20,6 +20,7 @@ namespace Bella {
         [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
 
         readonly WebView2 web=new WebView2();
+        readonly GaleriaImagens galeria=new GaleriaImagens();
         readonly Vista tela;
         readonly Nucleo bella;
         readonly NotifyIcon tray=new NotifyIcon();
@@ -57,6 +58,14 @@ namespace Bella {
             bella.BuscaMudou+=q=> {
                 var m=new {tipo="busca",ativa=q.HasValue,consultadas=q ?? 0};
                 tela.Postar(m); if(mini!=null) mini.Postar(m);
+            };
+            bella.GerandoImagem+=(ativa,erro)=>tela.Postar(new {tipo="imagem_estado",gerando=ativa,erro=erro});
+            bella.ImagemRecebida+=async r=> {
+                try {
+                    await Task.Run(()=>galeria.Guardar(r));
+                    r.imagem_base64=null;
+                    if(!quitting) await PostarGaleria(true);
+                } catch(Exception e) {if(!quitting) tela.Postar(new {tipo="toast",texto="Não consegui guardar a imagem: "+e.Message,erro=true});}
             };
             bella.Nivel+=energia=>{
                 var m=new { tipo="nivel", v=energia, limiar=bella.Config.Threshold };
@@ -142,6 +151,10 @@ namespace Bella {
         }
 
         // ── Da tela para o núcleo ─────────────────────────────────────
+        async Task PostarGaleria(bool abrir) {
+            var itens=await Task.Run(()=>galeria.Listar());
+            if(!quitting) tela.Postar(new {tipo="imagens",imagens=itens,abrir=abrir});
+        }
         async void Receber(Dictionary<string,object> d) {
             try {
                 switch(Vista.Texto(d,"acao")) {
@@ -151,6 +164,20 @@ namespace Bella {
                     case "parar_voz": bella.PararVoz(); break;
                     case "cancelar_busca": bella.CancelarBusca(); break;
                     case "enviar": await bella.SendText(Vista.Texto(d,"texto"),Vista.Texto(d,"exibir")); break;
+                    case "imagens_abrir": await PostarGaleria(false); break;
+                    case "imagem_gerar":
+                        string prompt=Vista.Texto(d,"prompt");
+                        if(String.IsNullOrWhiteSpace(prompt) || prompt.Length>1800) throw new InvalidOperationException("Descreva a imagem em até 1800 caracteres.");
+                        await bella.SendText("/imagem "+prompt,"Gerar imagem: "+prompt); break;
+                    case "imagem_salvar":
+                        string origemImagem=galeria.Caminho(Vista.Texto(d,"id"));
+                        using(var salvar=new SaveFileDialog {Filter="Imagem|*"+Path.GetExtension(origemImagem),FileName="Bella-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+Path.GetExtension(origemImagem),OverwritePrompt=true}) {
+                            if(salvar.ShowDialog(this)==DialogResult.OK) {
+                                File.Copy(origemImagem,salvar.FileName,true);
+                                tela.Postar(new {tipo="toast",texto="Imagem salva.",erro=false});
+                            }
+                        }
+                        break;
                     case "medidor": medidor=Vista.Logico(d,"ligado")==true; break;
                     case "abrir_painel": AbrirPainel(Vista.Texto(d,"servidor")); break;
                     case "sair": Sair(); break;

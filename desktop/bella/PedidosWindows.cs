@@ -10,6 +10,13 @@ namespace Bella {
         bool ultimoLocal;
         public Dictionary<string,long> Tempos {get;private set;}
         public PedidosWindows() {Tempos=new Dictionary<string,long>();}
+        public event Action<bool,string> GerandoImagem;
+        public static bool PedidoImagem(string text,out string prompt) {
+            string pedido=ComandosPastas.Pedido(text);
+            var m=Regex.Match(pedido ?? "",@"^(?:/imagem\s+|(?:gere|gerar|crie|criar|desenhe)\s+(?:(?:uma|a)\s+)?(?:imagem|foto|ilustração|ilustracao)\s+(?:(?:de|do|da)\s+)?)(?<prompt>.+)$",RegexOptions.IgnoreCase|RegexOptions.Singleline);
+            prompt=m.Success ? m.Groups["prompt"].Value.Trim() : null;
+            return m.Success && !String.IsNullOrWhiteSpace(prompt);
+        }
         public void Cancelar() { tokenSolo=null; ultimoLocal=true; }
         public async Task<Reply> Enviar(string text,byte[] audio,Arquivos arquivos,Func<Client> cliente,Action<string> ouvido,Func<bool> continuar=null,Action<Reply> resultado=null,Programas programas=null,bool safada=false) {
             Tempos=new Dictionary<string,long>(); var relogio=Stopwatch.StartNew();
@@ -21,6 +28,25 @@ namespace Bella {
                 if(ouvido!=null) ouvido(text);
             }
             if(continuar!=null && !continuar()) throw new OperationCanceledException();
+            string promptImagem;
+            if(PedidoImagem(text,out promptImagem)) {
+                if(promptImagem.Length>1800) throw new InvalidOperationException("Use até 1800 caracteres para descrever a imagem.");
+                arquivos.Cancelar(); tokenSolo=null; ultimoLocal=true;
+                if(GerandoImagem!=null) GerandoImagem(true,null);
+                string erroImagem=null; bool imagemTerminou=false;
+                try {
+                    Reply imagem;
+                    using(var c=cliente()) imagem=await c.GerarImagem(promptImagem);
+                    if(continuar!=null && !continuar()) throw new OperationCanceledException();
+                    imagem.CodigoVoz="imagem_pronta";
+                    if(resultado!=null) resultado(imagem);
+                    Tempos["Imagem Grok"]=relogio.ElapsedMilliseconds;
+                    imagemTerminou=true;
+                    if(GerandoImagem!=null) GerandoImagem(false,null);
+                    return await VozLocal(imagem,cliente);
+                } catch(Exception e) {erroImagem=e.Message; throw;}
+                finally {if(!imagemTerminou && GerandoImagem!=null) GerandoImagem(false,erroImagem);}
+            }
             var botao=Regex.Match(text ?? "",@"^/solo-escolher ([a-f0-9]{32}) (\d+)$");
             if(botao.Success) {
                 if(botao.Groups[1].Value!=tokenSolo) {

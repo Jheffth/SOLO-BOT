@@ -407,3 +407,22 @@ A chave GROK_API_KEY fica no servidor. Para ver o saldo pré-pago do Grok em Adm
 (padrão grok-4.7). A geração usa a Responses API oficial, com store=false e timeout.
 A rota autenticada /api/bella/conversa separa a geração da síntese existente por voz_id.
 O backend atualizado precisa estar publicado antes de usar esse modo na Bella.
+
+## Imagens pelo Grok
+
+O botão Imagens abre um painel recolhível, separado do chat. Gere pela descrição
+nesse painel, por /imagem <descrição> ou por “Bella, gere uma imagem de…”. A geração
+funciona independentemente do modo de conversa. A imagem não é anexada ao chat;
+ali aparece somente uma confirmação. O painel mostra geração em andamento e erros,
+pode ser recolhido sem descartar resultados e oferece Salvar original pelo diálogo
+nativo do Windows. A confirmação falada usa ElevenLabs.
+São guardados no computador os seis últimos originais (até 8 MB cada), em
+%LocalAppData%/Solo/Bella/imagens. Apenas prévias JPEG de até 900 pixels entram
+na interface, e a leitura/geração dessas prévias ocorre fora da thread da janela.
+Ao entrar a sétima, o original mais antigo da galeria é removido; cópias exportadas
+pelo usuário permanecem. Não há sincronização de imagens ou URLs remotas no WebView.
+O servidor usa GROK_API_KEY e GROK_IMAGE_MODEL (padrão grok-imagine-image-2.0).
+A rota autenticada POST /api/bella/imagem gera uma imagem por pedido, limita
+concorrência, bloqueia IDs repetidos e não tenta novamente após falha ou timeout.
+Cada geração utiliza o saldo da conta xAI. Não há geração automática ao abrir a aba.
+O backend precisa ser atualizado antes de usar a função no aplicativo.

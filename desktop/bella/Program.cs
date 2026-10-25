@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -59,6 +59,7 @@ namespace Bella {
         static void Check(bool condition,string name) { if(!condition) throw new Exception(name); }
         public static void Run() {
             PastasTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
+            ImagensTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
             ProgramasTestes.Run();
             ArquivosTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
             NavegadorTestes.Run();
