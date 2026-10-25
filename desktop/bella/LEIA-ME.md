@@ -250,7 +250,7 @@ Windows 10 atualizados. Se faltar, a Bella avisa e abre a página oficial de dow
 - Durante a saudação, o microfone ignora o áudio. Só depois começa a gravação, inclusive pelo atalho. Pausar durante a saudação mantém o microfone desligado.
 - A chave fica cifrada para o usuário atual do Windows usando DPAPI. O aplicativo não guarda a senha Solo nem as chaves de Gemini ou ElevenLabs.
 - A chave pode ser revogada ou trocada no painel, independentemente da Siri e dos outros canais. HTTPS é obrigatório, exceto em testes locais.
-- Mensagens ficam apenas na janela e não são gravadas em histórico no computador. O áudio de respostas a pedidos é temporário e apagado após reprodução; as saudações são preservadas para reutilização. O servidor mantém seu registro habitual de comandos, sem guardar o conteúdo do pedido.
+- Mensagens ficam apenas na janela e não são gravadas em histórico no computador. O áudio de respostas a pedidos é temporário e apagado após reprodução; as saudações são preservadas para reutilização. O servidor mantém seu registro habitual de comandos, sem guardar o conteúdo do pedido, exceto as últimas trocas da conversa pessoal, mantidas só na RAM por até 30 minutos.
 - Falha de conexão **não** reenvia o pedido automaticamente. Confira o resultado no sistema antes de repetir uma operação financeira.
 
 O reconhecimento da chamada depende do microfone, pronúncia e ruído. Se não ativar,
@@ -303,8 +303,12 @@ a voz do Windows; sem áudio, a resposta e o aviso permanecem na tela.
 ## Conversa pessoal opcional
 
 Em Configurações → Conversa, o Modo Safada ativa o Grok para mensagens livres e
-criação no Word, com flerte, sensualidade e duplo sentido sem descrições sexuais
-explícitas. Começa desligado e fica salvo nas preferências cifradas da Bella.
+criação no Word, com flerte, sensualidade e duplo sentido. Por padrão o Grok evita descrições
+sexuais explícitas. Com `BELLA_CONTEUDO_ADULTO=1` no servidor, o modo passa a permitir conversa
+sensual e explícita entre adultos que consentem, como fantasia. Os limites nunca mudam: nada com
+menores de 18 anos, sem consentimento, com pessoas reais identificáveis ou que incentive violência
+ou crime, e a Bella não pressiona nem alega exclusividade. O modo começa desligado e fica salvo
+nas preferências cifradas da Bella.
 A voz continua na ElevenLabs; não há reserva de voz Windows nem troca de provedor
 quando o Grok falha. Ditado literal e aberturas diretas continuam locais.
 Com o modo ativo, use /fin e /rot para os sistemas ou desligue o modo para usar suas

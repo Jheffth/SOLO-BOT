@@ -393,8 +393,12 @@ a voz do Windows; sem áudio, a resposta e o aviso permanecem na tela.
 ## Conversa pessoal opcional
 
 Em Configurações → Conversa, o Modo Safada ativa o Grok para mensagens livres e
-criação no Word, com flerte, sensualidade e duplo sentido sem descrições sexuais
-explícitas. Começa desligado e fica salvo nas preferências cifradas da Bella.
+criação no Word, com flerte, sensualidade e duplo sentido. Por padrão o Grok evita descrições
+sexuais explícitas. Com `BELLA_CONTEUDO_ADULTO=1` no servidor, o modo passa a permitir conversa
+sensual e explícita entre adultos que consentem, como fantasia. Os limites nunca mudam: nada com
+menores de 18 anos, sem consentimento, com pessoas reais identificáveis ou que incentive violência
+ou crime, e a Bella não pressiona nem alega exclusividade. O modo começa desligado e fica salvo
+nas preferências cifradas da Bella.
 A voz continua na ElevenLabs; não há reserva de voz Windows nem troca de provedor
 quando o Grok falha. Ditado literal e aberturas diretas continuam locais.
 Com o modo ativo, use /fin e /rot para os sistemas ou desligue o modo para usar suas
