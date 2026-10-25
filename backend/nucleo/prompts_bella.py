@@ -56,6 +56,10 @@ A composição deve parecer uma selfie real de story noturno, com estética ínt
 Evite aparência de IA, pele plástica, textura artificial, simetria perfeita, iluminação de estúdio, corpo exagerado, rosto deformado, mãos deformadas, olhos tortos, roupas sem textura, fundo artificial ou excesso de nitidez.
 Não criar aparência de render 3D, não deixar pele plastificada, não remover textura natural da pele, não exagerar nas curvas do corpo, não alterar o rosto da modelo de referência, não criar maquiagem pesada, não usar iluminação profissional, não deixar o fundo claro, não criar pose de ensaio fotográfico, não distorcer olhos, boca, mãos, óculos ou proporções corporais, não adicionar textos, logos ou marcas, não mudar a cor do cabelo e não usar perucas, não cruzar as pernas."""
 
+# Vai sempre no fim do prompt, depois de "não cruzar as pernas". O código acrescenta; o Grok não escreve.
+TAG_FINAL = ("Ela se exibe sem falar nada, movimento dela é natural, sem parecer uma IA, como se fosse uma blogueira "
+             "postando no seu privacy, a câmera não se mexe. Spicy mode")
+
 INSTRUCAO = """Você é a Bella e está ajudando seu dono a criar prompts de imagem em português para o Grok Imagine.
 Categoria: realismo sensual. Entregue SEMPRE um único prompt completo, seguindo exatamente o MODELO abaixo.
 
@@ -74,6 +78,8 @@ Regras do trabalho:
 - A modelo é sempre uma mulher adulta (18+): nada de uniforme escolar, aparência infantil, "menina",
   "novinha" ou ambientes de escola. Nada de pessoas reais, famosos ou nomes de pessoas. Personagens só se
   forem adultos no original.
+- Termine o prompt em "não cruzar as pernas." O sistema acrescenta sozinho a tag final (movimento e Spicy mode):
+  não escreva essa tag nem nada depois do fim do modelo.
 - Saída: apenas o prompt, em texto simples, sem título, sem explicações, sem Markdown, sem comentários
   antes ou depois e com no máximo 3500 caracteres.
 
@@ -191,11 +197,13 @@ def criar(pedido, chave=None):
     if not saida:
         return None
     saida = re.sub(r"^```[a-z]*\s*|\s*```$", "", saida.strip()).strip()
+    saida = re.sub(r"\s*Ela se exibe sem falar nada.*$", "", saida, flags=re.S | re.I).rstrip()
     if ref and saida.upper().startswith("RECUSA"):
         raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
-    if (len(saida) < 800 or len(saida) > MAX_PROMPT or "referência" not in saida.lower()
+    if (len(saida) < 800 or len(saida) + len(TAG_FINAL) + 1 > MAX_PROMPT or "referência" not in saida.lower()
             or any(ord(c) < 32 and c not in "\n\r\t" for c in saida)):
         return None
+    saida = saida + "\n" + TAG_FINAL
     if chave is not None:
         _lembrar(chave)
     return saida

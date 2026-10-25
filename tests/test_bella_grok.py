@@ -330,6 +330,7 @@ def test_criar_prompt_usa_grok_e_valida(monkeypatch):
     monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or _prompt_valido())
     texto = pb.criar("cozinha com cosplay", "c1")
     assert texto and "cozinha" in texto
+    assert texto.endswith("não cruzar as pernas.\n" + pb.TAG_FINAL) and texto.count("Spicy mode") == 1
     instr, entrada, kw = vistos[0]
     assert entrada == "Pedido: cozinha com cosplay" and "MODELO:" in instr and "18+" in instr and kw["max_tokens"] >= 2048
     pb.criar("", "c1")
@@ -340,6 +341,8 @@ def test_criar_prompt_usa_grok_e_valida(monkeypatch):
     assert pb.criar("x") is None
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: "```text\n" + _prompt_valido() + "\n```")
     assert not pb.criar("x").startswith("```")
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: _prompt_valido() + "\n" + pb.TAG_FINAL)    # o Grok repetiu a tag
+    assert pb.criar("x").count("Spicy mode") == 1
 
 
 def test_rota_conversa_cria_prompt_e_fala_curto(monkeypatch):
