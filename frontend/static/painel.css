@@ -209,7 +209,8 @@ code { font-family: var(--mono); font-size: .8rem; padding: .18rem .45rem; borde
 .cfg-nav button.ativo::before { content: ""; position: absolute; left: -10px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--brand); box-shadow: 0 0 12px var(--violet); }
 .cfg-corpo { display: grid; gap: 18px; min-width: 0; }
 .secao { position: relative; padding: 28px; border-radius: 22px; min-width: 0; }
-.secao .ancora { position: absolute; top: -110px; }
+.cfg-corpo [data-corpo][hidden] { display: none; }
+.cfg-corpo [data-corpo] { scroll-margin-top: 100px; animation: subir .55s var(--suave) both; }
 .secao > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
 .secao > header h2 { font-size: 1.25rem; margin-bottom: 4px; }
 .secao > header p { margin: 0; font-size: .92rem; }

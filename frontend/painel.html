@@ -8,8 +8,8 @@
 <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/solo.css">
-<link rel="stylesheet" href="/static/painel.css">
+<link rel="stylesheet" href="/static/solo.css?v=orbita-2">
+<link rel="stylesheet" href="/static/painel.css?v=orbita-2">
 </head>
 <body>
 <header class="topo">
@@ -88,18 +88,17 @@
     </section>
 
     <div class="cfg">
-      <nav class="cfg-nav vidro entrar-animado" style="animation-delay:.12s" id="cfg-nav" aria-label="Seções">
-        <button type="button" data-secao="s-perfil" class="ativo"><span data-i="user"></span>Perfil</button>
-        <button type="button" data-secao="s-voz"><span data-i="mic"></span>Resposta por voz</button>
-        <button type="button" data-secao="s-avisos"><span data-i="bell"></span>Avisos</button>
-        <button type="button" data-secao="s-bella"><span data-i="spark"></span>Bella no computador</button>
-        <button type="button" data-secao="s-siri"><span data-i="chat"></span>Siri</button>
-        <button type="button" data-secao="s-senha"><span data-i="shield"></span>Senha</button>
+      <nav class="cfg-nav vidro entrar-animado" style="animation-delay:.12s" id="cfg-nav" role="tablist" aria-label="Seções">
+        <button type="button" role="tab" data-secao="s-perfil" class="ativo"><span data-i="user"></span>Perfil</button>
+        <button type="button" role="tab" data-secao="s-voz"><span data-i="mic"></span>Resposta por voz</button>
+        <button type="button" role="tab" data-secao="s-avisos"><span data-i="bell"></span>Avisos</button>
+        <button type="button" role="tab" data-secao="s-bella"><span data-i="spark"></span>Bella no computador</button>
+        <button type="button" role="tab" data-secao="s-siri"><span data-i="chat"></span>Siri</button>
+        <button type="button" role="tab" data-secao="s-senha"><span data-i="shield"></span>Senha</button>
       </nav>
 
       <div class="cfg-corpo">
-        <form class="secao vidro entrar-animado" style="animation-delay:.15s" id="form-nome">
-          <span class="ancora" id="s-perfil"></span>
+        <form class="secao vidro entrar-animado" data-corpo="s-perfil" id="form-nome">
           <header><div><h2>Perfil</h2><p class="muted">É o nome que o bot usa para falar com você.</p></div></header>
           <div class="campos">
             <div class="campo"><label for="nome">Nome</label><div class="entrada"><span data-i="user"></span><input id="nome" autocomplete="name"></div></div>
@@ -108,8 +107,7 @@
           <div class="rodape-sec"><button class="btn primario pequeno">Salvar</button></div>
         </form>
 
-        <section class="secao vidro entrar-animado" style="animation-delay:.18s">
-          <span class="ancora" id="s-voz"></span>
+        <section class="secao vidro entrar-animado" data-corpo="s-voz">
           <header><div><h2>Resposta por voz</h2><p class="muted">O bot fala a resposta, em qualquer sistema. Mensagens longas, como listas, vão só por escrito.</p></div></header>
           <div class="segmentos largo" id="voz-opcoes" role="radiogroup" aria-label="Resposta por voz">
             <button type="button" role="radio" data-voz="audio">Quando eu mandar áudio</button>
@@ -119,26 +117,22 @@
           <div class="onda" aria-hidden="true"></div>
         </section>
 
-        <section class="secao vidro entrar-animado" style="animation-delay:.21s">
-          <span class="ancora" id="s-avisos"></span>
+        <section class="secao vidro entrar-animado" data-corpo="s-avisos">
           <header><div><h2>Avisos</h2><p class="muted">Os sistemas decidem quando avisar; aqui você decide como eles chegam.</p></div></header>
           <div id="avisos"><div class="esqueleto" style="height:220px"></div></div>
         </section>
 
-        <section class="secao vidro entrar-animado" style="animation-delay:.24s">
-          <span class="ancora" id="s-bella"></span>
+        <section class="secao vidro entrar-animado" data-corpo="s-bella">
           <header><div><h2>Bella no computador</h2><p class="muted">Sua assistente por voz no Windows, disponível perto do relógio.</p></div></header>
           <div class="pilha" id="bella"><p class="muted">Carregando acesso da Bella…</p></div>
         </section>
 
-        <section class="secao vidro entrar-animado" style="animation-delay:.27s">
-          <span class="ancora" id="s-siri"></span>
+        <section class="secao vidro entrar-animado" data-corpo="s-siri">
           <header><div><h2>Siri</h2><p class="muted">“E aí, Siri, Solo Bot” — fale com qualquer sistema pelo iPhone, Apple Watch ou CarPlay.</p></div></header>
           <div class="siri-cartao" id="siri"><div class="esqueleto" style="height:150px"></div></div>
         </section>
 
-        <form class="secao vidro entrar-animado" style="animation-delay:.3s" id="form-senha">
-          <span class="ancora" id="s-senha"></span>
+        <form class="secao vidro entrar-animado" data-corpo="s-senha" id="form-senha">
           <header><div><h2>Senha</h2><p class="muted">Só da Conta Solo. As senhas dos sistemas continuam lá.</p></div></header>
           <div class="campos">
             <div class="campo"><label for="atual">Senha atual</label><div class="entrada"><span data-i="lock"></span><input id="atual" type="password" autocomplete="current-password"></div></div>
@@ -151,9 +145,9 @@
   </div>
 </main>
 
-<script src="/static/solo.js"></script>
+<script src="/static/solo.js?v=orbita-2"></script>
 <script src="/static/vendor/qrcode.js"></script>
-<script src="/static/topo.js"></script>
-<script src="/static/painel.js"></script>
+<script src="/static/topo.js?v=orbita-2"></script>
+<script src="/static/painel.js?v=orbita-2"></script>
 </body>
 </html>

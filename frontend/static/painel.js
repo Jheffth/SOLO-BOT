@@ -353,16 +353,33 @@
     carregando(btn, false);
   });
 
-  // ── Configurações: menu lateral que acompanha a rolagem ──
-  const secoes = [...document.querySelectorAll("#cfg-nav [data-secao]")];
-  const marcarSecao = id => secoes.forEach(b => b.classList.toggle("ativo", b.dataset.secao === id));
-  secoes.forEach(b => b.addEventListener("click", () => {
-    document.getElementById(b.dataset.secao).scrollIntoView({ behavior: "smooth", block: "start" });
-    marcarSecao(b.dataset.secao);
-  }));
-  const olhar = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) marcarSecao(en.target.querySelector(".ancora").id); }),
-    { rootMargin: "-30% 0px -60% 0px" });
-  document.querySelectorAll(".cfg-corpo > .secao").forEach(s => olhar.observe(s));
+  // ── Configurações: o menu lateral mostra uma seção por vez ──
+  const abas = [...document.querySelectorAll("#cfg-nav [data-secao]")];
+  const corpos = [...document.querySelectorAll(".cfg-corpo [data-corpo]")];
+  function abrirSecao(id) {
+    abas.forEach(b => {
+      const on = b.dataset.secao === id;
+      b.classList.toggle("ativo", on);
+      b.setAttribute("aria-selected", String(on));
+      b.tabIndex = on ? 0 : -1;
+    });
+    corpos.forEach(c => { c.hidden = c.dataset.corpo !== id; });
+  }
+  abas.forEach((b, i) => {
+    b.addEventListener("click", () => {
+      abrirSecao(b.dataset.secao);
+      const corpo = document.querySelector(".cfg-corpo");
+      if (corpo.getBoundingClientRect().top < 80) corpo.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    b.addEventListener("keydown", e => {
+      const passo = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+      if (!passo) return;
+      e.preventDefault();
+      const prox = abas[(i + passo + abas.length) % abas.length];
+      prox.click(); prox.focus();
+    });
+  });
+  abrirSecao("s-perfil");
 
   // Onda decorativa da resposta por voz.
   document.querySelectorAll(".onda").forEach(o => {
