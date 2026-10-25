@@ -413,6 +413,8 @@ trata como lançamento) é respondida direto pela Bella. `/bella` fixa a convers
 `BELLA_CONTEUDO_ADULTO`), com memória curta própria de cada canal. `/esquecer` limpa a memória,
 `/sair` volta ao hub e o modo expira após `MODO_MINUTOS` sem mensagem.
 
+A Bella também cria prompts de imagem (categoria atual: realismo sensual, no modelo da conversa "REALISMO SENSUAL" do Grok). No WhatsApp, no Telegram e no Bella.exe (Modo Safada), `/prompt cozinha, cosplay de odalisca` ou "crie um prompt de ..." devolve o prompt pronto para colar no Grok Imagine; `/prompt` sozinho ou "próximo aleatório" sorteia um cenário. A voz só diz que o prompt está pronto. O texto fixo fica em `backend/nucleo/prompts_bella.py`.
+
 ## Imagens pelo Grok
 
 O botão Imagens abre um painel recolhível, separado do chat. Gere pela descrição

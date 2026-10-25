@@ -304,3 +304,51 @@ def test_rota_admin_grok(monkeypatch):
     chamadas = []
     monkeypatch.setattr(grok, "saldo", lambda forcar=False: chamadas.append(forcar) or {"saldo_usd": 3.0})
     assert admin.painel_grok(None, atualizar=True) == {"disponivel": True, "saldo_usd": 3.0} and chamadas == [True]
+
+
+# ── Bella cria prompts (realismo sensual) ─────────────────────────
+def _prompt_valido(extra=""):
+    from nucleo import prompts_bella
+    return prompts_bella.MODELO_REALISMO.replace("[CENÁRIO E GESTO: onde está, o que a mão faz, ombros soltos]", "de pé na cozinha " + extra)
+
+
+def test_pedido_de_prompt_e_reconhecido():
+    from nucleo import prompts_bella as pb
+    assert pb.pedido_de("/prompt cozinha, cosplay") == "cozinha, cosplay"
+    assert pb.pedido_de("Bella, crie um prompt de odalisca na cobertura") == "de odalisca na cobertura"
+    assert pb.pedido_de("gera outro prompt: bar à noite") == "bar à noite"
+    assert pb.pedido_de("/prompt") == "" and pb.pedido_de("crie um prompt aleatório") == ""
+    assert pb.pedido_de("como está o tempo") is None and pb.pedido_de("o prompt do sistema") is None
+    assert pb.pedido_de("próximo aleatório", "x") is None          # sem prompt recente
+    pb._lembrar("x")
+    assert pb.pedido_de("próximo aleatório", "x") == ""
+
+
+def test_criar_prompt_usa_grok_e_valida(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or _prompt_valido())
+    texto = pb.criar("cozinha com cosplay", "c1")
+    assert texto and "cozinha" in texto
+    instr, entrada, kw = vistos[0]
+    assert entrada == "Pedido: cozinha com cosplay" and "MODELO:" in instr and "18+" in instr and kw["max_tokens"] >= 2048
+    pb.criar("", "c1")
+    assert "aleatório" in vistos[1][1]
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "curto demais")
+    assert pb.criar("x") is None
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: None)
+    assert pb.criar("x") is None
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "```text\n" + _prompt_valido() + "\n```")
+    assert not pb.criar("x").startswith("```")
+
+
+def test_rota_conversa_cria_prompt_e_fala_curto(monkeypatch):
+    from nucleo import prompts_bella as pb
+    monkeypatch.setattr(pb, "criar", lambda pedido, chave=None: "PROMPT:" + pedido)
+    conta = SimpleNamespace(id=7)
+    monkeypatch.setattr(bella, "_autenticar", lambda db, chave: conta)
+    monkeypatch.setattr(bella, "_limitar", lambda *a: None)
+    guardado = {}
+    monkeypatch.setattr(bella, "_guardar_fala", lambda c, mensagens, falar, x: guardado.update(m=mensagens, f=falar) or "vid")
+    r = bella.conversa(bella.PedidoConversa(texto="crie um prompt de bar", modo="safada"), "k", None)
+    assert r["texto"] == "PROMPT:de bar" and r["falar"] == pb.FALADO and guardado["f"] == pb.FALADO

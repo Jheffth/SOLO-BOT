@@ -267,6 +267,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/sair` — volta ao hub",
         "▸ `/conta` — canais e sistemas ligados",
         "▸ `/bella` — conversar com a Bella (modo adulto, `/esquecer` limpa a memória)",
+        "▸ `/prompt` — a Bella cria um prompt de imagem (realismo sensual): `/prompt cozinha, cosplay de odalisca`",
         "▸ `/voz` — responder falando (áudio, sempre ou nunca)",
         "",
         "_Dentro de um sistema, `/ajuda` mostra os comandos dele. "
@@ -463,6 +464,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _conta_resumo(db, conta)
     if cmd == "/voz":
         return _cmd_voz(db, conta, resto.strip().lower())
+    if cmd == "/prompt":
+        return _prompt_responder(db, conta, canal, prompts_bella_pedido(txt, canal, conta) or "")
     if cmd in ("/bella", "/safada"):
         _entrar_modo(db, s, MODO_BELLA)
         return _bella_entrar(canal, conta, resto.strip())
@@ -481,6 +484,11 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
                                 resumo=f"/{mod.chave}", via_audio=via_audio)
 
     modo = _modo_valido(s)
+
+    if modo in (None, MODO_BELLA):
+        pedido_prompt = prompts_bella_pedido(txt, canal, conta)
+        if pedido_prompt is not None:
+            return _prompt_responder(db, conta, canal, pedido_prompt)
 
     if modo == MODO_BELLA:
         _entrar_modo(db, s, MODO_BELLA)          # renova a validade
@@ -541,6 +549,23 @@ MODO_BELLA = "bella"
 
 def _chave_bella(canal: str, conta: Conta) -> str:
     return f"{canal}:{conta.id}"          # memória própria deste canal, separada do Bella.exe
+
+
+def prompts_bella_pedido(txt: str, canal: str, conta: Conta) -> Optional[str]:
+    from nucleo import prompts_bella
+    return prompts_bella.pedido_de(txt, _chave_bella(canal, conta))
+
+
+def _prompt_responder(db, conta: Conta, canal: str, pedido: str) -> Resposta:
+    """A Bella cria um prompt de imagem (realismo sensual). A voz diz só que está pronto."""
+    from nucleo import prompts_bella
+    texto = prompts_bella.criar(pedido, _chave_bella(canal, conta))
+    if not texto:
+        return Resposta().diz("😶 Não consegui criar o prompt agora. Tente de novo em instantes.")
+    _registrar(db, conta, canal, None, "bella", "prompt")
+    r = Resposta().diz(texto)
+    r.mensagens[-1]["falado"] = prompts_bella.FALADO
+    return r
 
 
 def _bella_entrar(canal: str, conta: Conta, primeira: str) -> Resposta:

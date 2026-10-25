@@ -315,3 +315,23 @@ def test_papo_livre_vai_para_a_bella_sem_comando(logado, sistemas, caixa, monkey
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: None)
     _tg(logado, "outra conversa qualquer")        # sem Grok: o hub pergunta como antes
     assert "Para qual sistema" in caixa[-1][2]
+
+
+def test_prompt_pelo_whatsapp_e_telegram(logado, sistemas, caixa, monkeypatch):
+    from nucleo import prompts_bella
+    logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
+    logado.post("/api/conectar", json={"app": "rot", "codigo": "CODROT1"})
+    _ligar_telegram(logado)
+    pedidos = []
+    monkeypatch.setattr(prompts_bella, "criar", lambda pedido, chave=None: pedidos.append(pedido) or "PROMPT-PRONTO:" + pedido)
+    antes = len(sistemas.recebidos)
+    _tg(logado, "/prompt cozinha com cosplay")
+    assert "PROMPT-PRONTO:cozinha com cosplay" in caixa[-1][2]
+    _tg(logado, "crie um prompt de odalisca na cobertura")
+    assert "PROMPT-PRONTO:de odalisca na cobertura" in caixa[-1][2]
+    _tg(logado, "/bella")
+    _tg(logado, "gere um prompt aleatório")
+    assert pedidos[-1] == "" and len(sistemas.recebidos) == antes
+    monkeypatch.setattr(prompts_bella, "criar", lambda *a, **k: None)
+    _tg(logado, "/prompt bar")
+    assert "Não consegui criar o prompt" in caixa[-1][2]

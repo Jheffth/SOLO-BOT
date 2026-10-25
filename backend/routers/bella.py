@@ -328,16 +328,23 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
     _limitar(conta, _JANELAS_CONVERSA)
     if not p.texto.strip():
         raise HTTPException(422, "Escreva ou fale uma mensagem.")
-    from nucleo import bella_conversa
-    texto = bella_conversa.responder(p.texto, conta.id)
+    from nucleo import bella_conversa, prompts_bella
+    chave = f"bella:{conta.id}"
+    pedido = prompts_bella.pedido_de(p.texto, chave)
+    if pedido is not None:
+        texto = prompts_bella.criar(pedido, chave)
+        falar = prompts_bella.FALADO
+    else:
+        texto = bella_conversa.responder(p.texto, conta.id)
+        falar = texto
     if not texto:
         raise HTTPException(503, "O Grok não respondeu. Confira a chave e o modelo de texto no servidor.")
-    mensagens = [{"texto": texto, "falado": texto}]
-    saida = {"texto": texto, "falar": texto, "opcoes": []}
+    mensagens = [{"texto": texto, "falado": falar}]
+    saida = {"texto": texto, "falar": falar, "opcoes": []}
     if p.voz_separada:
-        saida["voz_id"] = _guardar_fala(conta, mensagens, texto, False)
+        saida["voz_id"] = _guardar_fala(conta, mensagens, falar, False)
     else:
-        saida.update(_preparar_voz(mensagens, texto, False, True))
+        saida.update(_preparar_voz(mensagens, falar, False, True))
     return saida
 
 
