@@ -466,7 +466,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if cmd in ("/bella", "/safada"):
         _entrar_modo(db, s, MODO_BELLA)
         return _bella_entrar(canal, conta, resto.strip())
-    if cmd == "/esquecer" and _modo_valido(s) == MODO_BELLA:
+    if cmd == "/esquecer":
         from nucleo import bella_conversa
         bella_conversa.esquecer(_chave_bella(canal, conta))
         return Resposta().diz("🧹 Pronto, esqueci o que conversamos.")
