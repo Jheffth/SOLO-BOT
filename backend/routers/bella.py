@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Bella no Windows: chave própria, voz e sessão isoladas dos outros canais."""
 import base64
 import binascii
@@ -263,6 +263,7 @@ class PedidoPrograma(BaseModel):
     model_config = {"extra": "forbid"}
     texto: str = Field(min_length=1, max_length=2000)
     comandos: list[ComandoPrograma] = Field(min_length=1, max_length=50)
+    modo: Literal["normal", "safada"] = "normal"
 
 
 _JANELAS_PROGRAMAS = {}
@@ -275,7 +276,36 @@ def programa(p: PedidoPrograma, x_bella_chave: str = Header(""), db: Session = D
     if len({c.id for c in p.comandos}) != len(p.comandos):
         raise HTTPException(422, "Comandos com identificadores repetidos.")
     from nucleo import programas
-    return programas.interpretar(p.texto, [c.model_dump() for c in p.comandos])
+    return programas.interpretar(p.texto, [c.model_dump() for c in p.comandos], modo=p.modo)
+
+
+class PedidoConversa(BaseModel):
+    model_config = {"extra": "forbid"}
+    texto: str = Field(min_length=1, max_length=2000)
+    modo: Literal["safada"]
+    voz_separada: bool = True
+
+
+_JANELAS_CONVERSA = {}
+
+
+@router.post("/api/bella/conversa")
+def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    conta = _autenticar(db, x_bella_chave)
+    _limitar(conta, _JANELAS_CONVERSA)
+    if not p.texto.strip():
+        raise HTTPException(422, "Escreva ou fale uma mensagem.")
+    from nucleo import bella_conversa
+    texto = bella_conversa.responder(p.texto)
+    if not texto:
+        raise HTTPException(503, "O Grok não respondeu. Confira a chave e o modelo de texto no servidor.")
+    mensagens = [{"texto": texto, "falado": texto}]
+    saida = {"texto": texto, "falar": texto, "opcoes": []}
+    if p.voz_separada:
+        saida["voz_id"] = _guardar_fala(conta, mensagens, texto, False)
+    else:
+        saida.update(_preparar_voz(mensagens, texto, False, True))
+    return saida
 
 
 @router.post("/api/bella/interpretar-comando")

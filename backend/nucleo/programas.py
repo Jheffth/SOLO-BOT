@@ -1,9 +1,10 @@
-"""Interpreta ações cadastradas; devolve somente texto, nunca código ou destinos."""
+﻿"""Interpreta ações cadastradas; devolve somente texto, nunca código ou destinos."""
 import json
 import logging
 import time
 
-from nucleo import gemini
+from nucleo import gemini, grok
+from nucleo.bella_conversa import ESTILO
 
 PROMPT = """Você interpreta UM pedido para aplicativos cadastrados no computador.
 Cada comando tem id, frase e tipo: word ou programa. As frases podem usar {pedido}.
@@ -25,11 +26,13 @@ Para geração, seja breve, até 6000 caracteres. Não devolva caminhos nem coma
 Escolha um comando somente com confiança de pelo menos 0.9."""
 
 
-def interpretar(texto, comandos):
+def interpretar(texto, comandos, modo="normal"):
     vazio = {"comando_id": None, "acao": None, "texto": "", "motivo": "incerto"}
     inicio = time.monotonic()
-    bruto = gemini.gerar(PROMPT, json.dumps({"pedido": texto, "comandos": comandos}, ensure_ascii=False),
-                         json_saida=True, max_tokens=1536, temperatura=0.3, timeout=8)
+    motor = grok if modo == "safada" else gemini
+    instrucao = PROMPT + ("\nPara criação de texto, escreva como Bella. " + ESTILO if modo == "safada" else "")
+    bruto = motor.gerar(instrucao, json.dumps({"pedido": texto, "comandos": comandos}, ensure_ascii=False),
+                         json_saida=True, max_tokens=1536, temperatura=.7 if modo == "safada" else .3, timeout=18 if modo == "safada" else 8)
     logging.getLogger("solobot.programas").info("Interpretacao de aplicativo: %.0f ms, resposta=%s",
                                                (time.monotonic() - inicio) * 1000, bool(bruto))
     if not bruto:

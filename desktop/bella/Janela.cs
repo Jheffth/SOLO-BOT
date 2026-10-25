@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Diagnostics;
@@ -54,6 +54,10 @@ namespace Bella {
                 tela.Postar(m); if(mini!=null) mini.Postar(m);
             };
             bella.Aviso+=(texto,erro)=>tela.Postar(new { tipo="aviso", texto=texto, erro=erro });
+            bella.BuscaMudou+=q=> {
+                var m=new {tipo="busca",ativa=q.HasValue,consultadas=q ?? 0};
+                tela.Postar(m); if(mini!=null) mini.Postar(m);
+            };
             bella.Nivel+=energia=>{
                 var m=new { tipo="nivel", v=energia, limiar=bella.Config.Threshold };
                 if(Visible && (medidor || bella.Modo==Modo.Recording)) tela.Postar(m);
@@ -145,6 +149,7 @@ namespace Bella {
                     case "escuta": await bella.AlternarEscuta(); break;
                     case "falar": await bella.Begin(); break;
                     case "parar_voz": bella.PararVoz(); break;
+                    case "cancelar_busca": bella.CancelarBusca(); break;
                     case "enviar": await bella.SendText(Vista.Texto(d,"texto"),Vista.Texto(d,"exibir")); break;
                     case "medidor": medidor=Vista.Logico(d,"ligado")==true; break;
                     case "abrir_painel": AbrirPainel(Vista.Texto(d,"servidor")); break;
@@ -190,7 +195,7 @@ namespace Bella {
                     case "preferencias":
                         try {
                             await bella.Preferencias(Vista.Logico(d,"iniciar"),Vista.Logico(d,"mini"),Vista.Inteiro(d,"sensibilidade"),Vista.Texto(d,"aparencia"),
-                                Vista.Logico(d,"apertarParaFalar"),Vista.Inteiro(d,"teclaFalar"),Vista.Inteiro(d,"modificadoresFalar"),Vista.Inteiro(d,"esperaFalar"),Vista.Logico(d,"ativacaoRapida"));
+                                Vista.Logico(d,"apertarParaFalar"),Vista.Inteiro(d,"teclaFalar"),Vista.Inteiro(d,"modificadoresFalar"),Vista.Inteiro(d,"esperaFalar"),Vista.Logico(d,"ativacaoRapida"),Vista.Logico(d,"modoSafada"));
                             if(d.ContainsKey("apertarParaFalar") || d.ContainsKey("teclaFalar") || d.ContainsKey("esperaFalar") || d.ContainsKey("modificadoresFalar")) AtualizarAtalho();
                         } catch(Exception e) { tela.Postar(new {tipo="toast",texto=e.Message,erro=true}); }
                         PostarConfig(); AtualizarMini();
@@ -222,7 +227,7 @@ namespace Bella {
             return new { tipo="config", temChave=bella.TemChave, servidor=c.Server, chaveFinal=final, iniciar=c.Startup,
                          apertarParaFalar=c.PushToTalk, teclaFalar=c.TalkKey, modificadoresFalar=c.TalkModifiers, esperaFalar=c.TalkSeconds,
                          frasesAtivacao=c.WakePhrases,
-                         ativacaoRapida=c.FastWake,
+                         ativacaoRapida=c.FastWake, modoSafada=c.ModoSafada,
                          nomeTeclaFalar=ApertarParaFalar.Nome(c.TalkKey,c.TalkModifiers),
                          mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto, pastasArquivos=c.PastasArquivos,
                          comandosPastas=c.ComandosPastas, modelosComandos=Navegador.Modelos() };

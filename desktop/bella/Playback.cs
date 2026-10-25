@@ -1,8 +1,6 @@
-using System;
+﻿using System;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Speech.Synthesis;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,12 +8,7 @@ using System.Threading.Tasks;
 namespace Bella {
     public sealed class Playback : IDisposable {
         [DllImport("winmm.dll",CharSet=CharSet.Unicode)] static extern int mciSendString(string command,StringBuilder result,int size,IntPtr callback);
-        readonly SpeechSynthesizer speech=new SpeechSynthesizer();
         CancellationTokenSource cancel;
-        public Playback() {
-            var pt=speech.GetInstalledVoices().FirstOrDefault(v=>v.Enabled && v.VoiceInfo.Culture.Name.StartsWith("pt"));
-            if(pt!=null) speech.SelectVoice(pt.VoiceInfo.Name);
-        }
         public async Task Say(Reply reply) {
             Stop(); cancel=new CancellationTokenSource(); var token=cancel.Token;
             string path=null;
@@ -39,15 +32,7 @@ namespace Bella {
                     }
                 }
                 token.ThrowIfCancellationRequested();
-                var done=new TaskCompletionSource<bool>();
-                EventHandler<SpeakCompletedEventArgs> ended=(s,e)=>done.TrySetResult(true);
-                speech.SpeakCompleted+=ended;
-                try {
-                    using(token.Register(()=>done.TrySetCanceled())) {
-                        speech.SpeakAsync(reply.falar ?? reply.texto ?? "Pronto.");
-                        await done.Task;
-                    }
-                } finally { speech.SpeakCompleted-=ended; }
+                throw new InvalidOperationException("Não foi possível reproduzir a voz configurada da ElevenLabs. Confira a conexão e a voz no painel; a resposta está na tela.");
             } finally {
                 mciSendString("close BellaReply",null,0,IntPtr.Zero);
                 if(temporary && path!=null && File.Exists(path)) File.Delete(path);
@@ -56,8 +41,7 @@ namespace Bella {
         public void Stop() {
             if(cancel!=null) { cancel.Cancel(); cancel.Dispose(); cancel=null; }
             mciSendString("stop BellaReply",null,0,IntPtr.Zero);
-            speech.SpeakAsyncCancelAll();
         }
-        public void Dispose() { Stop(); speech.Dispose(); }
+        public void Dispose() { Stop(); }
     }
 }

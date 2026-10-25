@@ -1,7 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Web.Script.Serialization;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +18,8 @@ namespace Bella {
         }
         static void Check(bool ok,string texto) {if(!ok) throw new Exception("Aplicativos: "+texto);}
         public static void Run() {
+            CriacaoEVoz();
+            ModoConversaTestes.Run();
             var editar=new ComandoPasta {Tipo="word",Frase="Escreva {pedido}"};
             var gerar=new ComandoPasta {Tipo="word",Frase="Faça {pedido}"};
             var abrir=new ComandoPasta {Tipo="word",Frase="Abrir Word"};
@@ -60,6 +66,50 @@ namespace Bella {
             var lancador=new Programas(()=>new[] {outro},editor,p=>aberto=p);
             lancador.Atender(outro.Frase,interpretar).GetAwaiter().GetResult();
             Check(aberto==executavel && ia==iaAntes,"programa configurado abre por caminho validado sem IA nem argumentos");
+        }
+        sealed class RedeAplicativo : HttpMessageHandler {
+            public string Id; public bool FalharVoz, Incerto; public List<string> Rotas=new List<string>();
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage r,CancellationToken token) {
+                Rotas.Add(r.RequestUri.AbsolutePath);
+                string body=await r.Content.ReadAsStringAsync();
+                if(r.RequestUri.AbsolutePath.EndsWith("/programa")) {
+                    Check(body.Contains("Crie o") && body.Contains("Bella"),"criação chega normalizada ao servidor existente");
+                    return Json(new {comando_id=Incerto ? "" : Id,acao="escrever",texto="Uma pequena faísca pode iluminar seu próximo projeto. Com carinho, Bella."});
+                }
+                Check(r.RequestUri.AbsolutePath.EndsWith("/voz-local"),"aplicativo nunca segue ao hub de sistemas");
+                Check(body.Contains("codigo") && !body.Contains("faísca"),"síntese recebe apenas código, sem documento");
+                if(FalharVoz) return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) {Content=new StringContent("{}")};
+                return Json(new {falar="Pronto.",audio_base64="SUQz",mime="audio/mpeg"});
+            }
+            static HttpResponseMessage Json(object obj) {return new HttpResponseMessage(HttpStatusCode.OK) {Content=new StringContent(new JavaScriptSerializer().Serialize(obj),Encoding.UTF8,"application/json")};}
+        }
+        static void CriacaoEVoz() {
+            var c=new ComandoPasta {Tipo="word",Frase="Escreva {pedido}"};
+            var editor=new WordFalso(); var programas=new Programas(()=>new[] {c},editor);
+            foreach(string pedido in new[] {"Abra o Word e escreva uma mensagem sua para mim.","Abra o Word e escreva uma mensagem surda para mim.","Escreva uma mensagem sua para mim.","Bella, crie uma mensagem sua para mim"}) {
+                int chamadas=0,antes=editor.Chamadas;
+                var r=programas.Atender(pedido,(t,cs)=> {
+                    chamadas++; Check(t.StartsWith("Crie o conteúdo") && t.Contains("primeira pessoa como Bella") && !t.Contains("surda"),"criação pessoal não é ditado literal");
+                    return Task.FromResult(new AcaoPrograma {comando_id=c.Id,acao="escrever",texto="Uma faísca para seu dia. Bella."});
+                }).GetAwaiter().GetResult();
+                Check(chamadas==1 && editor.Chamadas==antes+1 && editor.Texto=="Uma faísca para seu dia. Bella." && r.CodigoVoz=="aberto","criação gera uma vez e escreve uma vez");
+            }
+            foreach(bool falhar in new[] {false,true}) foreach(bool incerto in new[] {false,true}) {
+                var rede=new RedeAplicativo {Id=c.Id,FalharVoz=falhar,Incerto=incerto};
+                int antes=editor.Chamadas,exibidas=0;
+                var fila=new PedidosWindows();
+                var r=fila.Enviar("Abra o Word e escreva uma mensagem sua para mim",null,new Arquivos(()=>new string[0]),
+                    ()=>new Client("https://test.invalid","bella_"+new string('x',43),rede),null,null,x=>exibidas++,programas).GetAwaiter().GetResult();
+                Check(rede.Rotas.Count==2 && rede.Rotas[0].EndsWith("/programa") && rede.Rotas[1].EndsWith("/voz-local"),"sucesso e erro de aplicativo solicitam ElevenLabs");
+                Check(editor.Chamadas==antes+(incerto ? 0 : 1) && exibidas==1,"falha de voz não repete operação nem resultado");
+                Check(r.ExigirVozConfigurada && (falhar ? r.audio_base64==null : r.audio_base64=="SUQz"),"áudio configurado ou erro explícito, sem voz Windows");
+            }
+            using(var player=new Playback()) {
+                bool erro=false;
+                try {player.Say(new Reply {falar="Resposta comum sem áudio"}).GetAwaiter().GetResult();}
+                catch(InvalidOperationException e) {erro=e.Message.Contains("ElevenLabs");}
+                Check(erro,"respostas comuns também não usam voz Windows");
+            }
         }
         public static void WordReal() {
             var processos=Process.GetProcessesByName("WINWORD"); bool aberto=processos.Length>0;

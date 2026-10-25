@@ -1,4 +1,4 @@
-# Bella — assistente do Solo Bot para Windows
+﻿# Bella — assistente do Solo Bot para Windows
 
 Aplicativo portátil para Windows 10/11 de 64 bits, .NET Framework 4.8 e Microsoft Edge WebView2.
 O computador precisa de um microfone padrão e conexão ao Solo Bot para executar pedidos.
@@ -81,8 +81,8 @@ As pesquisas básicas já funcionam sem cadastro:
 - “Pesquisar no YouTube sobre técnicas de escrita” abre a busca de vídeos.
 - “Pesquisar no Maps sobre cafeterias em São Paulo” abre a busca no mapa.
 
-Para **abrir uma pasta**:
-Preencha **Frase do comando** (por exemplo, `Abrir minha pasta de Projetos`) e **Caminho
+Para **abrir uma pasta**, basta dizer "Abra a pasta Solo Bot" ou informar seu caminho completo.
+Não é preciso cadastrar cada diretório. Se quiser um atalho com uma frase personalizada, preencha **Frase do comando** (por exemplo, `Abrir minha pasta de Projetos`) e **Caminho
 da pasta** (`C:\JEFFERSON\PROJETOS`), ou use **Escolher pasta**, e clique em **Salvar comando**.
 Diga a frase ou escreva na conversa: a Bella abre o caminho cadastrado diretamente.
 “Abra” e “abrir”, letras maiúsculas, acentos e pontuação são equivalentes.
@@ -116,7 +116,7 @@ Comandos de pastas das versões anteriores continuam disponíveis como tipo Past
 
 ### Buscar e cuidar dos arquivos
 
-A Bella busca, lista e abre arquivos e pastas, cria pastas e pode mover, renomear ou excluir
+Além da busca automática de pastas, a Bella busca, lista e abre arquivos, cria pastas e pode mover, renomear ou excluir
 itens **depois de você confirmar**. Em **Configurações → Arquivos deste computador**, escolha
 as pastas de acesso. Documentos, Downloads e Área de Trabalho são as escolhas iniciais.
 **Remover acesso** tira a pasta da lista, sem apagar nada. Adicione suas pastas de projetos
@@ -142,10 +142,43 @@ vale cinco minutos e só se usa uma vez. Se o arquivo mudar ou o acesso à pasta
 Excluir usa a Lixeira e pode abrir a confirmação nativa do Windows. A pasta principal de
 acesso não pode ser movida, renomeada ou excluída por esses comandos.
 
-Downloads, Documentos e Área de Trabalho são reconhecidos diretamente, inclusive com
-“meu”, “minha”, “meus” ou “minhas”. Pastas escolhidas nas configurações também podem ser
-chamadas pelo nome, como “minha pasta de projetos”. Uma referência direta não varre as
-demais pastas. Se faltar acesso, a Bella indica onde adicioná-lo; não amplia o acesso sozinha.
+Downloads, Documentos e Área de Trabalho e caminhos completos são abertos diretamente.
+Para outros nomes, a Bella consulta um índice local de diretórios do perfil do usuário e
+dos discos locais fixos, respeitando as permissões do Windows. Ao pedir para abrir, um único resultado abre diretamente, inclusive com a busca ainda
+parcial ou um nome aproximado. Vários resultados mostram caminhos para escolher; as
+escolhas expiram em cinco minutos. Pedidos de pesquisa apenas mostram os resultados.
+O caminho é conferido novamente ao abrir. Não segue links ou junctions. Para nomes com
+"em" ou "para", use aspas. Pastas fora do índice ainda podem ser abertas pelo caminho completo.
+
+A busca automática concede somente descoberta e abertura de pastas. Abrir arquivos,
+listar conteúdo, criar, mover, renomear e excluir continuam limitados às pastas escolhidas
+nas configurações; o índice nunca altera essa lista. Pastas protegidas ou indisponíveis
+podem não ser encontradas. Windows, Lixeira, dados internos de volume e diretórios de
+cache/dependências (node_modules, .git, .venv, venv, __pycache__, .cache, .nuget) ficam fora
+da varredura automática. Pastas de nuvem marcadas como reparse point também ficam fora
+por precaução; as regras anteriores dos arquivos locais do OneDrive continuam valendo.
+
+O índice só começa no primeiro pedido que precisa dele. Usa um único trabalhador em
+segundo plano, com prioridade reduzida, pausas entre lotes e no máximo 60 mil diretórios
+ou 90 segundos por varredura. Não lê conteúdo de arquivos, não instala serviços, não
+cria observadores por pasta e não varre continuamente. Novos pedidos reutilizam o índice
+em memória; depois de 15 minutos, uma nova consulta inicia a atualização. Não há gravação
+do índice em disco. Fechar a Bella cancela as próximas etapas da varredura.
+O pedido fica ativo enquanto a busca necessária está em andamento. A conversa e a Mini-Bella
+mostram uma contagem real das pastas consultadas, sem porcentagem estimada. O botão
+**Cancelar busca** interrompe a solicitação sem esperar uma leitura de disco bloqueada.
+Os resultados aparecem automaticamente; não é preciso repetir o pedido. Ao encontrar
+candidatos, mostra as opções mesmo que o índice geral ainda esteja incompleto. Se atingir
+os limites sem resultado, explica que não conseguiu concluir e permite refinar pelo caminho.
+A pasta da instalação e seus ancestrais entram primeiro no índice. Variações de transcrição
+como "Solobote" podem encontrar "Solo Bot"; se houver um único resultado, ele abre diretamente.
+
+As respostas de pasta usam a voz configurada da ElevenLabs pela rota de voz local, que já
+reutiliza os áudios no servidor. Só um código fixo é enviado, sem caminhos. A procura não
+consulta IA para interpretar esses pedidos claros. Se a voz configurada falhar, a resposta
+permanece na tela e há um aviso; não troca silenciosamente para a voz do Windows.
+O contador da busca é visual, sem falas repetidas durante a varredura. Por voz, permanece a
+transcrição no servidor. O tempo em Arquivos locais aparece nas medições já existentes.
 
 Nomes e resultados ficam no computador. O pedido ativado por voz é transcrito no servidor
 antes de escolher entre arquivos e os sistemas Solo; o servidor não executa operações locais.
@@ -153,7 +186,7 @@ Para responder com a voz atual, recebe somente um código de uma frase fixa, cuj
 salvo e reutilizado por voz. Sem conexão para a síntese, a Bella usa a voz do Windows.
 Pedidos locais por texto funcionam sem conexão; pedidos por voz precisam da transcrição.
 
-A busca usa nomes (sem ler o conteúdo), nas pastas escolhidas e subpastas, até 10 mil itens
+A busca de arquivos usa nomes (sem ler o conteúdo), nas pastas escolhidas e subpastas, até 10 mil itens
 ou cinco segundos. Mostra até dez resultados e avisa se a consulta foi parcial. Informe uma
 pasta mais específica para refinar. Abertura aceita documentos, planilhas, imagens e mídia;
 não executa programas ou scripts. Caminhos de rede e links de pasta não entram nesta versão.
@@ -210,7 +243,7 @@ Windows 10 atualizados. Se faltar, a Bella avisa e abre a página oficial de dow
 - As frases cadastradas são reconhecidas localmente pelo Vosk com o modelo português. A grafia fonética no modelo é “bela”; isso não altera o nome do aplicativo.
 - O áudio ambiente de espera não é enviado. Só o pedido ativado é enviado como WAV ao Solo Bot para transcrição. A gravação termina após pausa, com limite de 30 segundos. Sem fala, volta à espera sem enviar.
 - Durante processamento e resposta falada, o detector ignora o áudio para não ouvir a própria resposta. Não há envio automático de um segundo pedido.
-- ElevenLabs gera a resposta na voz configurada no Solo Bot. Se o servidor não enviar áudio, o aplicativo usa a voz disponível no Windows (o idioma depende das vozes instaladas).
+- ElevenLabs gera a resposta na voz configurada no Solo Bot. Se o servidor não enviar áudio, o aplicativo informa a falha na tela, sem substituir pela voz do Windows.
 - A chamada tem **20 saudações diferentes**, com o login da Conta Solo (nome cadastrado para contas antigas sem login). As frases são fixas e não usam Gemini. São sorteadas sem repetição até completar o ciclo.
 - Na ativação, Bella prepara os áudios que faltam em segundo plano. A ElevenLabs cobra a **primeira geração** de cada frase/login/voz/modelo; as reutilizações leem arquivos, sem pedir nova síntese. Chamadas simultâneas à mesma frase compartilham a geração.
 - Os MP3 ficam no volume persistente do servidor e em `%LOCALAPPDATA%\Solo\Bella\saudacoes` no computador. O aplicativo consulta a voz atual em cada chamada. Trocar voz, modelo ou login seleciona outro conjunto; voltar a uma voz anterior reaproveita seus arquivos. A troca automática para a conta secundária acompanha a voz que realmente respondeu. Sem conexão, usa o último catálogo conhecido deste acesso; chave recusada bloqueia o cache.
@@ -257,5 +290,27 @@ Fontes: [API Vosk](https://github.com/alphacep/vosk-api),
 ## Respostas sem esperar o áudio
 
 A resposta aparece na conversa assim que a operação termina. A Bella busca a voz
-em seguida, sem repetir a ação. Se o serviço de voz demorar ou falhar, ela usa a
-fala do Windows; as pesquisas e os resultados dos sistemas continuam disponíveis.
+em seguida, sem repetir a ação. Se o serviço de voz demorar ou falhar, ela avisa na tela, sem voz do Windows; as pesquisas e os resultados dos sistemas continuam disponíveis.
+
+Pedidos como “Abra o Word e escreva uma mensagem sua para mim” geram texto criativo
+em primeira pessoa como Bella e o inserem uma vez no Word. “Escreva” seguido de
+texto literal continua como ditado; pedidos de mensagem, carta ou poema usam criação.
+Respostas de aplicativos também solicitam a voz ElevenLabs por código fixo, com
+confirmação genérica “Abri o item” compatível com o servidor atual. O documento
+não é enviado à síntese. Saudações, erros e respostas dos sistemas nunca usam
+a voz do Windows; sem áudio, a resposta e o aviso permanecem na tela.
+
+## Conversa pessoal opcional
+
+Em Configurações → Conversa, o Modo Safada ativa o Grok para mensagens livres e
+criação no Word, com flerte, sensualidade e duplo sentido sem descrições sexuais
+explícitas. Começa desligado e fica salvo nas preferências cifradas da Bella.
+A voz continua na ElevenLabs; não há reserva de voz Windows nem troca de provedor
+quando o Grok falha. Ditado literal e aberturas diretas continuam locais.
+Com o modo ativo, use /fin e /rot para os sistemas ou desligue o modo para usar suas
+frases livres. Pastas e comandos locais mantêm prioridade. Cada pedido pessoal é
+independente, sem histórico, sem ferramentas e sem acesso a documentos ou sistemas.
+A chave GROK_API_KEY fica no servidor. GROK_TEXT_MODEL configura o modelo de texto
+(padrão grok-4.7). A geração usa a Responses API oficial, com store=false e timeout.
+A rota autenticada /api/bella/conversa separa a geração da síntese existente por voz_id.
+O backend atualizado precisa estar publicado antes de usar esse modo na Bella.

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -247,7 +247,7 @@ namespace Bella {
                     } finally { servidor.Liberar.TrySetResult(true); }
                     var resposta=await envio;
                     Check(servidor.Operacoes==(local ? 0 : 1),"voz nao reenvia a operação");
-                    Check(!String.IsNullOrEmpty(resposta.falar),"falha da voz mantém fala do Windows");
+                    Check(!String.IsNullOrEmpty(resposta.falar),"falha da voz preserva o texto da resposta");
                     Check(falhar || resposta.audio_base64=="SUQz","voz escolhida continua disponível");
                 }
             }
@@ -272,9 +272,9 @@ namespace Bella {
             r=await fila.Enviar("excluir arquivo "+Aspas(proteger),null,files,cliente,null);
             Check(r.CodigoVoz=="confirmar_excluir","proposta local pronta para teste de escolha antiga");
             pedidos.Clear(); r=await fila.Enviar(escolhaSolo,null,files,cliente,null);
-            Check(r.CodigoVoz=="expirou" && File.Exists(proteger) && pedidos.Count==0,"botao antigo do Solo nao confirma exclusao local");
+            Check(r.CodigoVoz=="expirou" && File.Exists(proteger) && pedidos.Count==1 && pedidos[0].StartsWith("/api/bella/voz-local "),"botao antigo do Solo nao confirma exclusao local");
             r=await fila.Enviar("sim",null,files,cliente,null);
-            Check(r.CodigoVoz=="expirou" && pedidos.Count==0 && File.Exists(proteger),"sim depois de resposta local nao confirma pedido antigo do Solo");
+            Check(r.CodigoVoz=="expirou" && pedidos.Count==2 && pedidos.All(p=>p.StartsWith("/api/bella/voz-local ")) && File.Exists(proteger),"sim depois de resposta local nao confirma pedido antigo do Solo");
             pedidos.Clear(); files.Cancelar();
             bool falhou=false;
             try { await fila.Enviar(null,new byte[] {1},files,()=>new Client("https://test.invalid","bella_"+new string('x',43),new Servidor(pedidos,"excluir arquivo teste.txt",true)),null); }

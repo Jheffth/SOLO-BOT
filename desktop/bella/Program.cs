@@ -58,6 +58,7 @@ namespace Bella {
         sealed class Wake : IWake { public bool Trigger; public bool Hear(byte[] b) { return Trigger; } public void Reset() { Trigger=false; } public void Dispose() {} }
         static void Check(bool condition,string name) { if(!condition) throw new Exception(name); }
         public static void Run() {
+            PastasTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
             ProgramasTestes.Run();
             ArquivosTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
             NavegadorTestes.Run();

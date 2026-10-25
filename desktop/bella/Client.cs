@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -18,6 +18,7 @@ namespace Bella {
         public bool MiniBella=true;          // a pílula sobre a barra de tarefas quando a janela está fechada
         public bool PushToTalk;
         public bool FastWake;
+        public bool ModoSafada;
         public string[] WakePhrases=Chamadas.Padrao();
         public int TalkKey=119;              // F8
         public int TalkModifiers;
@@ -61,6 +62,8 @@ namespace Bella {
         public Opcao[] opcoes { get; set; }
         internal string AudioPath;
         internal string CodigoVoz;
+        internal bool SomenteLocal; // Não envia o pedido à interpretação; voz configurada continua permitida.
+        internal bool ExigirVozConfigurada;
     }
     public sealed class Opcao {
         public int numero { get; set; }
@@ -103,10 +106,15 @@ namespace Bella {
             foreach(var c in comandos) catalogo.Add(new {id=c.Id,frase=c.Frase,tipo=c.Tipo ?? "pasta"});
             return Request<InterpretacaoComando>(HttpMethod.Post,"/api/bella/interpretar-comando",new {texto=text,comandos=catalogo},15);
         }
-        public Task<AcaoPrograma> InterpretarPrograma(string text,ComandoPasta[] comandos) {
+        public Task<AcaoPrograma> InterpretarPrograma(string text,ComandoPasta[] comandos,bool safada=false) {
             var catalogo=new List<object>();
             foreach(var c in comandos) catalogo.Add(new {id=c.Id,frase=c.Frase,tipo=c.Tipo});
-            return Request<AcaoPrograma>(HttpMethod.Post,"/api/bella/programa",new {texto=text,comandos=catalogo},25);
+            var body=new Dictionary<string,object> {{"texto",text},{"comandos",catalogo}};
+            if(safada) body["modo"]="safada";
+            return Request<AcaoPrograma>(HttpMethod.Post,"/api/bella/programa",body,25);
+        }
+        public Task<Reply> Conversar(string text) {
+            return Request<Reply>(HttpMethod.Post,"/api/bella/conversa",new {texto=text,modo="safada",voz_separada=true},25);
         }
         public Task<GreetingSet> Greetings() { return Request<GreetingSet>(HttpMethod.Get,"/api/bella/saudacoes",null,8); }
         public Task<GreetingReply> Greeting(int id) {

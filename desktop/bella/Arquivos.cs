@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -15,6 +15,7 @@ namespace Bella {
     // Somente ações locais e explícitas. Nada recebido do hub vira ação do Windows.
     public sealed class Arquivos {
         readonly Func<IEnumerable<string>> pastas;
+        readonly IndicePastas indicePastas;
         readonly Func<IEnumerable<ComandoPasta>> comandos;
         readonly Action<string> abrir, reciclar;
         readonly Func<DateTime> agora;
@@ -23,8 +24,12 @@ namespace Bella {
         DateTime validade;
         bool confirmacao;
         string assuntoPendente;
-        public Arquivos(Func<IEnumerable<string>> roots,Action<string> open=null,Action<string> recycle=null,Func<DateTime> clock=null,Func<IEnumerable<ComandoPasta>> commands=null) {
-            pastas=roots; abrir=open ?? Abrir; reciclar=recycle ?? Reciclar; agora=clock ?? (()=>DateTime.UtcNow);
+        int cancelamentoBusca;
+        public event Action<int?> ProgressoBusca;
+        public void CancelarBusca() { Interlocked.Increment(ref cancelamentoBusca); }
+        void Progresso(int? quantidade) { var evento=ProgressoBusca; if(evento!=null) evento(quantidade); }
+        public Arquivos(Func<IEnumerable<string>> roots,Action<string> open=null,Action<string> recycle=null,Func<DateTime> clock=null,Func<IEnumerable<ComandoPasta>> commands=null,IndicePastas folderIndex=null) {
+            pastas=roots; indicePastas=folderIndex; abrir=open ?? Abrir; reciclar=recycle ?? Reciclar; agora=clock ?? (()=>DateTime.UtcNow);
             comandos=commands ?? (()=>new ComandoPasta[0]);
         }
         public void Cancelar() { escolhas=null; identidade=null; confirmacao=false; assuntoPendente=null; }
@@ -38,6 +43,8 @@ namespace Bella {
             if((text ?? "").Trim().StartsWith("/") || EhResposta(text)) return false;
             if(Regex.IsMatch(f,@"\b(google|youtube|maps|site|navegador|internet|web)\b") && Regex.IsMatch(f,@"\b(abrir|abra|abre|acessar|acesse|ver|mostrar|mostre|buscar|busque|pesquisar|pesquise|pesquisa|procure|encontre)\b")) return true;
             if(Regex.IsMatch(f,@"\b(missao|rotina|meta|tarefa|banco|conta|saldo|extrato|recebi|gastei|paguei|transferir)\b")) return false;
+            string termoPasta; bool pesquisarPasta;
+            if(indicePastas!=null && PedidoPasta(text,out termoPasta,out pesquisarPasta)) return true;
             if(!Regex.IsMatch(f,@"\b(abrir|abra|abre|abrisse|acessar|acesse|acessa|mostrar|mostre|ver|visualizar|leve|levar|ir|entrar|trabalhar|programar|pesquisar|pesquise|buscar|busque|encontre)\b")) return false;
             return Regex.IsMatch(f,@"\b(pasta|pastas|diretorio|diretorios|downloads|documentos|desktop|area de trabalho)\b")
                 || CatalogoComandos.Any(c=>Regex.Split(ComandosPastas.Chave(c.Frase),@"\s+").Any(t=>t.Length>=3
@@ -189,6 +196,11 @@ namespace Bella {
                     if(cadastrados.Count!=1) return Resposta("erro","Há mais de um comando com essa frase. Corrija os cadastros na aba Comandos.");
                     return AcaoComando(cadastrados[0].Id,assuntoBusca);
                 }
+                string pedidoPasta; bool pesquisarPasta;
+                string pedidoSemPrefixo=Regex.Replace(text,@"^/?arquivos\s*","",RegexOptions.IgnoreCase);
+                if(indicePastas!=null && PedidoPasta(pedidoSemPrefixo,out pedidoPasta,out pesquisarPasta)) {
+                    Cancelar(); return AtenderPasta(pedidoPasta,pesquisarPasta);
+                }
                 string tipoBusca;
                 if(Navegador.BuscaLivre(text,out tipoBusca,out assuntoBusca)) {
                     Cancelar(); var padrao=Navegador.Padrao().Single(c=>c.Tipo==tipoBusca);
@@ -242,6 +254,87 @@ namespace Bella {
             catch(ArgumentException) { Cancelar(); return Resposta("erro","Esse nome ou caminho não é válido. Use o caminho completo ou um nome da lista."); }
             catch(InvalidOperationException e) { Cancelar(); return Resposta("erro",e.Message); }
         }
+        // Busca ampliada somente para pastas; os métodos de escrita mantêm Validar/Raizes.
+        public bool PastaExplicita(string text) {
+            string termo; bool pesquisar;
+            return indicePastas!=null && Regex.IsMatch(Dobrar(text),@"\b(pasta|pastas|diretorio|diretorios|projeto|projetos)\b")
+                && PedidoPasta(text,out termo,out pesquisar);
+        }
+        static bool PedidoPasta(string text,out string termo,out bool pesquisar) {
+            termo=null; pesquisar=false;
+            text=Limpar(text);
+            var m=Regex.Match(text,@"^(abrir|abra|abre|abrisse|acessar|acesse|acessa|buscar|busque|procurar|procure|encontrar|encontre|pesquisar|pesquise)\b\s+(.+)$",RegexOptions.IgnoreCase);
+            if(!m.Success) return false;
+            string resto=m.Groups[2].Value, f=Dobrar(resto);
+            bool explicita=Regex.IsMatch(f,@"^(?:(?:o|a|os|as|um|uma)\s+)?(?:(?:meu|minha|meus|minhas)\s+)?(?:pasta|pastas|diretorio|diretorios|projeto|projetos)\b");
+            if(!explicita && Regex.IsMatch(f,@"\b(arquivo|arquivos|site|google|youtube|maps|navegador)\b")) return false;
+            if(!explicita && Regex.IsMatch(f,@"\b(missao|rotina|meta|tarefa|banco|conta|saldo|extrato|recebi|gastei|paguei)\b")) return false;
+            string verbo=Dobrar(m.Groups[1].Value);
+            pesquisar=!(verbo.StartsWith("abr") || verbo.StartsWith("acess"));
+            if(pesquisar && !explicita) return false;
+            string limpo=Referencia(resto);
+            bool literal=limpo.StartsWith("\"") || limpo.StartsWith("“") || limpo.StartsWith("'");
+            resto=Nome(limpo);
+            if(!literal) {
+                resto=Regex.Replace(resto,@"^(?:(?:o|a|os|as)\s+)?(?:projeto|projetos)\s+(?:(?:de|do|da)\s+)?","",RegexOptions.IgnoreCase);
+                resto=Regex.Replace(resto,@"^(?:o|a|os|as)\s+","",RegexOptions.IgnoreCase);
+            }
+            if(resto.Length==0) return false;
+            if(!explicita && (Regex.IsMatch(resto,@"\.[a-zA-Z0-9]{1,8}$") || Path.IsPathRooted(resto)) && !Directory.Exists(resto)) return false;
+            termo=literal ? limpo : resto; return true;
+        }
+        static Reply SoLocal(Reply r) { r.SomenteLocal=true; r.ExigirVozConfigurada=true; return r; }
+        Reply AbrirPastaLivre(string path) {
+            try {
+                if(indicePastas.Encerrado) throw new OperationCanceledException();
+                path=Canonico(path); ConferirAtalhos(path);
+                if(!Directory.Exists(path)) return SoLocal(Resposta("erro","Essa pasta mudou ou não está disponível. Faça a busca novamente."));
+                abrir(path); return SoLocal(Resposta("aberto","Abri:\n"+path));
+            } catch(Exception e) {
+                if(!(e is IOException || e is UnauthorizedAccessException || e is InvalidOperationException || e is System.ComponentModel.Win32Exception)) throw;
+                return SoLocal(Resposta("erro","Não foi possível abrir essa pasta. Confira se está disponível e se o Windows permite acessá-la."));
+            }
+        }
+        Reply AtenderPasta(string referencia,bool pesquisar) {
+            int versao=cancelamentoBusca;
+            try {
+                string termo,lugar; SepararLugar(referencia,out termo,out lugar); termo=Nome(Referencia(termo));
+                if(!pesquisar && lugar==null) {
+                    string alias=null, f=Dobrar(termo);
+                    if(f=="documentos" || f=="meus documentos") alias=Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    if(f=="desktop" || f=="area de trabalho") alias=Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                    if(f=="downloads" || f=="download") alias=Downloads();
+                    if(alias!=null) return AbrirPastaLivre(alias);
+                    if(Path.IsPathRooted(termo)) return AbrirPastaLivre(termo);
+                }
+                string escopo=null;
+                if(lugar!=null) {
+                    string p=Nome(Referencia(lugar));
+                    if(Path.IsPathRooted(p)) { escopo=Canonico(p); ConferirAtalhos(escopo); }
+                    else {
+                        var locais=PastasConhecidas(p);
+                        if(locais.Count!=1) return SoLocal(Resposta("erro","Informe o caminho completo da pasta onde devo procurar."));
+                        escopo=locais[0];
+                    }
+                }
+                var achado=indicePastas.Aguardar(termo,escopo,q=>Progresso(q),()=>versao==cancelamentoBusca);
+                if(versao!=cancelamentoBusca) throw new OperationCanceledException();
+                if(achado.Caminhos.Length==0) return SoLocal(Resposta("vazio",achado.Completa
+                    ? "Não encontrei essa pasta nos locais consultados. Você também pode informar o caminho completo."
+                    : "Não encontrei essa pasta nos locais que consegui consultar dentro do limite da busca. Informe a pasta principal ou o caminho completo para refinar.",
+                    "Não encontrei essa pasta nos locais consultados."));
+                if(!pesquisar && achado.Caminhos.Length==1 && !achado.Mais) return AbrirPastaLivre(achado.Caminhos[0]);
+                string aviso=achado.Completa ? "" : " A busca ainda é parcial; confira o caminho antes de escolher.";
+                if(achado.Mais) aviso+=" Há mais resultados; informe um nome mais específico.";
+                return SoLocal(Oferecer(achado.Caminhos.Select(p=>new KeyValuePair<string,Func<Reply>>(p,()=>AbrirPastaLivre(p))).ToList(),
+                    "escolha","Encontrei estas pastas."+aviso,false));
+            } catch(OperationCanceledException) {
+                return SoLocal(Resposta("cancelado","Busca de pastas cancelada."));
+            } catch(Exception e) {
+                if(!(e is IOException || e is UnauthorizedAccessException || e is InvalidOperationException || e is ArgumentException)) throw;
+                return SoLocal(Resposta("erro","Não consegui consultar essa pasta. Confira o nome ou informe um caminho local completo."));
+            } finally { Progresso(null); }
+        }
         bool PareceArquivo(string text) {
             string f=Dobrar(text);
             if(Regex.IsMatch(f,@"^(?:(?:o|a|uma|um)\s+)?(?:nova?\s+)?(?:missao|rotina|meta|banco|conta|tarefa)\b")) return false;
@@ -249,7 +342,7 @@ namespace Bella {
                 || Raizes().Any(p=>Dobrar(Path.GetFileName(p))==Nome(Referencia(f)));
         }
         public static Reply Ajuda() {
-            return Resposta("ajuda","Posso cuidar dos arquivos nas pastas escolhidas em Configurações → Arquivos.\n\n"
+            return Resposta("ajuda","Posso encontrar e abrir pastas pelo nome, sem cadastro. Para cuidar dos arquivos, escolha o acesso em Configurações → Arquivos.\n\n"
                 +"• listar downloads\n• buscar arquivo relatório em documentos\n• abrir pasta documentos\n• criar pasta Estudos em documentos\n"
                 +"• mover arquivo relatório.pdf dos downloads para documentos\n• renomear arquivo relatório.pdf para relatório-final.pdf\n• excluir arquivo rascunho.txt\n\n"
                 +"Mover, renomear e excluir pedem confirmação. Excluir envia à Lixeira. Para caminhos com palavras como “para”, use aspas.");

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -26,6 +26,7 @@
       <i></i><span id="chip-texto">Escuta pausada</span>
     </button>
     <div class="topo-acoes">
+      <span class="modo-conversa" id="modo-conversa" hidden>Safada · Grok</span>
       <button class="btn" id="btn-comandos" type="button" title="Cadastrar comandos para abrir pastas">Comandos</button>
       <button class="icobtn" id="btn-parar" type="button" title="Interromper voz" hidden>
         <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5"/></svg>
@@ -106,6 +107,11 @@
       </section>
 
       <section class="grupo">
+        <h3>Conversa</h3>
+        <label class="linha"><span>Modo Safada — Grok<small>Flerte, sensualidade e duplo sentido, sem descrições sexuais explícitas. A voz continua sendo ElevenLabs.</small></span><input type="checkbox" class="sw" id="cfg-safada"></label>
+        <p class="ajuda">Neste modo, mensagens livres vão para a conversa pessoal. Para os sistemas, use /fin, /rot ou desligue o modo. Pedidos de abrir pastas e usar o Word continuam disponíveis. Cada pedido é independente, sem histórico de conversa.</p>
+      </section>
+      <section class="grupo">
         <h3>Escuta</h3>
         <label class="linha"><span>Ativação rápida<small>Depois da frase de ativação, já escuta o pedido, sem saudação falada.</small></span><input type="checkbox" class="sw" id="cfg-rapida"></label>
         <p class="ajuda" id="cfg-tempos">O tempo das etapas do último pedido aparecerá aqui.</p>
@@ -150,7 +156,7 @@
 
       <section class="grupo">
         <h3>Arquivos deste computador</h3>
-        <p class="ajuda">Escolha onde a Bella pode buscar e cuidar dos arquivos. Mover, renomear e excluir sempre pedem confirmação.</p>
+        <p class="ajuda">A Bella encontra e abre pastas pelo nome sem cadastro. Escolha abaixo onde ela pode acessar arquivos e fazer alterações. Mover, renomear e excluir sempre pedem confirmação.</p>
         <div id="cfg-pastas" class="pastas-arquivos"></div>
         <div class="botoes">
           <button class="btn" id="btn-pasta" type="button">Adicionar pasta</button>

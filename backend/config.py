@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Configuração do Solo Bot — tudo vem do ambiente.
 
@@ -54,6 +54,7 @@ GEMINI_AUDIO_MODEL = _env("GEMINI_AUDIO_MODEL", GEMINI_MODEL)
 # "nenhum" desliga a alternativa; não troca o modelo da interpretação dos comandos.
 GEMINI_AUDIO_MODEL_RESERVA = _env("GEMINI_AUDIO_MODEL_RESERVA", "gemini-3.1-flash-lite")
 GROK_API_KEY = _env("GROK_API_KEY")
+GROK_TEXT_MODEL = _env("GROK_TEXT_MODEL", "grok-4.7")
 GROK_STT_MODEL = _env("GROK_STT_MODEL", "grok-voice-transcribe-2.0")
 
 # ── Fala (responder por voz, para todos os sistemas) ─────────────

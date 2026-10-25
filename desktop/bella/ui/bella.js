@@ -1,4 +1,4 @@
-/* Bella — a tela. Quem ouve, fala e guarda a chave é o C# (BellaApp.cs);
+﻿/* Bella — a tela. Quem ouve, fala e guarda a chave é o C# (BellaApp.cs);
    aqui só se desenha e se pedem ações pela ponte do WebView2.
 
    C# → tela  {tipo: "config" | "estado" | "nivel" | "msg" | "aviso" | "foto_original" | "erro_salvar" | "salvo"}
@@ -17,6 +17,7 @@
   let primeiraMensagem = true;
   let ultimoOuvido = "", ultimaResposta = "";
   let comandoEmEdicao = null;
+  let buscaAtual = null;
 
   // ── Ponte ──────────────────────────────────────────────────
   function enviar(acao, dados) {
@@ -30,6 +31,7 @@
       case "config": aplicarConfig(m); break;
       case "estado": aplicarEstado(m); break;
       case "nivel": aplicarNivel(m.v, m.limiar); break;
+      case "busca": progressoBusca(m); break;
       case "msg": mensagem(m); break;
       case "aviso": aviso(m.texto, m.erro); break;
       case "toast": toast(m.texto, m.erro); break;
@@ -74,6 +76,9 @@
     $("cfg-mini").checked = !!config.mini;
     $("cfg-apertar").checked = !!config.apertarParaFalar;
     $("cfg-rapida").checked = !!config.ativacaoRapida;
+    $("cfg-safada").checked = !!config.modoSafada;
+    $("modo-conversa").hidden = !config.modoSafada;
+    $("cfg-safada").disabled = !!estado.ocupada;
     for (let i = 0; i < 3; i++) $("cfg-frase-" + (i + 1)).value = (config.frasesAtivacao || [])[i] || "";
     $("btn-chamadas").disabled = false;
     $("cfg-atalho-fala").hidden = !config.apertarParaFalar;
@@ -167,6 +172,7 @@
     falando: ["Respondendo", ""]
   };
   function textosEstado() {
+    if (buscaAtual) return ["Procurando pasta…", buscaAtual.consultadas.toLocaleString("pt-BR") + " pastas consultadas"];
     if (!config.apertarParaFalar && estado.modo === "espera") return ["Esperando sua chamada", "diga “" + config.frasesAtivacao[0] + "”" + (config.ativacaoRapida ? ", pause e faça o pedido" : " e aguarde")];
     if (config.apertarParaFalar && !estado.escutando) return ["Apertar para falar pausado", "ative a escuta no botão acima"];
     if (config.apertarParaFalar && estado.escutando) {
@@ -204,7 +210,27 @@
     $("btn-falar").classList.toggle("gravando", modo === "ouvindo");
     $("btn-falar").title = config.apertarParaFalar ? "Segure " + (config.nomeTeclaFalar || "F8") + " por " + (config.esperaFalar || 5) + " s" : "Falar agora (Ctrl + Alt + B)";
     $("btn-enviar").disabled = !!estado.ocupada;
-    digitando(modo === "pensando");
+    $("cfg-safada").disabled = !!estado.ocupada;
+    digitando(modo === "pensando" && !buscaAtual);
+  }
+
+  function progressoBusca(m) {
+    buscaAtual = m.ativa ? { consultadas: Math.max(0, Number(m.consultadas) || 0) } : null;
+    if (MINI) { atualizarMini(); return; }
+    let el = $("progresso-busca");
+    if (!buscaAtual) { if (el) el.remove(); aplicarEstado({}); return; }
+    if (!el) {
+      el = document.createElement("div"); el.id = "progresso-busca"; el.className = "busca-progresso";
+      el.setAttribute("role", "status");
+      const texto = document.createElement("span"); texto.className = "busca-detalhe";
+      const cancelar = document.createElement("button"); cancelar.type = "button"; cancelar.className = "btn";
+      cancelar.textContent = "Cancelar busca"; cancelar.onclick = () => {
+        cancelar.disabled = true; cancelar.textContent = "Cancelando…"; enviar("cancelar_busca");
+      };
+      el.append(texto, cancelar); prepararConversa().appendChild(el); rolar();
+    }
+    el.querySelector(".busca-detalhe").textContent = "Procurando pasta… " + buscaAtual.consultadas.toLocaleString("pt-BR") + " pastas consultadas. O resultado aparecerá aqui automaticamente.";
+    aplicarEstado({});
   }
 
   let ultimaOnda = 0;
@@ -339,6 +365,10 @@
 
   // ── Mini-Bella ─────────────────────────────────────────────
   function atualizarMini() {
+    if (buscaAtual) {
+      $("mini-resposta").textContent = "Procurando pasta… " + buscaAtual.consultadas.toLocaleString("pt-BR") + " pastas consultadas";
+      return;
+    }
     const t = textosEstado();
     const resposta = !estado.segurando && (estado.modo === "falando" || (estado.modo === "espera" && !config.apertarParaFalar) || estado.modo === "pausada") && ultimaResposta ? ultimaResposta : t[0] + (t[1] ? " · " + t[1] : "");
     $("mini-ouvido").textContent = ultimoOuvido ? "“" + ultimoOuvido + "”" : "Bella";
@@ -377,6 +407,7 @@
     document.querySelectorAll("[data-aparencia]").forEach(b => b.onclick = () => {
       aplicarConfig({ aparencia: b.dataset.aparencia }); enviar("preferencias", { aparencia: b.dataset.aparencia });
     });
+    $("cfg-safada").onchange = e => enviar("preferencias", { modoSafada: e.target.checked });
     $("cfg-iniciar").onchange = e => enviar("preferencias", { iniciar: e.target.checked });
     $("cfg-mini").onchange = e => enviar("preferencias", { mini: e.target.checked });
     $("cfg-chamadas").onsubmit = e => {

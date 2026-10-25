@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -67,7 +67,20 @@ namespace Bella {
                 || Regex.IsMatch(t,@"\bword\b") && catalogo.Any(c=>c.Tipo=="word")
                 || Regex.IsMatch(t,@"^(abrir|abra|abre|acesse|inicie)\b") && catalogo.Any(c=>ComandosPastas.Chave(c.Frase).Split(' ').Any(p=>p.Length>3 && !Regex.IsMatch(p,@"^(abrir|minha|meus|programa)$") && Regex.IsMatch(t,@"\b"+Regex.Escape(p)+@"\b")));
         }
-        static Reply Resposta(string texto,string falar=null) {return new Reply {texto="**🖥️ Aplicativos**\n"+texto,falar=falar ?? texto};}
+        // Criação de conteúdo difere de ditado literal; normaliza também abrir Word + escrever.
+        static string CriacaoWord(string texto) {
+            string pedido=Regex.Replace(ComandosPastas.Pedido(texto ?? ""),
+                @"^(?:abra|abre|abrir|inicie)\s+(?:o\s+)?(?:microsoft\s+)?word\s+e\s+", "", RegexOptions.IgnoreCase);
+            string f=Arquivos.Dobrar(pedido);
+            if(!Regex.IsMatch(f,@"^(?:escreva|escrever|redija|crie|gere|elabore|faca)\s+(?:(?:no|em)\s+(?:o\s+)?word\s+)?(?:uma?|o|a)\s+(?:mensagem|carta|poema|rima|texto|bilhete|historia|conto|resumo|email|e-mail)\b")) return null;
+            // Erro conhecido da transcrição, restrito à expressão de mensagem pessoal.
+            pedido=Regex.Replace(pedido,@"\bmensagem\s+surda\s+(?=para\s+mim\b)","mensagem sua ",RegexOptions.IgnoreCase);
+            bool pessoal=Regex.IsMatch(Arquivos.Dobrar(pedido),@"\b(?:sua|de voce|da bella|dela)\b.*\b(?:para|pra) mim\b");
+            return "Crie o conteúdo solicitado para inserir no Word, em português e texto simples. "
+                +(pessoal ? "Escreva uma mensagem original e criativa em primeira pessoa como Bella, assistente virtual, dirigida ao usuário. Não invente fatos pessoais. " : "")
+                +"Pedido de criação: "+pedido;
+        }
+        static Reply Resposta(string texto,string falar=null) {return new Reply {texto="**🖥️ Aplicativos**\n"+texto,falar=falar ?? texto,CodigoVoz="erro",ExigirVozConfigurada=true};}
         public async Task<Reply> Atender(string texto,Func<string,ComandoPasta[],Task<AcaoPrograma>> interpretar,Func<bool> continuar=null,Dictionary<string,long> tempos=null) {
             var catalogo=Catalogo; if(catalogo.Length==0) return null;
             var matches=new List<Tuple<ComandoPasta,string>>();
@@ -75,12 +88,13 @@ namespace Bella {
             foreach(var c in catalogo) {string pedido; if(Casar(c,texto,out pedido) || teste.Success && teste.Groups[1].Value==c.Id) matches.Add(Tuple.Create(c,pedido));}
             if(matches.Count>1) return Resposta("Mais de um comando de aplicativo corresponde. Use uma frase mais específica.");
             if(matches.Count==0 && !Provavel(texto,catalogo)) return null;
+            string criacao=CriacaoWord(texto);
             AcaoPrograma acao=null;
             // O tipo Word é automático: ditado e abertura reconhecíveis não precisam de rede.
             if(matches.Count==0) {
                 var wordPadrao=catalogo.FirstOrDefault(c=>c.Tipo=="word");
                 var literal=Regex.Match((texto ?? "").Trim(),@"^(?:escreva|digite|ditar|escrever)\s+(?<texto>.+)$",RegexOptions.IgnoreCase|RegexOptions.Singleline);
-                if(wordPadrao!=null && literal.Success && !Regex.IsMatch(Arquivos.Dobrar(literal.Groups["texto"].Value),@"^(?:no|na|em|pelo|pela)\s+(?:word|excel|notepad|bloco|navegador)\b"))
+                if(criacao==null && wordPadrao!=null && literal.Success && !Regex.IsMatch(Arquivos.Dobrar(literal.Groups["texto"].Value),@"^(?:no|na|em|pelo|pela)\s+(?:word|excel|notepad|bloco|navegador)\b"))
                     acao=new AcaoPrograma {comando_id=wordPadrao.Id,acao="escrever",texto=literal.Groups["texto"].Value};
                 if(wordPadrao!=null && Regex.IsMatch(ComandosPastas.Chave(texto),@"^abrir (?:microsoft )?word$"))
                     acao=new AcaoPrograma {comando_id=wordPadrao.Id,acao="abrir",texto=""};
@@ -89,12 +103,12 @@ namespace Bella {
                 var c=matches[0].Item1; string conteudo=matches[0].Item2;
                 if(c.Frase.Contains("{pedido}") && String.IsNullOrWhiteSpace(conteudo)) return Resposta("Diga o comando com o texto ou pedido no lugar de {pedido}.");
                 if(c.Tipo=="programa" || conteudo==null && !Regex.IsMatch(Arquivos.Dobrar(texto),@"^(escreva|escrever|digite|ditar|faca|crie|redija|gere|elabore)\b")) acao=new AcaoPrograma {comando_id=c.Id,acao="abrir",texto=""};
-                else if(Regex.IsMatch(Arquivos.Dobrar(c.Frase),@"^(escreva|escrever|digite|ditar|anote)\s+\{pedido\}$"))
+                else if(criacao==null && Regex.IsMatch(Arquivos.Dobrar(c.Frase),@"^(escreva|escrever|digite|ditar|anote)\s+\{pedido\}$"))
                     acao=new AcaoPrograma {comando_id=c.Id,acao="escrever",texto=conteudo};
             }
             if(acao==null) {
                 var relogio=Stopwatch.StartNew();
-                try {acao=await interpretar(texto,matches.Count==1 ? new[] {matches[0].Item1} : catalogo);}
+                try {acao=await interpretar(criacao ?? texto,matches.Count==1 ? new[] {matches[0].Item1} : catalogo);}
                 catch(UnauthorizedAccessException) {throw;}
                 catch(Exception) {return Resposta("A interpretação está indisponível. Tente um comando direto cadastrado, como Escreva seguido do texto.");}
                 finally {if(tempos!=null) tempos["IA do aplicativo"]=relogio.ElapsedMilliseconds;}
@@ -103,7 +117,7 @@ namespace Bella {
             if(acao!=null && acao.motivo=="indisponivel") return Resposta("A IA está indisponível no momento. Ditados diretos, como Escreva seguido do texto, e abertura de programas continuam disponíveis.");
             var permitidos=matches.Count==1 ? new[] {matches[0].Item1} : catalogo;
             var escolhido=acao==null ? null : permitidos.SingleOrDefault(c=>c.Id==acao.comando_id);
-            if(escolhido==null || acao.acao!="abrir" && acao.acao!="escrever" || escolhido.Tipo!="word" && acao.acao!="abrir")
+            if(escolhido==null || criacao!=null && acao.acao!="escrever" || acao.acao!="abrir" && acao.acao!="escrever" || escolhido.Tipo!="word" && acao.acao!="abrir")
                 return Resposta("Não identifiquei uma ação segura para o aplicativo. Informe o programa e o que deseja escrever.");
             if(acao.acao=="escrever" && (String.IsNullOrWhiteSpace(acao.texto) || acao.texto.Length>12000 || acao.texto.IndexOf('\0')>=0))
                 return Resposta("Não recebi um texto válido para inserir. Tente um pedido mais curto.");
@@ -119,6 +133,7 @@ namespace Bella {
                     if(escolhido.Tipo=="word") resultado=word.Executar(acao.acao=="escrever" ? acao.texto : null);
                     else {abrir(Executavel(escolhido.Caminho)); resultado="Programa aberto ou trazido para a frente.";}
                     resposta=Resposta(resultado,acao.acao=="escrever" ? "Escrevi no Word." : "O programa está pronto.");
+                    resposta.CodigoVoz="aberto"; // Confirmação genérica compatível com o servidor já instalado.
                 } catch(OperationCanceledException) {cancelado=true;}
                 catch(Exception erro) {resposta=Resposta(erro.Message,"Não consegui concluir. Confira a mensagem na tela.");}
                 finally {duracao=relogio.ElapsedMilliseconds;}

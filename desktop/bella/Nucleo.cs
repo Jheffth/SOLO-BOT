@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -16,6 +16,7 @@ namespace Bella {
         readonly Control dono;
         readonly Playback player=new Playback();
         readonly Arquivos arquivos;
+        readonly IndicePastas indicePastas;
         readonly PedidosWindows pedidos=new PedidosWindows();
         readonly Programas programas;
         public System.Collections.Generic.Dictionary<string,long> Tempos {get {return pedidos.Tempos;}}
@@ -43,6 +44,8 @@ namespace Bella {
         public event Action<string,bool> Aviso;
         /// <summary>Energia do microfone (RMS), ~14 vezes por segundo enquanto ele está aberto.</summary>
         public event Action<double> Nivel;
+        public event Action<int?> BuscaMudou;
+        public void CancelarBusca() { arquivos.CancelarBusca(); }
 
         public Nucleo(Control ui,Settings inicial,Func<IMicrophone> microphoneFactory=null) {
             dono=ui; Config=inicial ?? new Settings();
@@ -52,8 +55,10 @@ namespace Bella {
             Config.WakePhrases=Chamadas.Validar(Config.WakePhrases ?? Chamadas.Padrao());
             try { ApertarParaFalar.Validar(Config.TalkKey,Config.TalkModifiers,Config.TalkSeconds); }
             catch { Config.TalkKey=119; Config.TalkModifiers=0; Config.TalkSeconds=5; }
-            arquivos=new Arquivos(()=>Config.PastasArquivos,commands:()=>Config.ComandosPastas);
+            indicePastas=new IndicePastas(()=>IndicePastas.RaizesLocais());
+            arquivos=new Arquivos(()=>Config.PastasArquivos,commands:()=>Config.ComandosPastas,folderIndex:indicePastas);
             programas=new Programas(()=>Config.ComandosPastas);
+            arquivos.ProgressoBusca+=q=> { if(!quitting) Ui(()=> { if(!quitting && BuscaMudou!=null) BuscaMudou(q); }); };
         }
 
         void Ui(Action action) { if(!dono.IsDisposed && dono.IsHandleCreated) dono.BeginInvoke(action); }
@@ -81,12 +86,16 @@ namespace Bella {
 
         /// <summary>Preferências que mudam na hora (sem botão Salvar). Nulo = não mexe.</summary>
         public async Task Preferencias(bool? iniciar,bool? mini,int? sensibilidade,string aparencia,
-            bool? apertar=null,int? tecla=null,int? modificadores=null,int? segundos=null,bool? rapida=null) {
+            bool? apertar=null,int? tecla=null,int? modificadores=null,int? segundos=null,bool? rapida=null,bool? safada=null) {
             var novo=Copia();
             bool mudarFala=apertar.HasValue || tecla.HasValue || modificadores.HasValue || segundos.HasValue;
             if(mudarFala && (busy || starting)) throw new InvalidOperationException("Espere o pedido atual terminar antes de trocar o modo de fala.");
             if(apertar.HasValue) novo.PushToTalk=apertar.Value;
             if(rapida.HasValue) novo.FastWake=rapida.Value;
+            if(safada.HasValue) {
+                if(busy || starting) throw new InvalidOperationException("Espere o pedido atual terminar antes de trocar o modo de conversa.");
+                novo.ModoSafada=safada.Value;
+            }
             if(tecla.HasValue) novo.TalkKey=tecla.Value;
             if(modificadores.HasValue) novo.TalkModifiers=modificadores.Value;
             if(segundos.HasValue) novo.TalkSeconds=segundos.Value;
@@ -110,7 +119,7 @@ namespace Bella {
                                   MiniBella=Config.MiniBella, Aparencia=Config.Aparencia, PastasArquivos=(string[])Config.PastasArquivos.Clone(),
                                   PushToTalk=Config.PushToTalk, TalkKey=Config.TalkKey, TalkModifiers=Config.TalkModifiers, TalkSeconds=Config.TalkSeconds,
                                   WakePhrases=(string[])Config.WakePhrases.Clone(),
-                                  FastWake=Config.FastWake,
+                                  FastWake=Config.FastWake, ModoSafada=Config.ModoSafada,
                                   ComandosPastas=(ComandoPasta[])Config.ComandosPastas.Clone() };
         }
 
@@ -247,7 +256,7 @@ namespace Bella {
                 using(var client=new Client(value.Server,value.Key)) {
                     await library.Warm(client,()=>!quitting && listening && !Config.FastWake && greetingConnection==value.Server+"\n"+value.Key);
                 }
-            } catch(Exception) { /* A chamada usa o cache ou a voz do Windows se a preparação falhar. */ }
+            } catch(Exception) { /* A chamada usa o cache; falha de áudio é informada na tela. */ }
         }
         async Task Greet() {
             if(busy || !listening || capture.State!=Capture.Mode.Greeting) return;
@@ -255,7 +264,6 @@ namespace Bella {
             var tempo=Stopwatch.StartNew();
             try {
                 if(Config.FastWake) return;
-                bool fallback=false;
                 try {
                     var value=Config; var library=GreetingsFor(value);
                     using(var client=new Client(value.Server,value.Key)) {
@@ -269,11 +277,7 @@ namespace Bella {
                 catch(UnauthorizedAccessException e) { Pause(); if(!quitting) Note(e.Message,true); }
                 catch(OperationCanceledException) { }
                 catch(Exception e) {
-                    if(listening && !quitting) { Note("Não consegui buscar a saudação: "+e.Message,true); fallback=true; }
-                }
-                if(fallback) {
-                    try { await player.Say(new Reply { falar="Estou aqui. Pode falar." }); } catch(OperationCanceledException) { }
-                    catch(Exception e) { if(!quitting) Note("Não consegui reproduzir a voz: "+e.Message,true); }
+                    if(listening && !quitting) { Note("Voz ElevenLabs indisponível: "+e.Message+" Pode falar seu pedido.",true); }
                 }
                 await Task.Delay(180);
             } finally {
@@ -302,7 +306,7 @@ namespace Bella {
                 var value=Config;
                 var reply=await pedidos.Enviar(text,audio,arquivos,()=>new Client(value.Server,value.Key),
                     t=>Falou("eu",t ?? "pedido por voz","voz",null),()=>!quitting,
-                    r=> { if(!quitting) Falou("bella",r.texto,audio!=null?"voz":"texto",r.opcoes); },programas);
+                    r=> { if(!quitting) Falou("bella",r.texto,audio!=null?"voz":"texto",r.opcoes); },programas,value.ModoSafada);
                 if(!quitting) {
                     if(capture!=null) capture.Speaking();
                     Mudou();
@@ -313,16 +317,18 @@ namespace Bella {
             catch(Exception e) { if(!quitting) Note(e.Message,true); }
             finally {
                 busy=false;
+                if(!quitting && BuscaMudou!=null) BuscaMudou(null);
                 if(!quitting && capture!=null) { if(listening) capture.Listen(); else capture.Pause(); }
                 if(!quitting) Mudou();
             }
         }
 
-        public void Encerrar() { quitting=true; arquivos.Cancelar(); pedidos.Cancelar(); Pause(); }
+        public void Encerrar() { quitting=true; indicePastas.Dispose(); arquivos.Cancelar(); pedidos.Cancelar(); Pause(); }
         public void Dispose() {
             quitting=true;
             if(mic!=null) { try { mic.Dispose(); } catch { } mic=null; }
             if(wake!=null) { wake.Dispose(); wake=null; }
+            indicePastas.Dispose();
             player.Dispose();
         }
     }

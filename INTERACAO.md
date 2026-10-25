@@ -1,4 +1,4 @@
-# SOLO BOT — Como ele conversa e como as contas se ligam
+﻿# SOLO BOT — Como ele conversa e como as contas se ligam
 
 ## 1. Contas: a Conta Solo é o hub, os sistemas se ligam a ela
 
@@ -266,7 +266,7 @@ para o usuário Windows; no servidor, fica somente seu hash.
 - **Ctrl + Alt + B** ou **Falar agora:** grava o pedido sem precisar da chamada. Também aceita texto.
 - **Pausar escuta:** desliga a captura e libera o microfone. Fechar a janela mantém o aplicativo
   no ícone; **Sair** encerra. Iniciar com Windows é opcional, marcado pelo usuário.
-- **Resposta:** usa a voz ElevenLabs do Solo Bot; se não vier áudio, usa a voz instalada no Windows.
+- **Resposta:** usa a voz ElevenLabs do Solo Bot; se não vier áudio, informa a falha na tela sem trocar de voz.
   Durante processamento e reprodução, a escuta não gera pedidos. Interromper voz para a reprodução.
 - **Sessão:** o modo Finanças/Rotinas e as opções ficam no canal `bella`, separados do WhatsApp,
   Telegram e Siri. “Dois” escolhe a segunda opção e “sim” responde a uma confirmação do sistema.
@@ -299,8 +299,17 @@ O cliente confere o catálogo a cada chamada; sem rede, usa o último perfil con
 chave recusada impede usar o cache. A saudação inteira termina antes da gravação do pedido.
 
 A Bella também oferece controle local de arquivos, em `desktop/bella/Arquivos.cs`.
-Pastas permitidas são escolhidas no aplicativo, inicialmente Documentos, Downloads e Área de
-Trabalho. Buscar, listar, abrir e criar pastas são diretos; mover, renomear e excluir mostram
+Abertura de pastas por nome dispensa cadastro: um índice local, somente de diretórios,
+consulta o perfil e os discos fixos em segundo plano, com limites de 60 mil pastas/90 segundos
+por varredura e atualização sob demanda após 15 minutos. Um único resultado abre diretamente, mesmo durante uma busca parcial. Vários resultados
+pedem escolha. Caminhos completos e pastas comuns têm abertura direta. Esses pedidos claros
+usam a voz configurada da ElevenLabs, sem interpretação por IA; por voz, permanece a transcrição.
+A busca mantém o pedido ativo, exibe contagem e cancelamento na tela e entrega o resultado
+automaticamente. Nomes aproximados de transcrição também abrem diretamente quando há um único
+resultado; pedidos de pesquisa apenas listam as pastas. Se a voz configurada falhar, informa isso na tela, sem trocar por voz do Windows.
+O índice fica em memória, não usa watchers, não lê conteúdo nem é enviado ao hub.
+Pastas permitidas para arquivos e alterações são escolhidas no aplicativo, inicialmente
+Documentos, Downloads e Área de Trabalho. Buscar, listar, abrir e criar pastas são diretos; mover, renomear e excluir mostram
 uma proposta com caminhos e exigem confirmação de uso único, válida por cinco minutos.
 Há reconferência do item e do acesso antes da ação; colisões não substituem arquivos.
 O Windows faz a exclusão pela Lixeira, podendo pedir sua confirmação nativa.
@@ -341,7 +350,7 @@ Essa rota **não roteia, não executa comandos e não altera modo ou escolhas do
 `via_audio: true`, para `/api/bella/mensagem`; o cliente antigo pode continuar enviando WAV
 diretamente nessa rota. A ação de arquivo roda só no computador. Seu resultado, nomes e caminhos
 não vão ao hub. `POST /api/bella/voz-local` aceita somente o código de uma frase fixa e
-sintetiza com cache persistente por perfil de voz. Sem síntese, o cliente usa a voz do Windows.
+sintetiza com cache persistente por perfil de voz. Sem síntese, o cliente informa a falha na tela, sem voz do Windows.
 Opções dos sistemas e de arquivos têm identificadores distintos; botões antigos e respostas
 numéricas de uma conversa local não confirmam operações pendentes de outro contexto.
 
@@ -350,7 +359,7 @@ O cliente novo pede `voz_separada: true` em `/api/bella/mensagem` e recebe um `v
 `/api/bella/voz-resposta` prepara somente a fala daquela resposta, sem executar o comando
 novamente. O identificador vale três minutos, uma vez, vinculado à conta e à chave atual;
 o servidor mantém no máximo 256 respostas em memória. Reinício ou falha da voz preserva
-o resultado e a fala do Windows. O cliente limita essa espera a 12 segundos (8 nas respostas
+o resultado na tela, sem voz de reserva do Windows. O cliente limita essa espera a 12 segundos (8 nas respostas
 locais). Clientes anteriores continuam recebendo texto e áudio juntos.
 
 Identificação de pessoa pela voz, memória geral de conversa e controle geral dos aplicativos
@@ -372,3 +381,26 @@ Instalação e compilação: [desktop/bella/LEIA-ME.md](desktop/bella/LEIA-ME.md
 
 - **SSO nos sistemas** ("Entrar com Conta Solo"), que reaproveita o mesmo fluxo de conexão.
 - **Roteamento pelo conteúdo**, para o "gastei 40 no almoço" ir ao Finances sem precisar de `/fin`.
+
+Pedidos como “Abra o Word e escreva uma mensagem sua para mim” geram texto criativo
+em primeira pessoa como Bella e o inserem uma vez no Word. “Escreva” seguido de
+texto literal continua como ditado; pedidos de mensagem, carta ou poema usam criação.
+Respostas de aplicativos também solicitam a voz ElevenLabs por código fixo, com
+confirmação genérica “Abri o item” compatível com o servidor atual. O documento
+não é enviado à síntese. Saudações, erros e respostas dos sistemas nunca usam
+a voz do Windows; sem áudio, a resposta e o aviso permanecem na tela.
+
+## Conversa pessoal opcional
+
+Em Configurações → Conversa, o Modo Safada ativa o Grok para mensagens livres e
+criação no Word, com flerte, sensualidade e duplo sentido sem descrições sexuais
+explícitas. Começa desligado e fica salvo nas preferências cifradas da Bella.
+A voz continua na ElevenLabs; não há reserva de voz Windows nem troca de provedor
+quando o Grok falha. Ditado literal e aberturas diretas continuam locais.
+Com o modo ativo, use /fin e /rot para os sistemas ou desligue o modo para usar suas
+frases livres. Pastas e comandos locais mantêm prioridade. Cada pedido pessoal é
+independente, sem histórico, sem ferramentas e sem acesso a documentos ou sistemas.
+A chave GROK_API_KEY fica no servidor. GROK_TEXT_MODEL configura o modelo de texto
+(padrão grok-4.7). A geração usa a Responses API oficial, com store=false e timeout.
+A rota autenticada /api/bella/conversa separa a geração da síntese existente por voz_id.
+O backend atualizado precisa estar publicado antes de usar esse modo na Bella.
