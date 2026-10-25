@@ -296,7 +296,7 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
     if not p.texto.strip():
         raise HTTPException(422, "Escreva ou fale uma mensagem.")
     from nucleo import bella_conversa
-    texto = bella_conversa.responder(p.texto)
+    texto = bella_conversa.responder(p.texto, conta.id)
     if not texto:
         raise HTTPException(503, "O Grok não respondeu. Confira a chave e o modelo de texto no servidor.")
     mensagens = [{"texto": texto, "falado": texto}]
@@ -306,6 +306,16 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
     else:
         saida.update(_preparar_voz(mensagens, texto, False, True))
     return saida
+
+
+@router.delete("/api/bella/conversa")
+def esquecer_conversa(x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    """Apaga a memória curta da conversa pessoal desta conta."""
+    conta = _autenticar(db, x_bella_chave)
+    _limitar(conta, _JANELAS_CONVERSA)
+    from nucleo import bella_conversa
+    bella_conversa.esquecer(conta.id)
+    return {"ok": True}
 
 
 @router.post("/api/bella/interpretar-comando")

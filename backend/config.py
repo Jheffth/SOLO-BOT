@@ -59,6 +59,20 @@ GROK_STT_MODEL = _env("GROK_STT_MODEL", "grok-voice-transcribe-2.0")
 # Libera conversa sexual explícita entre adultos no Modo Safada da Bella. Desligado por padrão.
 BELLA_CONTEUDO_ADULTO = _env("BELLA_CONTEUDO_ADULTO").strip().lower() in ("1", "true", "sim", "yes")
 
+
+def _inteiro(nome, padrao, minimo, maximo):
+    try:
+        valor = int(_env(nome) or padrao)
+    except ValueError:
+        valor = padrao
+    return max(minimo, min(maximo, valor))
+
+
+# Conversa pessoal da Bella: tamanho da resposta e memória curta (só em RAM, por conta).
+BELLA_CONVERSA_MAX_CHARS = _inteiro("BELLA_CONVERSA_MAX_CHARS", 900, 200, 2000)
+BELLA_MEMORIA_TURNOS = _inteiro("BELLA_MEMORIA_TURNOS", 6, 0, 20)      # 0 desliga a memória
+BELLA_MEMORIA_MINUTOS = _inteiro("BELLA_MEMORIA_MINUTOS", 30, 1, 240)
+
 # ── Fala (responder por voz, para todos os sistemas) ─────────────
 ELEVENLABS_API_KEY = _env("ELEVENLABS_API_KEY")
 ELEVENLABS_API_KEY_SECONDARY = _env("ELEVENLABS_API_KEY_SECONDARY")   # entra se a principal falhar

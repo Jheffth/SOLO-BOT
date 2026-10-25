@@ -7,12 +7,14 @@ log = logging.getLogger("solobot.grok")
 API = "https://api.x.ai/v1/responses"
 
 
-def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, timeout=18):
+def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, timeout=18, historico=None):
     if not config.GROK_API_KEY:
         return None
     regra = instrucao + ("\nResponda somente um objeto JSON válido, sem cercas Markdown." if json_saida else "")
     corpo = {"model": config.GROK_TEXT_MODEL, "store": False,
-             "input": [{"role": "system", "content": regra}, {"role": "user", "content": texto}],
+             "input": [{"role": "system", "content": regra},
+                       *[{"role": papel, "content": conteudo} for papel, conteudo in (historico or [])],
+                       {"role": "user", "content": texto}],
              "max_output_tokens": max_tokens, "temperature": temperatura}
     if config.GROK_TEXT_MODEL.startswith(("grok-4.5", "grok-4.6", "grok-4.7")):
         corpo["reasoning"] = {"effort": "low"}

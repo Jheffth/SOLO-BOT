@@ -398,8 +398,7 @@ explícitas. Começa desligado e fica salvo nas preferências cifradas da Bella.
 A voz continua na ElevenLabs; não há reserva de voz Windows nem troca de provedor
 quando o Grok falha. Ditado literal e aberturas diretas continuam locais.
 Com o modo ativo, use /fin e /rot para os sistemas ou desligue o modo para usar suas
-frases livres. Pastas e comandos locais mantêm prioridade. Cada pedido pessoal é
-independente, sem histórico, sem ferramentas e sem acesso a documentos ou sistemas.
+frases livres. Pastas e comandos locais mantêm prioridade. A conversa tem memória curta: o servidor guarda as últimas trocas (padrão 6, por 30 minutos) só na RAM, por conta, e apaga ao reiniciar; `DELETE /api/bella/conversa` esquece na hora. A resposta vai até 900 caracteres (`BELLA_CONVERSA_MAX_CHARS`); `BELLA_MEMORIA_TURNOS=0` desliga a memória. Sem ferramentas e sem acesso a documentos ou sistemas.
 A chave GROK_API_KEY fica no servidor. GROK_TEXT_MODEL configura o modelo de texto
 (padrão grok-4.7). A geração usa a Responses API oficial, com store=false e timeout.
 A rota autenticada /api/bella/conversa separa a geração da síntese existente por voz_id.
