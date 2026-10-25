@@ -138,3 +138,25 @@
 @media (prefers-reduced-motion: reduce) {
   .admin-page *, .admin-page *::before, .admin-page *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Envio manual de áudio */
+.envio-audio-grid { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr); gap: 32px; }
+.envio-audio-grid h3, .envio-audio-historico h3 { font-size: .95rem; margin: 0 0 16px; }
+.envio-audio-form { display: grid; gap: 13px; }
+.envio-audio-form label { display: grid; gap: 7px; color: var(--muted); font-size: .8rem; }
+.envio-audio-form input, .envio-audio-form select, .envio-audio-form textarea { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 11px; color: var(--text); background: var(--surface-2); font: inherit; }
+.envio-audio-form textarea { resize: vertical; min-height: 135px; font-size: .9rem; line-height: 1.65; }
+.envio-audio-form button { justify-self: start; }
+.envio-audio-form input:focus-visible, .envio-audio-form select:focus-visible, .envio-audio-form textarea:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
+.envio-audio-destino { margin: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: .82rem; color: var(--text); overflow-wrap: anywhere; }
+.envio-audio-contatos, .envio-audio-historico ul { list-style: none; padding: 0; margin: 18px 0 0; }
+.envio-audio-contatos { max-height: 280px; overflow-y: auto; }
+.envio-audio-contatos li, .envio-audio-historico li { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.envio-audio-contatos li div, .envio-audio-historico li div { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.envio-audio-contatos small, .envio-audio-historico small { color: var(--muted); font-size: .75rem; }
+.envio-audio-status { margin: 16px 0 10px; font-size: .85rem; line-height: 1.6; color: var(--muted); }
+.envio-audio-status[data-estado="enviado"] { color: var(--green, #34d399); }
+.envio-audio-status[data-estado="falhou"], .envio-audio-status[data-estado="incerto"] { color: var(--amber, #fbbf24); }
+.envio-audio-acoes { gap: 8px; flex-wrap: wrap; }
+.envio-audio-historico { border-top: 1px solid var(--border); padding-top: 22px; }
+@media(max-width: 720px) { .envio-audio-grid { grid-template-columns: 1fr; gap: 28px; } }

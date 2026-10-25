@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Transporte do WhatsApp via Evolution API v2. Só HTTP."""
 import logging
 from urllib.parse import quote
@@ -179,3 +179,16 @@ def numero() -> str:
 
 def link_wa(texto: str) -> str:
     return f"https://wa.me/{numero()}?text={quote(texto)}"
+
+
+def enviar_audio_confirmado(numero: str, audio_b64: str) -> dict:
+    """Um único envio. Aceitação pela Evolution não comprova entrega ao destinatário."""
+    st, dados = _chamar("POST", f"/message/sendWhatsAppAudio/{config.EVOLUTION_INSTANCE}",
+                        {"number": numero, "audio": audio_b64, "encoding": True, "delay": 200}, timeout=30)
+    identificador = (dados.get("key") or {}).get("id") if isinstance(dados, dict) else None
+    if st in (200, 201) and isinstance(identificador, str) and identificador:
+        return {"estado": "enviado", "mensagem_id": identificador[:160],
+                "detalhe": "Áudio aceito pelo WhatsApp. A entrega depende do destinatário e da conexão."}
+    if st == 0 or st >= 500 or 200 <= st < 300:
+        return {"estado": "incerto", "detalhe": "Não foi possível confirmar o envio. Confira a conversa no WhatsApp antes de criar outro pedido."}
+    return {"estado": "falhou", "detalhe": "O WhatsApp recusou o envio. Confira o número e a conexão da instância."}

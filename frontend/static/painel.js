@@ -353,6 +353,22 @@
     carregando(btn, false);
   });
 
+  // ── Configurações: menu lateral que acompanha a rolagem ──
+  const secoes = [...document.querySelectorAll("#cfg-nav [data-secao]")];
+  const marcarSecao = id => secoes.forEach(b => b.classList.toggle("ativo", b.dataset.secao === id));
+  secoes.forEach(b => b.addEventListener("click", () => {
+    document.getElementById(b.dataset.secao).scrollIntoView({ behavior: "smooth", block: "start" });
+    marcarSecao(b.dataset.secao);
+  }));
+  const olhar = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) marcarSecao(en.target.querySelector(".ancora").id); }),
+    { rootMargin: "-30% 0px -60% 0px" });
+  document.querySelectorAll(".cfg-corpo > .secao").forEach(s => olhar.observe(s));
+
+  // Onda decorativa da resposta por voz.
+  document.querySelectorAll(".onda").forEach(o => {
+    o.innerHTML = Array.from({ length: 48 }, (_, k) => `<i style="--k:${k};--h:${25 + Math.round(Math.abs(Math.sin(k * .7)) * 75)}%"></i>`).join("");
+  });
+
   await carregar();
   setInterval(() => { if (!document.hidden && !document.querySelector(".veu")) carregar().catch(() => {}); }, 30000);
 })();

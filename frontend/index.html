@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Solo Bot — Entrar</title>
 <meta name="description" content="Um bot, todos os seus sistemas Solo: Finances e Rotinas pelo Telegram e pelo WhatsApp.">
-<meta name="theme-color" content="#06060b">
+<meta name="theme-color" content="#05050a">
 <link rel="icon" href="static/logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
@@ -16,36 +16,29 @@
 <div class="ceu" aria-hidden="true"><div class="aurora aurora-violeta"></div><div class="aurora aurora-ciano"></div><div class="aurora aurora-esmeralda"></div></div>
 <div class="palco">
   <header class="cabeca">
-    <a class="marca" href="/"><img class="brand-logo" src="static/logo.svg" alt="" width="40" height="40"><b>Solo</b><span>Bot</span></a>
+    <a class="marca" href="/"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="lg-login" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset=".5" stop-color="#22d3ee"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs><g transform="rotate(-35 20 20)"><ellipse class="anel v" cx="20" cy="20" rx="13" ry="5.4" fill="none" stroke="#a78bfa" stroke-width="1.8"/></g><g transform="rotate(35 20 20)"><ellipse class="anel e" cx="20" cy="20" rx="13" ry="5.4" fill="none" stroke="#34d399" stroke-width="1.8"/></g><circle class="nucleo" cx="20" cy="20" r="4.4" fill="url(#lg-login)"/></svg><b>Solo</b><span>Bot</span></a>
     <button class="btn fantasma pequeno" id="tema" aria-label="Alternar tema"><svg class="icon sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="icon moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
   </header>
 
   <main class="corpo">
     <section class="hero entrar-animado">
       <span class="eyebrow">Um bot · todos os sistemas</span>
-      <h1>Sua vida Solo em <span class="grad">uma conversa só.</span></h1>
+      <h1>Sua vida Solo em <span class="grad-anim">uma conversa só.</span></h1>
       <p class="lead">Lance gastos, conclua missões e receba avisos do Finances e do Rotinas pelo Telegram ou pelo WhatsApp, com uma única conta.</p>
-      <div class="pilulas">
-        <span class="chip">💰 Solo Finances</span>
-        <span class="chip">⚔️ Solo Rotinas</span>
-        <span class="chip"><svg class="icon telegram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 4.5 2.8 11.4c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.7 5.3c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.7L23 5.8c.2-1-.7-1.7-1.5-1.3Z"/><path d="m7.6 14.7 9.9-6.9"/></svg> Telegram</span>
-        <span class="chip"><svg class="icon whatsapp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3.1 3.1l-4.6 1.4Z"/><path d="M9 8.6c0 3.3 3 6.4 6.4 6.4l1.2-1.5-2-1-1 .8a4.5 4.5 0 0 1-2.4-2.4l.8-1-1-2-1.5 1.1c-.3.2-.5.5-.5.6Z"/></svg> WhatsApp</span>
-      </div>
-
-      <div class="demo vidro borda-viva" aria-hidden="true">
-        <div class="demo-topo"><img class="brand-logo" src="static/logo.svg" alt="" width="40" height="40"><div><b>Solo Bot</b><small>● online</small></div></div>
-        <div class="fala" id="fala">
-  <div class="bolha eu">/fin gastei 42 no mercado</div>
-  <div class="bolha bot"><span class="selo fin">💰 Finances</span>✓ Despesa de <b>R$ 42,00</b> — Mercado<br><span class="muted">Saldo Nubank: R$ 1.318,40</span></div>
-  <div class="bolha eu">/rot hoje</div>
-  <div class="bolha bot"><span class="selo rot">⚔️ Rotinas</span>3 missões hoje · 1 concluída<div class="teclas"><span>Treino</span><span>✓ Leitura</span></div></div>
-  <div class="bolha eu">✓ Leitura</div>
-  <div class="bolha bot"><span class="selo rot">⚔️ Rotinas</span>Missão concluída! <b>+40 XP</b> · corrente de 12 dias</div>
-</div>
+      <div class="orbitas" aria-hidden="true">
+        <div class="orbita" style="--in:0;--t:60s">
+          <span class="planeta" style="--t:60s">💰 Solo Finances</span>
+          <span class="planeta baixo" style="--t:60s">⚔️ Solo Rotinas</span>
+        </div>
+        <div class="orbita r2" style="--in:16%;--t:42s">
+          <span class="planeta esq" style="--t:42s"><svg class="icon telegram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 4.5 2.8 11.4c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.7 5.3c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.7L23 5.8c.2-1-.7-1.7-1.5-1.3Z"/><path d="m7.6 14.7 9.9-6.9"/></svg> Telegram</span>
+          <span class="planeta dir" style="--t:42s"><svg class="icon whatsapp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3.1 3.1l-4.6 1.4Z"/><path d="M9 8.6c0 3.3 3 6.4 6.4 6.4l1.2-1.5-2-1-1 .8a4.5 4.5 0 0 1-2.4-2.4l.8-1-1-2-1.5 1.1c-.3.2-.5.5-.5.6Z"/></svg> WhatsApp</span>
+        </div>
+        <div class="nucleo-orb"><svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="lg-login" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset=".5" stop-color="#22d3ee"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs><g transform="rotate(-35 20 20)"><ellipse class="anel v" cx="20" cy="20" rx="13" ry="5.4" fill="none" stroke="#a78bfa" stroke-width="1.8"/></g><g transform="rotate(35 20 20)"><ellipse class="anel e" cx="20" cy="20" rx="13" ry="5.4" fill="none" stroke="#34d399" stroke-width="1.8"/></g><circle class="nucleo" cx="20" cy="20" r="4.4" fill="url(#lg-login)"/></svg></div>
       </div>
     </section>
 
-    <section class="acesso vidro entrar-animado">
+    <section class="acesso vidro borda-viva entrar-animado" id="acesso">
       <div class="contexto oculto" id="contexto"></div>
       <h2 id="titulo">Bem-vindo de volta</h2>
       <p class="sub" id="sub">Entre na sua Conta Solo.</p>

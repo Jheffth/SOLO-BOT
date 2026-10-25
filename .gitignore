@@ -15,3 +15,5 @@ Claude outputs/
 create_db_user.py
 list_containers.py
 up_bot.py
+test-runs/
+.claude/

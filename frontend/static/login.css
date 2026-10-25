@@ -1,6 +1,6 @@
 :root {
   color-scheme: dark;
-  --bg: #06060b;
+  --bg: #05050a;
   --bg-2: #0b0b14;
   --surface: rgb(255 255 255 / 3.5%);
   --surface-2: rgb(255 255 255 / 6%);
@@ -355,4 +355,124 @@ button { touch-action: manipulation; }
   .palco { padding-inline: 12px; }
   .acesso { padding-inline: 16px; }
   .base { gap: 12px; flex-wrap: wrap; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Órbita — mesmo visual do painel (solo.css): vidro, borda viva que
+   gira, luz que segue o cursor e o sistema orbital no lugar da demo.
+   ══════════════════════════════════════════════════════════════════ */
+@property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+:root {
+  --mola: cubic-bezier(.34, 1.56, .64, 1);
+  --suave: cubic-bezier(.22, 1, .36, 1);
+  --surface-sunk: rgba(0, 0, 0, .25);
+  --vidro-fundo: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+  --luz: rgba(167, 139, 250, .12);
+  --estrelas: .55;
+}
+:root[data-theme="light"] { --surface-sunk: rgba(20,20,50,.045); --vidro-fundo: linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.6)); --luz: rgba(124,58,237,.08); --estrelas: 0; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) { --surface-sunk: rgba(20,20,50,.045); --vidro-fundo: linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.6)); --luz: rgba(124,58,237,.08); --estrelas: 0; }
+}
+
+.ceu::before { /* estrelas no lugar da grade */
+  inset: -50%; opacity: var(--estrelas); -webkit-mask-image: none; mask-image: none;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, #fff8, transparent 60%),
+    radial-gradient(1px 1px at 70% 80%, #fff6, transparent 60%),
+    radial-gradient(1.5px 1.5px at 40% 70%, #c4b5fd88, transparent 60%),
+    radial-gradient(1px 1px at 85% 20%, #fff7, transparent 60%),
+    radial-gradient(1px 1px at 10% 90%, #a5f3fc77, transparent 60%);
+  background-size: 340px 340px;
+  animation: deriva 140s linear infinite;
+}
+.ceu::after {
+  content: ""; position: absolute; inset: 0; opacity: .06; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.aurora { filter: blur(110px); }
+@keyframes deriva { to { transform: translate3d(340px, 340px, 0); } }
+
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 500 .7rem/1 var(--mono); }
+.eyebrow::before { content: ""; width: 18px; height: 1px; background: var(--brand); }
+.hero h1 { font-size: clamp(2.6rem, 5.4vw, 4.6rem); line-height: 1.02; letter-spacing: -.045em; max-width: 12ch; }
+.grad-anim {
+  background: linear-gradient(100deg, #a78bfa, #22d3ee, #34d399, #a78bfa) 0 0 / 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: correr 8s linear infinite;
+}
+@keyframes correr { to { background-position: 300% 0; } }
+.entrar-animado { animation: entrar .9s var(--suave) both; }
+.hero.entrar-animado { animation-delay: .05s; }
+@keyframes entrar { from { opacity: 0; transform: translateY(18px) scale(.985); filter: blur(6px); } }
+
+/* logo com órbitas girando */
+.marca svg.logo { width: 34px; height: 34px; }
+.logo .anel, .logo .nucleo { transform-box: fill-box; transform-origin: center; }
+.logo .anel.v { animation: girar 9s linear infinite; }
+.logo .anel.e { animation: girar 12s linear infinite reverse; }
+.logo .nucleo { animation: respirar 3s ease-in-out infinite; }
+@keyframes respirar { 50% { transform: scale(1.18); } }
+
+/* sistema orbital */
+.orbitas { position: relative; width: min(440px, 100%); aspect-ratio: 1; margin: 6px 0 0 -10px; }
+.orbita { position: absolute; inset: var(--in); border-radius: 50%; border: 1px dashed var(--border-strong); animation: girar var(--t) linear infinite; }
+.orbita.r2 { animation-direction: reverse; }
+.planeta {
+  position: absolute; left: 50%; top: 0; translate: -50% -50%;
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; padding: 8px 13px; border-radius: 99px; font-size: .82rem; font-weight: 550;
+  background: color-mix(in srgb, var(--surface-solid) 78%, transparent); border: 1px solid var(--border-strong);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 10px 30px -12px rgba(0,0,0,.6);
+  animation: girar var(--t) linear infinite reverse;
+}
+.orbita.r2 .planeta { animation-direction: normal; }
+.planeta.baixo { top: 100%; }
+.planeta.esq { top: 50%; left: 0; }
+.planeta.dir { top: 50%; left: 100%; }
+.planeta .icon { width: 15px; height: 15px; }
+.nucleo-orb {
+  position: absolute; inset: 37%; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, rgba(196,181,253,.35), color-mix(in srgb, var(--bg) 90%, transparent) 70%);
+  border: 1px solid rgba(196,181,253,.3); box-shadow: 0 0 80px -10px rgba(139,92,246,.75), inset 0 0 30px rgba(34,211,238,.15);
+}
+.nucleo-orb .logo { width: 62%; height: 62%; }
+.nucleo-orb::after { content: ""; position: absolute; inset: -18px; border-radius: 50%; border: 1px solid rgba(34,211,238,.28); animation: onda 3s ease-out infinite; }
+@keyframes onda { from { transform: scale(.85); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+
+/* cartão de acesso: vidro, borda viva, luz e inclinação 3D (login.js) */
+.vidro {
+  background: radial-gradient(440px circle at var(--mx, -999px) var(--my, -999px), var(--luz), transparent 45%), var(--vidro-fundo);
+  backdrop-filter: blur(22px) saturate(140%); -webkit-backdrop-filter: blur(22px) saturate(140%);
+}
+.borda-viva::before {
+  padding: 1.2px; opacity: 1;
+  background: conic-gradient(from var(--ang), transparent 0 55%, #a78bfa 70%, #22d3ee 80%, #34d399 90%, transparent 100%);
+  animation: orbitar 5s linear infinite;
+}
+@keyframes orbitar { to { --ang: 360deg; } }
+.acesso { transition: transform .5s var(--suave); will-change: transform; }
+.abas { background: var(--surface-sunk); }
+.abas .trilho { transition: transform .45s var(--mola); }
+.entrada input { height: 50px; padding-left: 44px; border-radius: 14px; background: var(--surface-sunk); transition: border-color .2s, box-shadow .3s; }
+.entrada svg { left: 15px; }
+.entrada input:focus { background: var(--surface-sunk); box-shadow: 0 0 0 4px rgba(167,139,250,.14), 0 0 30px -8px rgba(139,92,246,.55); }
+.campo:focus-within label { color: var(--violet); }
+
+.btn { position: relative; overflow: hidden; border-radius: 13px; transition: transform .3s var(--mola), box-shadow .3s, background .2s, border-color .2s; }
+.btn:hover { transform: none; }
+.btn:active { transform: scale(.96); }
+.btn.primario {
+  height: 50px; font-weight: 600; animation: none; background: linear-gradient(120deg, #c4b5fd, #67e8f9 50%, #6ee7b7);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.2) inset, 0 12px 36px -12px rgba(139,92,246,.75);
+}
+.btn.primario::after {
+  content: ""; position: absolute; inset: 0; width: 50%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
+  transform: translateX(-130%) skewX(-20deg);
+}
+.btn.primario:hover::after { animation: varrer .9s var(--suave); }
+@keyframes varrer { to { transform: translateX(330%) skewX(-20deg); } }
+
+@media (max-width: 960px) {
+  .orbitas { display: none; }
+  .hero h1 { max-width: none; }
 }

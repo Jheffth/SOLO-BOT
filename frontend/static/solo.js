@@ -45,11 +45,22 @@
       <stop offset="0" stop-color="#a78bfa"/><stop offset=".5" stop-color="#22d3ee"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs>
     <rect x="1" y="1" width="38" height="38" rx="12" fill="url(#lg-solo)" opacity=".16"/>
     <rect x="1.5" y="1.5" width="37" height="37" rx="11.5" fill="none" stroke="url(#lg-solo)" opacity=".6"/>
-    <ellipse cx="20" cy="20" rx="12.5" ry="5.2" fill="none" stroke="#a78bfa" stroke-width="1.6" transform="rotate(-35 20 20)"/>
-    <ellipse cx="20" cy="20" rx="12.5" ry="5.2" fill="none" stroke="#34d399" stroke-width="1.6" transform="rotate(35 20 20)"/>
-    <circle cx="20" cy="20" r="4.2" fill="url(#lg-solo)"/>
-    <circle cx="29.8" cy="13.2" r="1.9" fill="#a78bfa"/><circle cx="10.2" cy="13.2" r="1.9" fill="#34d399"/>
+    <g transform="rotate(-35 20 20)"><ellipse class="anel v" cx="20" cy="20" rx="12.5" ry="5.2" fill="none" stroke="#a78bfa" stroke-width="1.6"/></g>
+    <g transform="rotate(35 20 20)"><ellipse class="anel e" cx="20" cy="20" rx="12.5" ry="5.2" fill="none" stroke="#34d399" stroke-width="1.6"/></g>
+    <circle class="nucleo" cx="20" cy="20" r="4.2" fill="url(#lg-solo)"/>
   </svg>`;
+
+  // Luz que segue o cursor: o .vidro sob o ponteiro recebe --mx/--my (o CSS desenha o brilho).
+  let iluminado = null;
+  document.addEventListener("pointermove", e => {
+    const el = e.target.closest ? e.target.closest(".vidro") : null;
+    if (iluminado && iluminado !== el) { iluminado.style.removeProperty("--mx"); iluminado.style.removeProperty("--my"); }
+    iluminado = el;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+    el.style.setProperty("--my", `${e.clientY - r.top}px`);
+  }, { passive: true });
 
   async function api(caminho, opts) {
     opts = opts || {};

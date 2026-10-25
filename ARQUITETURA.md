@@ -1,4 +1,4 @@
-# SOLO BOT — Arquitetura
+﻿# SOLO BOT — Arquitetura
 
 Um bot só (Telegram + WhatsApp), com painel web próprio (cadastro, login,
 canais, sistemas), atendendo vários projetos Solo na mesma VPS (Contabo).
@@ -185,3 +185,12 @@ O painel Administração > Voz do bot permite escolher o motor global: Automáti
 ElevenLabs ou VoiceStudio. A seleção manual usa exclusivamente o provedor escolhido
 e fica persistida em `Configuracao.motor_voz`; o padrão continua Automático.
 A Bella recebe o perfil do motor selecionado para separar o cache das saudações.
+
+## Envio manual de áudio
+
+`backend/routers/disparos.py` fornece `/api/admin/audios` somente ao administrador:
+contatos por conta, geração pela voz configurada e envio único via Evolution.
+`ContatoAudio` e `EnvioAudio` em `database.py` persistem contatos e idempotência.
+`evolution.enviar_audio_confirmado` informa aceitação, recusa ou resultado incerto,
+sem repetir a chamada. A interface fica em `admin.html`, `static/disparos.js` e
+`static/admin.css`. Abrir a página ou consultar um envio nunca gera nem envia áudio.

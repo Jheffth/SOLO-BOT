@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Os modelos do Solo Bot.
 
@@ -176,6 +176,33 @@ class AvisoPendente(Base):
     voz = Column(Boolean, default=False, nullable=False)
     valido_ate = Column(DateTime, nullable=True)      # UTC; passou disso na fila → descartado
     criado_em = Column(DateTime, default=datetime.utcnow)
+
+
+class ContatoAudio(Base):
+    __tablename__ = "contatos_audio"
+    __table_args__ = (UniqueConstraint("conta_id", "numero", name="uq_contato_audio_numero"),)
+    id = Column(Integer, primary_key=True)
+    conta_id = Column(Integer, ForeignKey("contas.id", ondelete="CASCADE"), nullable=False, index=True)
+    nome = Column(String(80), nullable=False)
+    numero = Column(String(15), nullable=False)
+    criado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class EnvioAudio(Base):
+    __tablename__ = "envios_audio"
+    __table_args__ = (UniqueConstraint("conta_id", "pedido_id", name="uq_envio_audio_pedido"),)
+    id = Column(Integer, primary_key=True)
+    conta_id = Column(Integer, ForeignKey("contas.id", ondelete="CASCADE"), nullable=False, index=True)
+    pedido_id = Column(String(36), nullable=False)
+    contato_id = Column(Integer, nullable=False)
+    nome = Column(String(80), nullable=False)
+    numero = Column(String(15), nullable=False)
+    texto_hash = Column(String(64), nullable=False)
+    estado = Column(String(16), nullable=False, default="gerando")
+    detalhe = Column(String(300), nullable=True)
+    mensagem_id = Column(String(160), nullable=True)
+    criado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
+    atualizado_em = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
 class Configuracao(Base):

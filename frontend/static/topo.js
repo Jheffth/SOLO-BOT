@@ -10,9 +10,35 @@ Solo.topo = async function (ativo) {
   try { conta = await api("/api/auth/eu"); }
   catch (e) { location.replace("/entrar?proximo=" + encodeURIComponent(location.pathname + location.search)); throw e; }
 
+  // O painel tem duas vistas na mesma página (#inicio e #config); o admin é outra página.
   const nav = document.getElementById("nav");
-  nav.innerHTML = `<a href="/painel" class="${ativo === "painel" ? "ativo" : ""}">Painel</a>` +
-    (conta.admin ? `<a href="/admin" class="${ativo === "admin" ? "ativo" : ""}">Administração</a>` : "");
+  const itens = [["/painel#inicio", "inicio", "grid", "Início"], ["/painel#config", "config", "settings", "Configurações"]];
+  if (conta.admin) itens.push(["/admin", "admin", "shield", "Administração"]);
+  nav.innerHTML = `<span class="bolha" aria-hidden="true"></span>` + itens.map(([href, chave, ic, rotulo]) =>
+    `<a href="${href}" data-nav="${chave}">${icon(ic)}<span>${rotulo}</span></a>`).join("");
+  const bolha = nav.querySelector(".bolha");
+  const marcar = chave => {
+    nav.querySelectorAll("a").forEach(a => a.classList.toggle("ativo", a.dataset.nav === chave));
+    const a = nav.querySelector(".ativo");
+    if (a) { bolha.style.left = a.offsetLeft + "px"; bolha.style.width = a.offsetWidth + "px"; }
+  };
+  const vistas = document.querySelectorAll("[data-vista]");
+  const mostrar = () => {
+    if (ativo !== "painel" || !vistas.length) return marcar(ativo);
+    const chave = location.hash === "#config" ? "config" : "inicio";
+    const trocar = () => {
+      vistas.forEach(v => { v.hidden = v.dataset.vista !== chave; });
+      marcar(chave);
+      scrollTo({ top: 0 });
+    };
+    const reduz = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.startViewTransition && !reduz && mostrar.pronto ? document.startViewTransition(trocar) : trocar();
+    mostrar.pronto = true;
+  };
+  addEventListener("hashchange", mostrar);
+  addEventListener("resize", () => marcar(nav.querySelector(".ativo")?.dataset.nav));
+  mostrar();
+  document.fonts?.ready.then(() => marcar(nav.querySelector(".ativo")?.dataset.nav));
   document.getElementById("quem").innerHTML =
     `<span class="avatar">${esc(iniciais(conta.nome))}</span><span class="nome">${esc(conta.nome)}</span>`;
 

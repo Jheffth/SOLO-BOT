@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Solo Bot — um bot, vários sistemas."""
 import logging
 from contextlib import asynccontextmanager
@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 import config
 from database import criar_tabelas
-from routers import admin, atalho, auth, bella, conectar, conta, interno, webhooks
+from routers import admin, atalho, auth, bella, conectar, conta, disparos, interno, webhooks
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -79,7 +79,7 @@ async def cabecalhos(request: Request, call_next):
 
 
 for r in (auth.router, conta.router, conectar.router, webhooks.router, interno.router, admin.router,
-          atalho.router, bella.router):
+          atalho.router, bella.router, disparos.router):
     app.include_router(r)
 
 

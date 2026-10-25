@@ -173,4 +173,19 @@
     }
   });
   if (hosted) api("/api/auth/eu").then(() => { if (!submitting) location.replace(next); }).catch(() => {});
+
+  // Cartão de acesso: luz que segue o cursor e uma leve inclinação 3D.
+  const card = byId("acesso");
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  card.addEventListener("pointermove", event => {
+    const box = card.getBoundingClientRect();
+    card.style.setProperty("--mx", `${event.clientX - box.left}px`);
+    card.style.setProperty("--my", `${event.clientY - box.top}px`);
+    if (calm || event.pointerType !== "mouse") return;
+    const x = (event.clientX - box.left) / box.width - .5, y = (event.clientY - box.top) / box.height - .5;
+    card.style.transform = `perspective(1000px) rotateY(${x * 6}deg) rotateX(${-y * 6}deg)`;
+  });
+  card.addEventListener("pointerleave", () => {
+    card.style.removeProperty("--mx"); card.style.removeProperty("--my"); card.style.transform = "";
+  });
 })();

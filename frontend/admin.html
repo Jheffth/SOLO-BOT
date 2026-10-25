@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -34,7 +34,7 @@
 
   <nav class="admin-nav" aria-label="Seções das configurações">
     <a href="#visao-geral">Visão geral</a><a href="#canais-admin">Conexões</a>
-    <a href="#voz-admin">Voz da Bella</a><a href="#grok-admin">Grok</a><a href="#sistemas-admin">Sistemas</a>
+    <a href="#voz-admin">Voz da Bella</a><a href="#grok-admin">Grok</a><a href="#audios-admin">Enviar áudio</a><a href="#sistemas-admin">Sistemas</a>
   </nav>
   <div class="numeros" id="numeros"></div>
   <div class="admin-section-heading" id="canais-admin"><div><span class="eyebrow">Sempre por perto</span><h2>Suas conexões</h2></div><p class="muted pequeno">Os canais por onde a conversa acontece.</p></div>
@@ -60,6 +60,34 @@
     <div id="grok-corpo"><div class="esqueleto" style="height:90px;margin-top:16px"></div></div>
   </section>
 
+  <section class="cartao vidro entrar-animado" id="audios-admin">
+    <div class="linha entre"><div><span class="eyebrow">Sua voz, na conversa certa</span><h2>Enviar áudio pelo WhatsApp</h2><p class="muted pequeno">Escreva a mensagem. O motor de voz selecionado acima gera o áudio e o WhatsApp conectado faz o envio.</p></div></div>
+    <div class="envio-audio-grid">
+      <div>
+        <h3>Contatos salvos</h3>
+        <form id="audio-contato-form" class="envio-audio-form">
+          <label>Nome<input id="audio-contato-nome" maxlength="80" placeholder="Como você chama esse contato" required></label>
+          <label>WhatsApp com DDI e DDD<input id="audio-contato-numero" type="tel" maxlength="35" placeholder="+55 11 99999-9999" required></label>
+          <button class="btn pequeno" id="audio-contato-salvar" type="submit">Salvar contato</button>
+        </form>
+        <ul id="audio-contatos" class="envio-audio-contatos"><li class="muted pequeno">Carregando contatos…</li></ul>
+      </div>
+      <div>
+        <h3>Nova mensagem</h3>
+        <form id="audio-envio-form" class="envio-audio-form">
+          <label>Enviar para<select id="audio-destinatario" required><option value="">Selecione um contato</option></select></label>
+          <p id="audio-destino" class="envio-audio-destino" aria-live="polite">Escolha quem receberá o áudio.</p>
+          <label>Texto da mensagem<textarea id="audio-texto" maxlength="1200" rows="6" placeholder="Digite exatamente o que deseja que a voz diga…" required></textarea></label>
+          <p class="muted pequeno"><span id="audio-contagem">0</span>/1200 caracteres · utiliza o motor e a voz escolhidos no painel.</p>
+          <button class="btn primario" id="audio-enviar" type="submit" disabled>Gerar e enviar áudio</button>
+        </form>
+        <p id="audio-status" class="envio-audio-status" role="status" aria-live="polite">Carregando configuração…</p>
+        <div class="linha envio-audio-acoes"><button class="btn pequeno" id="audio-consultar" type="button" hidden>Consultar envio</button><button class="btn pequeno" id="audio-novo" type="button" hidden>Nova mensagem</button></div>
+      </div>
+    </div>
+    <div class="envio-audio-historico"><h3>Últimos envios</h3><ul id="audio-historico"><li class="muted pequeno">Nenhum envio registrado.</li></ul></div>
+  </section>
+
   <section class="cartao vidro entrar-animado" id="sistemas-admin">
     <div class="linha entre"><h2>Sistemas conectados</h2><span class="linha" style="gap:.5rem"><span id="voz"></span><button class="btn pequeno" id="sincronizar"><span data-i="activity"></span>Buscar manifestos</button></span></div>
     <div style="overflow-x:auto"><table class="tabela" id="sistemas"></table></div>
@@ -68,11 +96,13 @@
 
 <script src="/static/solo.js"></script>
 <script src="/static/topo.js"></script>
+<script src="/static/disparos.js"></script>
 <script>
 (async function () {
   const { icon, api, esc, toast, carregando } = Solo;
   const conta = await Solo.topo("admin");
   if (!conta.admin) return location.replace("/painel");
+  window.iniciarEnviosAudio(conta);
 
   const estado = (ok, sim, nao) => `<span class="chip ${ok ? "ok" : "aguarda"}">${ok ? '<span class="ponto"></span>' : ""}${ok ? sim : nao}</span>`;
 

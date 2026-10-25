@@ -431,3 +431,25 @@ A rota autenticada POST /api/bella/imagem gera uma imagem por pedido, limita
 concorrência, bloqueia IDs repetidos e não tenta novamente após falha ou timeout.
 Cada geração utiliza o saldo da conta xAI. Não há geração automática ao abrir a aba.
 O backend precisa ser atualizado antes de usar a função no aplicativo.
+
+## Envio manual de áudio pelo WhatsApp
+
+Em Administração → Enviar áudio, o administrador salva contatos com nome e número
+internacional (DDI e DDD), escolhe um deles, escreve até 1200 caracteres e clica em
+Gerar e enviar áudio. O texto é sintetizado pelo motor e pela voz atuais do painel;
+não passa pela IA de conversa. A mensagem usa a instância WhatsApp conectada ao hub,
+mesmo quando o destinatário não tem Conta Solo ou vínculo com o bot.
+Os contatos e os últimos estados de envio são separados por conta administrativa.
+As tabelas contatos_audio e envios_audio são criadas pelo startup normal. O registro
+de envio guarda destinatário, ID, hash do texto e estado, sem guardar o texto ou áudio.
+O mesmo ID nunca gera nem envia outra mensagem. Uma falha de síntese não envia nada;
+uma conexão perdida durante o envio fica como resultado incerto, sem repetição automática.
+Consultar envio apenas lê o registro. A página acompanha o estado enquanto o pedido
+está ativo e preserva o ID na sessão do navegador para consultar depois de recarregar.
+Aceito pelo WhatsApp significa aceitação pela integração, não confirmação de entrega
+ou leitura pelo destinatário. Em caso de resultado incerto, confira a conversa no
+WhatsApp antes de iniciar outra mensagem. A lista admite até 200 contatos, com limite
+de seis novos pedidos de envio por minuto por administrador.
+O backend e os arquivos frontend atualizados precisam ser publicados juntos; não há
+mudança no Bella.exe para esta função. Os testes usam provedores simulados e não enviam
+mensagens a números reais.

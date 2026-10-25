@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solo Bot · Mock A — Órbita</title>
+<meta name="theme-color" content="#05050a">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   MOCK A — ÓRBITA
+   Escuro profundo, vidro, bordas vivas em conic-gradient e luz que
+   segue o cursor. Evolução da marca atual (violeta → ciano → esmeralda).
+   ══════════════════════════════════════════════════════════════════ */
+@property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --p { syntax: "<number>"; inherits: false; initial-value: 0; }
+
+:root {
+  --bg: #05050a;
+  --bg-2: #0a0a13;
+  --vidro: rgba(255,255,255,.035);
+  --vidro-2: rgba(255,255,255,.06);
+  --linha: rgba(255,255,255,.07);
+  --linha-forte: rgba(255,255,255,.14);
+  --texto: #ecebf5;
+  --suave: #a3a2ba;
+  --apagado: #62617a;
+  --violeta: #a78bfa;
+  --ciano: #22d3ee;
+  --esmeralda: #34d399;
+  --rosa: #fb7185;
+  --ambar: #fbbf24;
+  --marca: linear-gradient(120deg, #a78bfa, #22d3ee 50%, #34d399);
+  --raio: 22px;
+  --raio-sm: 14px;
+  --mola: cubic-bezier(.34, 1.56, .64, 1);
+  --suavizar: cubic-bezier(.22, 1, .36, 1);
+  --sans: "Inter", system-ui, sans-serif;
+  --display: "Sora", "Inter", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh; background: var(--bg); color: var(--texto);
+  font: 15px/1.55 var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+::selection { background: rgba(167,139,250,.4); }
+.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── Cosmos (fundo) ───────────────────────────────────────────── */
+.cosmos { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.cosmos::before { /* estrelas */
+  content: ""; position: absolute; inset: -50%;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, #fff8, transparent 60%),
+    radial-gradient(1px 1px at 70% 80%, #fff6, transparent 60%),
+    radial-gradient(1.5px 1.5px at 40% 70%, #c4b5fd88, transparent 60%),
+    radial-gradient(1px 1px at 85% 20%, #fff7, transparent 60%),
+    radial-gradient(1px 1px at 10% 90%, #a5f3fc77, transparent 60%);
+  background-size: 340px 340px;
+  animation: deriva 120s linear infinite; opacity: .55;
+}
+.cosmos::after { /* grão */
+  content: ""; position: absolute; inset: 0; opacity: .06; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.nebula { position: absolute; border-radius: 50%; filter: blur(110px); opacity: .45; animation: flutuar 26s var(--suavizar) infinite alternate; }
+.nebula.a { width: 640px; height: 640px; background: #7c3aed; top: -220px; left: -160px; }
+.nebula.b { width: 520px; height: 520px; background: #0891b2; top: 30%; right: -200px; animation-delay: -8s; opacity: .32; }
+.nebula.c { width: 560px; height: 560px; background: #059669; bottom: -280px; left: 30%; animation-delay: -15s; opacity: .26; }
+@keyframes flutuar { to { transform: translate3d(90px, 60px, 0) scale(1.15); } }
+@keyframes deriva { to { transform: translate3d(340px, 340px, 0); } }
+
+/* ── Base de componentes ──────────────────────────────────────── */
+.vidro {
+  position: relative; background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02));
+  border: 1px solid var(--linha); border-radius: var(--raio);
+  backdrop-filter: blur(22px) saturate(140%); -webkit-backdrop-filter: blur(22px) saturate(140%);
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 30px 60px -30px rgba(0,0,0,.8);
+}
+/* luz que segue o cursor */
+.luz { --mx: 50%; --my: 50%; isolation: isolate; }
+.luz::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
+  background: radial-gradient(420px circle at var(--mx) var(--my), rgba(167,139,250,.13), transparent 45%);
+  opacity: 0; transition: opacity .4s;
+}
+.luz:hover::after { opacity: 1; }
+.luz::before { /* borda acesa perto do cursor */
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: radial-gradient(260px circle at var(--mx) var(--my), rgba(196,181,253,.7), rgba(34,211,238,.25) 40%, transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0; transition: opacity .4s;
+}
+.luz:hover::before { opacity: 1; }
+
+/* borda viva: conic-gradient girando */
+.borda-viva::before {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1.2px; pointer-events: none;
+  background: conic-gradient(from var(--ang), transparent 0 55%, #a78bfa 70%, #22d3ee 80%, #34d399 90%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: girar 5s linear infinite;
+}
+@keyframes girar { to { --ang: 360deg; } }
+
+.grad { background: var(--marca); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.grad-anim {
+  background: linear-gradient(100deg, #a78bfa, #22d3ee, #34d399, #a78bfa) 0 0 / 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: correr 8s linear infinite;
+  font-style: normal;
+}
+@keyframes correr { to { background-position: 300% 0; } }
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px; font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--suave);
+}
+.eyebrow::before { content: ""; width: 18px; height: 1px; background: var(--marca); }
+
+.btn {
+  --cor: var(--texto); position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 44px; padding: 0 18px; border-radius: 13px; border: 1px solid var(--linha-forte); background: var(--vidro-2);
+  font-weight: 500; transition: transform .25s var(--mola), background .2s, border-color .2s, box-shadow .3s; overflow: hidden;
+}
+.btn:hover { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.22); }
+.btn:active { transform: scale(.96); }
+.btn.primario {
+  border: 0; color: #0a0a12; font-weight: 600;
+  background: linear-gradient(120deg, #c4b5fd, #67e8f9 50%, #6ee7b7);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.2) inset, 0 12px 40px -10px rgba(139,92,246,.7);
+}
+.btn.primario:hover { box-shadow: 0 0 0 1px rgba(255,255,255,.3) inset, 0 16px 50px -8px rgba(34,211,238,.6); }
+.btn.primario::after { /* brilho que varre */
+  content: ""; position: absolute; inset: 0; transform: translateX(-120%) skewX(-20deg);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent); width: 50%;
+}
+.btn.primario:hover::after { animation: varrer .9s var(--suavizar); }
+@keyframes varrer { to { transform: translateX(320%) skewX(-20deg); } }
+.btn.pequeno { height: 36px; padding: 0 13px; font-size: 13.5px; border-radius: 11px; }
+.btn.icone { width: 38px; padding: 0; height: 38px; }
+.btn.fantasma { background: transparent; border-color: transparent; color: var(--suave); }
+.btn.fantasma:hover { background: var(--vidro-2); color: var(--texto); }
+.btn.perigo { color: var(--rosa); border-color: rgba(251,113,133,.3); background: rgba(251,113,133,.06); }
+.btn.bloco { width: 100%; height: 50px; font-size: 15.5px; }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 12px; font-weight: 500; border: 1px solid var(--linha); background: var(--vidro); color: var(--suave); }
+.chip.on { color: var(--esmeralda); border-color: rgba(52,211,153,.3); background: rgba(52,211,153,.08); }
+.ponto { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 0 currentColor; animation: pulso 2.2s infinite; }
+@keyframes pulso { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent); } 70%,100% { box-shadow: 0 0 0 9px transparent; } }
+
+kbd, code { font: 500 12.5px var(--mono); }
+kbd { padding: 3px 7px; border-radius: 7px; border: 1px solid var(--linha-forte); border-bottom-width: 2px; background: var(--vidro-2); color: var(--texto); }
+
+/* ── Telas e transição ────────────────────────────────────────── */
+.tela { display: none; min-height: 100vh; }
+.tela.ativa { display: block; }
+.tela.ativa .entra { animation: entrar .8s var(--suavizar) both; animation-delay: calc(var(--d, 0) * 70ms); }
+@keyframes entrar { from { opacity: 0; transform: translateY(18px) scale(.985); filter: blur(6px); } }
+::view-transition-old(root) { animation: .35s var(--suavizar) both sair-vt; }
+::view-transition-new(root) { animation: .55s var(--suavizar) both entrar-vt; }
+@keyframes sair-vt { to { opacity: 0; transform: scale(.98); filter: blur(8px); } }
+@keyframes entrar-vt { from { opacity: 0; transform: scale(1.02); filter: blur(8px); } }
+
+/* ── Marca / logo orbital ─────────────────────────────────────── */
+.marca { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font: 600 18px var(--display); letter-spacing: -.02em; }
+.marca span { color: var(--suave); font-weight: 400; }
+.logo { width: 36px; height: 36px; }
+.logo .anel { transform-box: fill-box; transform-origin: center; }
+.logo .anel.v { animation: rodar 9s linear infinite; }
+.logo .anel.e { animation: rodar 12s linear infinite reverse; }
+.logo .nucleo { animation: respirar 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes rodar { to { transform: rotate(360deg); } }
+@keyframes respirar { 50% { transform: scale(1.18); } }
+
+/* ════════════════════ LOGIN ════════════════════ */
+.login-topo { display: flex; justify-content: space-between; align-items: center; padding: 26px clamp(18px, 4vw, 56px); }
+.status { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--suave); padding: 7px 12px 7px 10px; border-radius: 99px; border: 1px solid var(--linha); background: var(--vidro); }
+.status .ponto { color: var(--esmeralda); }
+.login-grade {
+  display: grid; grid-template-columns: 1.15fr .85fr; gap: clamp(30px, 6vw, 90px); align-items: center;
+  max-width: 1240px; margin: 0 auto; padding: 2vh clamp(18px, 4vw, 56px) 60px; min-height: calc(100vh - 100px);
+}
+.hero h1 { font: 600 clamp(40px, 5.6vw, 76px)/1.02 var(--display); letter-spacing: -.045em; margin: 22px 0 20px; }
+.hero .lead { color: var(--suave); font-size: 17px; max-width: 480px; margin: 0; }
+
+/* sistema orbital */
+.orbitas { position: relative; width: min(470px, 100%); aspect-ratio: 1; margin: 30px 0 0 -20px; }
+.orbita { position: absolute; inset: var(--in); border-radius: 50%; border: 1px dashed rgba(255,255,255,.1); animation: rodar var(--t) linear infinite; }
+.orbita.r2 { animation-direction: reverse; }
+.planeta {
+  position: absolute; left: 50%; top: 0; translate: -50% -50%;
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; padding: 8px 13px; border-radius: 99px; font-size: 13px; font-weight: 500;
+  background: rgba(15,15,26,.75); border: 1px solid var(--linha-forte); backdrop-filter: blur(10px);
+  animation: rodar var(--t) linear infinite reverse; box-shadow: 0 10px 30px -10px #000;
+}
+.orbita.r2 .planeta { animation-direction: normal; }
+.planeta.baixo { top: 100%; }
+.planeta.esq { top: 50%; left: 0; }
+.planeta.dir { top: 50%; left: 100%; }
+.planeta .i { width: 15px; height: 15px; }
+.planeta.tg { color: #7dd3fc; } .planeta.wa { color: #86efac; }
+.nucleo-orb {
+  position: absolute; inset: 37%; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, rgba(196,181,253,.35), rgba(10,10,20,.9) 70%);
+  border: 1px solid rgba(196,181,253,.3); box-shadow: 0 0 80px -10px rgba(139,92,246,.8), inset 0 0 30px rgba(34,211,238,.15);
+}
+.nucleo-orb .logo { width: 62%; height: 62%; }
+.nucleo-orb::after { content: ""; position: absolute; inset: -18px; border-radius: 50%; border: 1px solid rgba(34,211,238,.25); animation: onda 3s ease-out infinite; }
+@keyframes onda { from { transform: scale(.85); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+
+/* cartão de acesso */
+.acesso { padding: 34px; transform-style: preserve-3d; transition: transform .5s var(--suavizar); will-change: transform; }
+.acesso h2 { font: 600 26px var(--display); letter-spacing: -.03em; margin: 0 0 4px; }
+.acesso .sub { color: var(--suave); margin: 0 0 24px; }
+.abas { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 14px; background: rgba(0,0,0,.3); border: 1px solid var(--linha); margin-bottom: 22px; }
+.abas .trilho { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 10px; background: var(--vidro-2); border: 1px solid var(--linha-forte); transition: transform .45s var(--mola); }
+.abas[data-aba="cadastro"] .trilho { transform: translateX(100%); }
+.aba { position: relative; height: 38px; border: 0; background: none; color: var(--suave); font-weight: 500; transition: color .2s; }
+.aba[aria-selected="true"] { color: var(--texto); }
+
+.campo { position: relative; margin-bottom: 14px; }
+.campo input {
+  width: 100%; height: 58px; padding: 22px 46px 6px 46px; border-radius: 14px; border: 1px solid var(--linha-forte);
+  background: rgba(0,0,0,.25); outline: none; transition: border-color .2s, box-shadow .3s, background .2s;
+}
+.campo label { position: absolute; left: 46px; top: 19px; color: var(--apagado); pointer-events: none; transition: all .25s var(--suavizar); }
+.campo input:focus + label, .campo input:not(:placeholder-shown) + label { top: 9px; font-size: 11.5px; color: var(--violeta); letter-spacing: .02em; }
+.campo input:focus { border-color: rgba(167,139,250,.6); background: rgba(0,0,0,.35); box-shadow: 0 0 0 4px rgba(167,139,250,.14), 0 0 30px -8px rgba(139,92,246,.6); }
+.campo > .i { position: absolute; left: 16px; top: 20px; color: var(--apagado); transition: color .2s; }
+.campo:focus-within > .i { color: var(--violeta); }
+.campo .olho { position: absolute; right: 8px; top: 10px; }
+.extra { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .5s var(--suavizar), opacity .3s; opacity: 0; }
+.extra > div { overflow: hidden; }
+.abas[data-aba="cadastro"] ~ form .extra { grid-template-rows: 1fr; opacity: 1; }
+.linha-form { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 20px; font-size: 13.5px; color: var(--suave); }
+.check { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; }
+.check input { appearance: none; width: 18px; height: 18px; border-radius: 6px; border: 1px solid var(--linha-forte); background: rgba(0,0,0,.3); display: grid; place-items: center; margin: 0; transition: .2s; }
+.check input:checked { background: var(--violeta); border-color: var(--violeta); }
+.check input:checked::after { content: ""; width: 9px; height: 5px; border: 2px solid #0a0a12; border-top: 0; border-right: 0; rotate: -45deg; translate: 0 -1px; }
+.link { color: var(--violeta); text-decoration: none; }
+.link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.btn.carregando { pointer-events: none; }
+.btn.carregando span { opacity: 0; }
+.btn.carregando::before { content: ""; position: absolute; width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(0,0,0,.25); border-top-color: #0a0a12; animation: rodar .7s linear infinite; }
+.seguro { display: flex; gap: 8px; align-items: center; justify-content: center; color: var(--apagado); font-size: 12.5px; margin: 20px 0 0; }
+.seguro .i { width: 15px; height: 15px; color: var(--esmeralda); }
+
+/* ════════════════════ APP (topo) ════════════════════ */
+.app-topo {
+  position: sticky; top: 14px; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  max-width: 1260px; margin: 14px auto 0; padding: 10px 12px 10px 18px; border-radius: 18px;
+}
+.nav { position: relative; display: flex; gap: 2px; padding: 4px; border-radius: 13px; background: rgba(0,0,0,.25); border: 1px solid var(--linha); }
+.nav .bolha { position: absolute; top: 4px; bottom: 4px; border-radius: 9px; background: var(--vidro-2); border: 1px solid var(--linha-forte); transition: left .45s var(--mola), width .45s var(--mola); }
+.nav button { position: relative; height: 34px; padding: 0 14px; border: 0; background: none; color: var(--suave); font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; border-radius: 9px; }
+.nav button.ativo { color: var(--texto); }
+.nav button .i { width: 16px; height: 16px; }
+.topo-dir { display: flex; align-items: center; gap: 8px; }
+.busca { display: inline-flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px 0 12px; border-radius: 11px; border: 1px solid var(--linha); background: rgba(0,0,0,.2); color: var(--apagado); font-size: 13.5px; min-width: 210px; }
+.busca kbd { margin-left: auto; font-size: 11px; padding: 2px 6px; }
+.avatar {
+  width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font: 600 14px var(--display); color: #0a0a12;
+  background: var(--marca); position: relative;
+}
+.avatar::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; background: var(--esmeralda); border: 2.5px solid var(--bg); }
+
+.pagina { max-width: 1260px; margin: 0 auto; padding: 38px clamp(16px, 3vw, 24px) 120px; }
+
+/* ════════════════════ INÍCIO ════════════════════ */
+.saudacao { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 28px; }
+.saudacao h1 { font: 600 clamp(32px, 4vw, 48px)/1.05 var(--display); letter-spacing: -.04em; margin: 14px 0 8px; }
+.saudacao p { color: var(--suave); margin: 0; }
+.saudacao .acoes { display: flex; gap: 10px; }
+
+.bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; grid-auto-flow: dense; }
+.cartao { padding: 22px; overflow: hidden; }
+.cartao h3 { font: 600 15px var(--display); letter-spacing: -.01em; margin: 0; display: flex; align-items: center; gap: 9px; }
+.cartao .topo-c { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 18px; }
+.ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--vidro-2); border: 1px solid var(--linha); flex: none; }
+.ic .i { width: 17px; height: 17px; }
+.c-fin { grid-column: span 4; }
+.c-rot { grid-column: span 4; }
+.c-chat { grid-column: span 4; grid-row: span 2; display: flex; flex-direction: column; }
+.c-canais { grid-column: span 5; }
+.c-voz { grid-column: span 3; }
+.c-ativ { grid-column: span 7; }
+.c-cmd { grid-column: span 5; }
+.rotulo { font-size: 12.5px; color: var(--suave); }
+.numero { font: 600 34px/1.1 var(--display); letter-spacing: -.04em; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+.delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--esmeralda); font-weight: 500; }
+.spark { width: 100%; height: 74px; margin-top: 14px; display: block; overflow: visible; }
+.spark .traco { stroke-dasharray: 600; stroke-dashoffset: 600; animation: desenhar 2s .3s var(--suavizar) forwards; }
+.spark .area { opacity: 0; animation: aparecer 1.2s 1s forwards; }
+@keyframes desenhar { to { stroke-dashoffset: 0; } }
+@keyframes aparecer { to { opacity: 1; } }
+
+.anel-xp { --p: 0; --alvo: 68; width: 112px; height: 112px; border-radius: 50%; flex: none; display: grid; place-items: center; position: relative;
+  background: conic-gradient(from -90deg, #a78bfa, #22d3ee calc(var(--p) * 1%), rgba(255,255,255,.06) 0);
+  animation: encher 1.8s .3s var(--suavizar) forwards; }
+.anel-xp::before { content: ""; position: absolute; inset: 9px; border-radius: 50%; background: #0c0c16; }
+.anel-xp div { position: relative; text-align: center; }
+.anel-xp b { font: 600 26px/1 var(--display); display: block; }
+.anel-xp small { font-size: 11px; color: var(--suave); }
+@keyframes encher { to { --p: var(--alvo); } }
+.rot-corpo { display: flex; align-items: center; gap: 20px; }
+.missoes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; }
+.missoes li { display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--suave); }
+.missoes li.feito { color: var(--texto); }
+.missoes li.feito s { text-decoration-color: var(--esmeralda); color: var(--suave); }
+.caixa { width: 18px; height: 18px; border-radius: 6px; border: 1.5px solid var(--linha-forte); display: grid; place-items: center; flex: none; }
+.feito .caixa { background: var(--esmeralda); border-color: var(--esmeralda); }
+.feito .caixa::after { content: ""; width: 8px; height: 4px; border: 2px solid #06281c; border-top: 0; border-right: 0; rotate: -45deg; translate: 0 -1px; }
+
+/* chat ao vivo */
+.chat { flex: 1; display: flex; flex-direction: column; gap: 10px; justify-content: flex-end; min-height: 330px; mask-image: linear-gradient(transparent, #000 18%); }
+.bal { max-width: 86%; padding: 10px 13px; border-radius: 16px; font-size: 13.5px; line-height: 1.45; opacity: 0; transform: translateY(10px) scale(.96); transform-origin: bottom left; }
+.bal.mostra { animation: bal .5s var(--mola) forwards; }
+@keyframes bal { to { opacity: 1; transform: none; } }
+.bal.eu { align-self: flex-end; background: linear-gradient(135deg, rgba(167,139,250,.32), rgba(34,211,238,.22)); border: 1px solid rgba(167,139,250,.35); border-bottom-right-radius: 5px; transform-origin: bottom right; font-family: var(--mono); font-size: 12.5px; }
+.bal.bot { background: var(--vidro-2); border: 1px solid var(--linha); border-bottom-left-radius: 5px; }
+.bal .selo { display: block; font-size: 11px; font-weight: 600; margin-bottom: 3px; }
+.selo.fin { color: var(--esmeralda); } .selo.rot { color: var(--violeta); }
+.digitando { display: inline-flex; gap: 4px; padding: 13px 14px; }
+.digitando i { width: 6px; height: 6px; border-radius: 50%; background: var(--suave); animation: pular 1.2s infinite; }
+.digitando i:nth-child(2) { animation-delay: .15s; } .digitando i:nth-child(3) { animation-delay: .3s; }
+@keyframes pular { 30% { transform: translateY(-5px); opacity: 1; } 0%, 60%, 100% { opacity: .4; } }
+.compor { display: flex; gap: 8px; margin-top: 14px; padding: 6px 6px 6px 14px; border-radius: 14px; border: 1px solid var(--linha-forte); background: rgba(0,0,0,.25); align-items: center; color: var(--apagado); font-size: 13.5px; }
+.compor .btn { margin-left: auto; }
+
+/* canais */
+.canais { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.canal { padding: 16px; border-radius: 16px; border: 1px solid var(--linha); background: rgba(0,0,0,.2); transition: transform .35s var(--mola), border-color .3s; }
+.canal:hover { transform: translateY(-3px); border-color: var(--linha-forte); }
+.canal .cab { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+.canal .logo-c { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; }
+.tg .logo-c { background: linear-gradient(135deg, #38bdf8, #0284c7); box-shadow: 0 8px 24px -8px #0ea5e9; }
+.wa .logo-c { background: linear-gradient(135deg, #4ade80, #16a34a); box-shadow: 0 8px 24px -8px #22c55e; }
+.canal b { display: block; font-weight: 600; }
+.canal small { color: var(--suave); font-size: 12.5px; }
+
+/* voz */
+.onda { display: flex; align-items: center; gap: 3px; height: 54px; margin: 6px 0 16px; }
+.onda i { flex: 1; border-radius: 3px; background: var(--marca); background-size: 1600% 100%; height: 20%; animation: falar 1.1s ease-in-out infinite; animation-delay: calc(var(--k) * -90ms); }
+@keyframes falar { 50% { height: var(--h, 80%); } }
+.seg { display: grid; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(0,0,0,.25); border: 1px solid var(--linha); }
+.seg button { height: 34px; border: 0; border-radius: 9px; background: none; color: var(--suave); font-size: 13px; text-align: left; padding: 0 11px; display: flex; align-items: center; justify-content: space-between; transition: background .2s, color .2s; }
+.seg button[aria-checked="true"] { background: var(--vidro-2); color: var(--texto); box-shadow: 0 0 0 1px var(--linha-forte) inset; }
+.seg button[aria-checked="true"]::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ciano); box-shadow: 0 0 10px var(--ciano); }
+
+/* atividade */
+.tempo { list-style: none; margin: 0; padding: 0; position: relative; }
+.tempo::before { content: ""; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 1px; background: linear-gradient(var(--linha-forte), transparent); }
+.tempo li { position: relative; display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center; padding: 9px 0; }
+.tempo .no { width: 31px; height: 31px; border-radius: 10px; display: grid; place-items: center; background: #0d0d18; border: 1px solid var(--linha-forte); font-size: 14px; position: relative; }
+.tempo p { margin: 0; font-size: 14px; }
+.tempo small { color: var(--apagado); font-size: 12px; font-family: var(--mono); }
+.tempo .via { color: var(--suave); font-size: 12.5px; }
+
+/* comandos */
+.cmds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cmd { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--linha); background: rgba(0,0,0,.18); transition: border-color .2s, background .2s, transform .3s var(--mola); font-size: 13px; color: var(--suave); }
+.cmd:hover { border-color: rgba(167,139,250,.4); background: rgba(167,139,250,.06); transform: translateY(-2px); }
+.cmd code { color: var(--texto); }
+
+/* ════════════════════ CONFIGURAÇÕES ════════════════════ */
+.cfg { display: grid; grid-template-columns: 250px 1fr; gap: 28px; align-items: start; }
+.cfg-nav { position: sticky; top: 100px; padding: 10px; }
+.cfg-nav a { position: relative; display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 11px; color: var(--suave); text-decoration: none; font-size: 14px; font-weight: 500; transition: color .2s, background .2s; }
+.cfg-nav a:hover { color: var(--texto); background: var(--vidro); }
+.cfg-nav a.ativo { color: var(--texto); background: var(--vidro-2); }
+.cfg-nav a.ativo::before { content: ""; position: absolute; left: -10px; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--marca); box-shadow: 0 0 12px var(--violeta); }
+.cfg-nav .sep { height: 1px; background: var(--linha); margin: 8px 6px; }
+.cfg-corpo { display: grid; gap: 18px; }
+.secao { padding: 28px; scroll-margin-top: 100px; }
+.secao > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
+.secao h2 { font: 600 20px var(--display); letter-spacing: -.02em; margin: 0 0 4px; }
+.secao header p { color: var(--suave); margin: 0; font-size: 14px; }
+.perfil { display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: start; }
+.foto { position: relative; width: 104px; height: 104px; border-radius: 30px; display: grid; place-items: center; font: 600 38px var(--display); color: #fff; background: #12121e; }
+.foto::before { content: ""; position: absolute; inset: -3px; border-radius: 32px; padding: 3px; background: conic-gradient(from var(--ang), #a78bfa, #22d3ee, #34d399, #a78bfa); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: girar 6s linear infinite; }
+.foto .btn { position: absolute; right: -8px; bottom: -8px; width: 34px; height: 34px; padding: 0; border-radius: 11px; background: #1a1a2a; }
+.campos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.campos .campo { margin: 0; }
+.campos .campo.largo { grid-column: 1 / -1; }
+.campo input:disabled { opacity: .55; cursor: not-allowed; }
+.rodape-sec { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--linha); }
+
+.linha-cfg { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-top: 1px solid var(--linha); }
+.linha-cfg:first-of-type { border-top: 0; padding-top: 0; }
+.linha-cfg .txt { flex: 1; min-width: 0; }
+.linha-cfg b { display: block; font-weight: 500; font-size: 14.5px; }
+.linha-cfg small { color: var(--suave); font-size: 13px; }
+.chave { position: relative; width: 48px; height: 28px; flex: none; }
+.chave input { appearance: none; margin: 0; width: 100%; height: 100%; border-radius: 99px; background: rgba(255,255,255,.1); border: 1px solid var(--linha-forte); cursor: pointer; transition: background .3s, box-shadow .3s; }
+.chave input:checked { background: linear-gradient(120deg, #8b5cf6, #06b6d4); border-color: transparent; box-shadow: 0 0 18px -4px rgba(139,92,246,.8); }
+.chave::after { content: ""; position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: #fff; pointer-events: none; transition: transform .45s var(--mola), width .2s; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.chave:has(input:checked)::after { transform: translateX(20px); }
+.chave:active::after { width: 25px; }
+.chave:has(input:checked):active::after { transform: translateX(15px); }
+.hora { height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--linha-forte); background: rgba(0,0,0,.3); font-family: var(--mono); font-size: 13px; color-scheme: dark; }
+
+.vozes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+.voz { position: relative; padding: 16px; border-radius: 16px; border: 1px solid var(--linha); background: rgba(0,0,0,.2); cursor: pointer; transition: border-color .25s, transform .35s var(--mola), background .25s; }
+.voz:hover { transform: translateY(-3px); }
+.voz input { position: absolute; opacity: 0; }
+.voz:has(input:checked) { border-color: rgba(34,211,238,.55); background: rgba(34,211,238,.06); box-shadow: 0 0 0 4px rgba(34,211,238,.08); }
+.voz .cab { display: flex; justify-content: space-between; align-items: center; }
+.voz b { font-weight: 600; }
+.voz small { color: var(--suave); font-size: 12.5px; display: block; margin-top: 2px; }
+.voz .mini-onda { display: flex; gap: 2px; align-items: center; height: 24px; margin-top: 12px; }
+.voz .mini-onda i { flex: 1; height: var(--h); border-radius: 2px; background: var(--linha-forte); transition: background .3s; }
+.voz:has(input:checked) .mini-onda i { background: var(--ciano); animation: falar 1s ease-in-out infinite; animation-delay: calc(var(--k) * -70ms); --h2: 90%; }
+.tocar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--linha-forte); background: var(--vidro-2); }
+.tocar .i { width: 13px; height: 13px; fill: currentColor; }
+.faixa { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+.faixa input[type=range] { flex: 1; appearance: none; height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--violeta), var(--ciano) var(--v, 50%), rgba(255,255,255,.1) var(--v, 50%)); outline: none; }
+.faixa input[type=range]::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 5px rgba(34,211,238,.25), 0 3px 8px rgba(0,0,0,.5); cursor: grab; transition: box-shadow .2s; }
+.faixa input[type=range]:active::-webkit-slider-thumb { box-shadow: 0 0 0 9px rgba(34,211,238,.2), 0 3px 8px rgba(0,0,0,.5); }
+.faixa output { font: 500 13px var(--mono); min-width: 42px; text-align: right; }
+
+.sessoes { display: grid; gap: 10px; }
+.sessao { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 14px; border: 1px solid var(--linha); background: rgba(0,0,0,.18); }
+.sessao .txt { flex: 1; }
+.sessao b { font-weight: 500; display: block; font-size: 14px; }
+.sessao small { color: var(--suave); font-size: 12.5px; }
+.perigo-zona { border-color: rgba(251,113,133,.22); background: linear-gradient(180deg, rgba(251,113,133,.06), rgba(251,113,133,.01)); }
+
+/* toast */
+.toast { position: fixed; left: 50%; bottom: 96px; translate: -50% 20px; opacity: 0; display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 14px; z-index: 60; transition: .5s var(--mola); pointer-events: none; font-size: 14px; }
+.toast.on { translate: -50% 0; opacity: 1; }
+.toast .i { color: var(--esmeralda); }
+
+/* seletor do mock */
+.mock-troca { position: fixed; left: 50%; bottom: 20px; translate: -50% 0; z-index: 50; display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 16px; }
+.mock-troca span { font: 500 10.5px var(--mono); letter-spacing: .12em; color: var(--apagado); padding: 0 10px 0 8px; text-transform: uppercase; }
+.mock-troca button { height: 34px; padding: 0 14px; border-radius: 11px; border: 0; background: none; color: var(--suave); font-size: 13px; font-weight: 500; }
+.mock-troca button.ativo { background: var(--texto); color: var(--bg); }
+
+/* ── Responsivo ───────────────────────────────────────────────── */
+@media (max-width: 1080px) {
+  .c-fin, .c-rot { grid-column: span 6; }
+  .c-chat { grid-column: span 12; grid-row: auto; }
+  .c-canais, .c-ativ, .c-cmd { grid-column: span 12; }
+  .c-voz { grid-column: span 12; }
+  .busca { display: none; }
+}
+@media (max-width: 900px) {
+  .login-grade { grid-template-columns: 1fr; }
+  .orbitas { display: none; }
+  .cfg { grid-template-columns: 1fr; }
+  .cfg-nav { position: static; display: flex; overflow-x: auto; gap: 4px; }
+  .cfg-nav .sep { display: none; }
+  .cfg-nav a { white-space: nowrap; }
+  .cfg-nav a.ativo::before { display: none; }
+  .vozes { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .c-fin, .c-rot { grid-column: span 12; }
+  .canais, .cmds, .campos { grid-template-columns: 1fr; }
+  .perfil { grid-template-columns: 1fr; }
+  .nav button span { display: none; }
+  .app-topo { margin: 10px 10px 0; }
+  .acesso, .secao { padding: 22px; }
+  .rot-corpo { flex-direction: column; align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset=".5" stop-color="#22d3ee"/><stop offset="1" stop-color="#34d399"/></linearGradient>
+    <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34d399" stop-opacity=".35"/><stop offset="1" stop-color="#34d399" stop-opacity="0"/></linearGradient>
+  </defs>
+  <symbol id="logo" viewBox="0 0 40 40">
+    <ellipse class="anel v" cx="20" cy="20" rx="13" ry="5.4" fill="none" stroke="#a78bfa" stroke-width="1.8" transform="rotate(-35 20 20)"/>
+    <ellipse class="anel e" cx="20" cy="20" rx="13" ry="5.4" fill="none" stroke="#34d399" stroke-width="1.8" transform="rotate(35 20 20)"/>
+    <circle class="nucleo" cx="20" cy="20" r="4.4" fill="url(#gm)"/>
+  </symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></symbol>
+  <symbol id="i-olho" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-seta" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-tg" viewBox="0 0 24 24"><path d="M21.5 4.5 2.8 11.4c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.7 5.3c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.7L23 5.8c.2-1-.7-1.7-1.5-1.3Z"/><path d="m7.6 14.7 9.9-6.9"/></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3.1 3.1l-4.6 1.4Z"/><path d="M9 8.6c0 3.3 3 6.4 6.4 6.4l1.2-1.5-2-1-1 .8a4.5 4.5 0 0 1-2.4-2.4l.8-1-1-2-1.5 1.1c-.3.2-.5.5-.5.6Z"/></symbol>
+  <symbol id="i-escudo" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-casa" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></symbol>
+  <symbol id="i-pulso" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+  <symbol id="i-cfg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+  <symbol id="i-busca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-sino" viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+  <symbol id="i-pc" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+  <symbol id="i-sair" viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-carteira" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h13v4"/><rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="16.5" cy="13.5" r="1.3"/></symbol>
+  <symbol id="i-espada" viewBox="0 0 24 24"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6M16 16l4 4M19 21l2-2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8Z"/></symbol>
+  <symbol id="i-enviar" viewBox="0 0 24 24"><path d="m4 12 16-8-6 16-2-7Z"/></symbol>
+  <symbol id="i-lua" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></symbol>
+  <symbol id="i-chave" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3"/></symbol>
+</svg>
+
+<div class="cosmos" aria-hidden="true"><div class="nebula a"></div><div class="nebula b"></div><div class="nebula c"></div></div>
+
+<!-- ═════════════════════════════ LOGIN ═════════════════════════════ -->
+<section class="tela ativa" data-tela="login">
+  <header class="login-topo entra">
+    <a class="marca" href="#"><svg class="logo"><use href="#logo"/></svg><b>Solo</b><span>Bot</span></a>
+    <span class="status"><i class="ponto"></i> Todos os sistemas operando</span>
+  </header>
+
+  <div class="login-grade">
+    <div class="hero">
+      <span class="eyebrow entra" style="--d:1">Um bot · todos os sistemas</span>
+      <h1 class="entra" style="--d:2">Sua vida Solo<br>em <em class="grad-anim">uma conversa só.</em></h1>
+      <p class="lead entra" style="--d:3">Lance gastos, conclua missões e receba avisos do Finances e do Rotinas pelo Telegram ou pelo WhatsApp — com uma única conta.</p>
+
+      <div class="orbitas entra" style="--d:4" aria-hidden="true">
+        <div class="orbita" style="--in:0;--t:60s">
+          <span class="planeta" style="--t:60s">💰 Solo Finances</span>
+          <span class="planeta baixo" style="--t:60s">⚔️ Solo Rotinas</span>
+        </div>
+        <div class="orbita r2" style="--in:16%;--t:42s">
+          <span class="planeta esq tg" style="--t:42s"><svg class="i"><use href="#i-tg"/></svg> Telegram</span>
+          <span class="planeta dir wa" style="--t:42s"><svg class="i"><use href="#i-wa"/></svg> WhatsApp</span>
+        </div>
+        <div class="nucleo-orb"><svg class="logo"><use href="#logo"/></svg></div>
+      </div>
+    </div>
+
+    <div class="acesso vidro borda-viva luz entra" style="--d:3" id="cartao-acesso">
+      <h2 id="titulo">Bem-vindo de volta</h2>
+      <p class="sub" id="sub">Entre na sua Conta Solo.</p>
+
+      <div class="abas" id="abas" data-aba="entrar" role="tablist">
+        <span class="trilho"></span>
+        <button class="aba" role="tab" aria-selected="true" data-aba="entrar">Entrar</button>
+        <button class="aba" role="tab" aria-selected="false" data-aba="cadastro">Criar conta</button>
+      </div>
+
+      <form id="form-login" novalidate>
+        <div class="extra"><div>
+          <div class="campo"><svg class="i"><use href="#i-user"/></svg><input id="l-nome" placeholder=" "><label for="l-nome">Como quer ser chamado</label></div>
+        </div></div>
+        <div class="campo"><svg class="i"><use href="#i-mail"/></svg><input id="l-user" placeholder=" " autocomplete="username" value="jefferson"><label for="l-user">Usuário ou e-mail</label></div>
+        <div class="campo"><svg class="i"><use href="#i-lock"/></svg><input id="l-senha" type="password" placeholder=" " autocomplete="current-password" value="senha-demo"><label for="l-senha">Senha</label>
+          <button type="button" class="btn fantasma icone olho" id="olho" aria-label="Mostrar senha"><svg class="i"><use href="#i-olho"/></svg></button></div>
+        <div class="linha-form">
+          <label class="check"><input type="checkbox" checked> Manter conectado</label>
+          <a class="link" href="#">Esqueci a senha</a>
+        </div>
+        <button class="btn primario bloco" id="entrar"><span>Entrar</span> <svg class="i"><use href="#i-seta"/></svg></button>
+      </form>
+      <p class="seguro"><svg class="i"><use href="#i-escudo"/></svg> A senha dos sistemas nunca passa por aqui.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════════ INÍCIO ═════════════════════════════ -->
+<section class="tela" data-tela="inicio">
+  <header class="app-topo vidro entra">
+    <a class="marca" href="#"><svg class="logo"><use href="#logo"/></svg><b>Solo</b><span>Bot</span></a>
+    <nav class="nav" data-nav>
+      <span class="bolha"></span>
+      <button class="ativo" data-ir="inicio"><svg class="i"><use href="#i-casa"/></svg><span>Início</span></button>
+      <button data-ir="inicio"><svg class="i"><use href="#i-pulso"/></svg><span>Atividade</span></button>
+      <button data-ir="config"><svg class="i"><use href="#i-cfg"/></svg><span>Configurações</span></button>
+    </nav>
+    <div class="topo-dir">
+      <span class="busca"><svg class="i"><use href="#i-busca"/></svg> Buscar comando… <kbd>Ctrl K</kbd></span>
+      <button class="btn fantasma icone" aria-label="Avisos"><svg class="i"><use href="#i-sino"/></svg></button>
+      <span class="avatar">J</span>
+    </div>
+  </header>
+
+  <main class="pagina">
+    <div class="saudacao">
+      <div>
+        <span class="eyebrow entra" id="data-hoje">domingo, 25 de outubro</span>
+        <h1 class="entra" style="--d:1"><span id="periodo">Boa noite</span>, <span class="grad">Jefferson</span></h1>
+        <p class="entra" style="--d:2">2 sistemas respondendo por Telegram e WhatsApp.</p>
+      </div>
+      <div class="acoes entra" style="--d:2">
+        <button class="btn"><svg class="i"><use href="#i-wa"/></svg> Abrir no WhatsApp</button>
+        <button class="btn primario"><span>Abrir no Telegram</span> <svg class="i"><use href="#i-seta"/></svg></button>
+      </div>
+    </div>
+
+    <div class="bento">
+      <article class="cartao vidro luz c-fin entra" style="--d:3">
+        <div class="topo-c"><h3><span class="ic" style="color:var(--esmeralda)"><svg class="i"><use href="#i-carteira"/></svg></span>Solo Finances</h3><span class="chip on"><i class="ponto"></i> conectado</span></div>
+        <span class="rotulo">Saldo Nubank</span>
+        <div class="numero" data-conta="1318.40">R$ 0,00</div>
+        <span class="delta">▲ 4,2% na semana</span>
+        <svg class="spark" viewBox="0 0 300 74" preserveAspectRatio="none">
+          <path class="area" d="M0 60 C30 55 45 62 70 48 S120 40 140 44 190 22 215 30 260 12 300 8 V74 H0Z" fill="url(#ga)"/>
+          <path class="traco" d="M0 60 C30 55 45 62 70 48 S120 40 140 44 190 22 215 30 260 12 300 8" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+      </article>
+
+      <article class="cartao vidro luz c-rot entra" style="--d:4">
+        <div class="topo-c"><h3><span class="ic" style="color:var(--violeta)"><svg class="i"><use href="#i-espada"/></svg></span>Solo Rotinas</h3><span class="chip">🔥 12 dias</span></div>
+        <div class="rot-corpo">
+          <div class="anel-xp"><div><b>14</b><small>nível · 68%</small></div></div>
+          <ul class="missoes">
+            <li class="feito"><span class="caixa"></span><s>Leitura · 20 min</s></li>
+            <li><span class="caixa"></span>Treino de força</li>
+            <li><span class="caixa"></span>Meditar 10 min</li>
+            <li style="color:var(--violeta);font-size:12.5px;margin-top:4px">+40 XP hoje</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="cartao vidro luz c-chat entra" style="--d:5">
+        <div class="topo-c"><h3><span class="ic"><svg class="logo" style="width:22px;height:22px"><use href="#logo"/></svg></span>Conversa ao vivo</h3><span class="chip on"><i class="ponto"></i> online</span></div>
+        <div class="chat" id="chat"></div>
+        <div class="compor"><code>/fin 35 almoço</code><button class="btn primario icone pequeno" aria-label="Enviar"><svg class="i"><use href="#i-enviar"/></svg></button></div>
+      </article>
+
+      <article class="cartao vidro luz c-canais entra" style="--d:6">
+        <div class="topo-c"><h3>Canais</h3><span class="rotulo">Conecte uma vez, vale para todos os sistemas</span></div>
+        <div class="canais">
+          <div class="canal tg"><div class="cab"><span class="logo-c"><svg class="i"><use href="#i-tg"/></svg></span><div><b>Telegram</b><small>@jefferson · há 2 min</small></div></div><span class="chip on"><i class="ponto"></i> conectado</span></div>
+          <div class="canal wa"><div class="cab"><span class="logo-c"><svg class="i"><use href="#i-wa"/></svg></span><div><b>WhatsApp</b><small>+55 61 ••••-4821</small></div></div><span class="chip on"><i class="ponto"></i> conectado</span></div>
+        </div>
+      </article>
+
+      <article class="cartao vidro luz c-voz entra" style="--d:7">
+        <div class="topo-c"><h3><span class="ic" style="color:var(--ciano)"><svg class="i"><use href="#i-mic"/></svg></span>Voz</h3></div>
+        <div class="onda" id="onda"></div>
+        <div class="seg" role="radiogroup" data-seg>
+          <button role="radio" aria-checked="true">Quando eu mandar áudio</button>
+          <button role="radio" aria-checked="false">Sempre</button>
+          <button role="radio" aria-checked="false">Nunca</button>
+        </div>
+      </article>
+
+      <article class="cartao vidro luz c-ativ entra" style="--d:8">
+        <div class="topo-c"><h3>Atividade</h3><span class="chip">hoje · 6 eventos</span></div>
+        <ol class="tempo">
+          <li><span class="no">💰</span><div><p>Despesa de <b>R$ 42,00</b> — Mercado</p><span class="via">via Telegram · por voz</span></div><small>21:42</small></li>
+          <li><span class="no">⚔️</span><div><p>Missão <b>Leitura</b> concluída · +40 XP</p><span class="via">via WhatsApp</span></div><small>20:15</small></li>
+          <li><span class="no">🔔</span><div><p>Aviso: fatura do cartão vence amanhã</p><span class="via">Finances → Telegram</span></div><small>18:00</small></li>
+          <li><span class="no">🎙️</span><div><p>Bella respondeu no computador</p><span class="via">Windows · DESKTOP-JEFF</span></div><small>16:31</small></li>
+        </ol>
+      </article>
+
+      <article class="cartao vidro luz c-cmd entra" style="--d:9">
+        <div class="topo-c"><h3>Como falar comigo</h3><span class="rotulo">prefixo escolhe o sistema</span></div>
+        <div class="cmds">
+          <div class="cmd"><code>/fin</code> entra no Finances</div>
+          <div class="cmd"><code>/rot</code> entra no Rotinas</div>
+          <div class="cmd"><code>/bella</code> papo livre</div>
+          <div class="cmd"><code>/resumo</code> o dia todo</div>
+          <div class="cmd"><code>/sair</code> volta ao hub</div>
+          <div class="cmd"><code>/conta</code> o que está ligado</div>
+        </div>
+      </article>
+    </div>
+  </main>
+</section>
+
+<!-- ═══════════════════════════ CONFIGURAÇÕES ═══════════════════════════ -->
+<section class="tela" data-tela="config">
+  <header class="app-topo vidro entra">
+    <a class="marca" href="#"><svg class="logo"><use href="#logo"/></svg><b>Solo</b><span>Bot</span></a>
+    <nav class="nav" data-nav>
+      <span class="bolha"></span>
+      <button data-ir="inicio"><svg class="i"><use href="#i-casa"/></svg><span>Início</span></button>
+      <button data-ir="inicio"><svg class="i"><use href="#i-pulso"/></svg><span>Atividade</span></button>
+      <button class="ativo" data-ir="config"><svg class="i"><use href="#i-cfg"/></svg><span>Configurações</span></button>
+    </nav>
+    <div class="topo-dir">
+      <span class="busca"><svg class="i"><use href="#i-busca"/></svg> Buscar ajuste… <kbd>Ctrl K</kbd></span>
+      <button class="btn fantasma icone" aria-label="Avisos"><svg class="i"><use href="#i-sino"/></svg></button>
+      <span class="avatar">J</span>
+    </div>
+  </header>
+
+  <main class="pagina">
+    <div class="saudacao">
+      <div>
+        <span class="eyebrow entra">Conta Solo</span>
+        <h1 class="entra" style="--d:1">Configurações</h1>
+        <p class="entra" style="--d:2">Tudo que vale para todos os sistemas mora aqui.</p>
+      </div>
+    </div>
+
+    <div class="cfg">
+      <nav class="cfg-nav vidro entra" style="--d:2" id="cfg-nav">
+        <a href="#s-perfil" class="ativo"><svg class="i"><use href="#i-user"/></svg> Perfil</a>
+        <a href="#s-canais"><svg class="i"><use href="#i-tg"/></svg> Canais</a>
+        <a href="#s-voz"><svg class="i"><use href="#i-mic"/></svg> Voz</a>
+        <a href="#s-avisos"><svg class="i"><use href="#i-sino"/></svg> Avisos</a>
+        <a href="#s-bella"><svg class="i"><use href="#i-pc"/></svg> Bella e Siri</a>
+        <div class="sep"></div>
+        <a href="#s-seguranca"><svg class="i"><use href="#i-escudo"/></svg> Segurança</a>
+        <a href="#" data-ir="login"><svg class="i"><use href="#i-sair"/></svg> Sair</a>
+      </nav>
+
+      <div class="cfg-corpo">
+        <section class="secao vidro luz entra" style="--d:3" id="s-perfil">
+          <header><div><h2>Perfil</h2><p>É o nome que o bot usa para falar com você.</p></div></header>
+          <div class="perfil">
+            <div class="foto">J<button class="btn" aria-label="Trocar foto"><svg class="i" style="width:15px;height:15px"><use href="#i-cam"/></svg></button></div>
+            <div class="campos">
+              <div class="campo"><svg class="i"><use href="#i-user"/></svg><input id="c-nome" placeholder=" " value="Jefferson"><label for="c-nome">Nome</label></div>
+              <div class="campo"><svg class="i"><use href="#i-user"/></svg><input id="c-user" placeholder=" " value="jefferson" disabled><label for="c-user">Usuário</label></div>
+              <div class="campo largo"><svg class="i"><use href="#i-mail"/></svg><input id="c-mail" placeholder=" " value="jefferson@exemplo.com"><label for="c-mail">E-mail</label></div>
+            </div>
+          </div>
+          <div class="rodape-sec"><button class="btn pequeno fantasma">Descartar</button><button class="btn primario pequeno" data-salvar><span>Salvar alterações</span></button></div>
+        </section>
+
+        <section class="secao vidro luz entra" style="--d:4" id="s-canais">
+          <header><div><h2>Canais</h2><p>Por onde você fala com o bot.</p></div><button class="btn pequeno">+ Conectar</button></header>
+          <div class="linha-cfg"><span class="logo-c ic" style="background:linear-gradient(135deg,#38bdf8,#0284c7);color:#fff;border:0"><svg class="i"><use href="#i-tg"/></svg></span><div class="txt"><b>Telegram</b><small>@jefferson · conectado em 12/03</small></div><label class="chave" title="Receber avisos aqui"><input type="checkbox" checked></label></div>
+          <div class="linha-cfg"><span class="logo-c ic" style="background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff;border:0"><svg class="i"><use href="#i-wa"/></svg></span><div class="txt"><b>WhatsApp</b><small>+55 61 ••••-4821 · conectado em 02/05</small></div><label class="chave" title="Receber avisos aqui"><input type="checkbox" checked></label></div>
+        </section>
+
+        <section class="secao vidro luz entra" style="--d:5" id="s-voz">
+          <header><div><h2>Resposta por voz</h2><p>O bot fala a resposta, em qualquer sistema. Listas longas vão só por escrito.</p></div></header>
+          <div class="seg" role="radiogroup" data-seg style="grid-template-columns:repeat(3,1fr)">
+            <button role="radio" aria-checked="true">Quando eu mandar áudio</button>
+            <button role="radio" aria-checked="false">Sempre</button>
+            <button role="radio" aria-checked="false">Nunca</button>
+          </div>
+          <div class="vozes">
+            <label class="voz"><input type="radio" name="voz" checked><div class="cab"><div><b>Bella</b><small>Calma · padrão</small></div><span class="tocar"><svg class="i"><use href="#i-play"/></svg></span></div><div class="mini-onda" data-mini></div></label>
+            <label class="voz"><input type="radio" name="voz"><div class="cab"><div><b>Aurora</b><small>Energética</small></div><span class="tocar"><svg class="i"><use href="#i-play"/></svg></span></div><div class="mini-onda" data-mini></div></label>
+            <label class="voz"><input type="radio" name="voz"><div class="cab"><div><b>Minha voz</b><small>Clone · VoiceStudio</small></div><span class="tocar"><svg class="i"><use href="#i-play"/></svg></span></div><div class="mini-onda" data-mini></div></label>
+          </div>
+          <div class="faixa"><span class="rotulo">Velocidade</span><input type="range" min="0.7" max="1.4" step="0.05" value="1" id="vel"><output id="vel-out">1,00×</output></div>
+        </section>
+
+        <section class="secao vidro luz entra" style="--d:6" id="s-avisos">
+          <header><div><h2>Avisos</h2><p>Os sistemas decidem quando avisar; aqui você decide como chegam.</p></div></header>
+          <div class="linha-cfg"><div class="txt"><b>Lembretes de missões</b><small>Rotinas · no horário de cada missão</small></div><label class="chave"><input type="checkbox" checked></label></div>
+          <div class="linha-cfg"><div class="txt"><b>Contas a vencer</b><small>Finances · um dia antes, às 18:00</small></div><label class="chave"><input type="checkbox" checked></label></div>
+          <div class="linha-cfg"><div class="txt"><b>Resumo do dia</b><small>Gastos, missões e o que vem amanhã</small></div><input class="hora" type="time" value="07:30"><label class="chave"><input type="checkbox" checked></label></div>
+          <div class="linha-cfg"><div class="txt"><b>Voz nos avisos</b><small>Fala quando o sistema pedir</small></div><label class="chave"><input type="checkbox"></label></div>
+          <div class="linha-cfg"><div class="txt"><b>Horário silencioso</b><small>Nada chega entre esses horários</small></div><input class="hora" type="time" value="22:00"><span class="rotulo">até</span><input class="hora" type="time" value="07:00"></div>
+        </section>
+
+        <section class="secao vidro luz entra" style="--d:7" id="s-bella">
+          <header><div><h2>Bella e Siri</h2><p>Sua assistente no Windows e no iPhone.</p></div></header>
+          <div class="linha-cfg"><span class="ic"><svg class="i"><use href="#i-pc"/></svg></span><div class="txt"><b>Bella no computador</b><small>DESKTOP-JEFF · online agora · versão 2.4</small></div><button class="btn pequeno">Baixar instalador</button></div>
+          <div class="linha-cfg"><span class="ic"><svg class="i"><use href="#i-mic"/></svg></span><div class="txt"><b>Atalho da Siri</b><small>“E aí, Siri, Solo Bot” · chave criada em 08/09</small></div><button class="btn pequeno">Gerar nova chave</button></div>
+        </section>
+
+        <section class="secao vidro luz entra" style="--d:8" id="s-seguranca">
+          <header><div><h2>Segurança</h2><p>Só da Conta Solo. As senhas dos sistemas continuam lá.</p></div></header>
+          <div class="campos" style="margin-bottom:22px">
+            <div class="campo"><svg class="i"><use href="#i-lock"/></svg><input id="c-atual" type="password" placeholder=" "><label for="c-atual">Senha atual</label></div>
+            <div class="campo"><svg class="i"><use href="#i-chave"/></svg><input id="c-nova" type="password" placeholder=" "><label for="c-nova">Nova senha · mínimo 8</label></div>
+          </div>
+          <div class="sessoes">
+            <div class="sessao"><span class="ic"><svg class="i"><use href="#i-pc"/></svg></span><div class="txt"><b>Chrome · Windows</b><small>Brasília · esta sessão</small></div><span class="chip on"><i class="ponto"></i> ativa</span></div>
+            <div class="sessao"><span class="ic"><svg class="i"><use href="#i-mic"/></svg></span><div class="txt"><b>Safari · iPhone</b><small>Brasília · há 3 dias</small></div><button class="btn pequeno fantasma">Encerrar</button></div>
+          </div>
+          <div class="rodape-sec"><button class="btn primario pequeno" data-salvar><span>Trocar senha</span></button></div>
+        </section>
+
+        <section class="secao vidro perigo-zona entra" style="--d:9">
+          <header style="margin:0"><div><h2>Excluir conta</h2><p>Desliga os canais e apaga a Conta Solo. Os dados dos sistemas ficam neles.</p></div><button class="btn pequeno perigo">Excluir conta</button></header>
+        </section>
+      </div>
+    </div>
+  </main>
+</section>
+
+<div class="toast vidro" id="toast"><svg class="i"><use href="#i-check"/></svg> Alterações salvas</div>
+
+<nav class="mock-troca vidro" aria-label="Telas do mock">
+  <span>Mock A</span>
+  <button data-ir="login" class="ativo">Login</button>
+  <button data-ir="inicio">Início</button>
+  <button data-ir="config">Configurações</button>
+</nav>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const reduz = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ── troca de telas com View Transitions ──
+  function ir(nome) {
+    const fazer = () => {
+      $$(".tela").forEach(t => t.classList.toggle("ativa", t.dataset.tela === nome));
+      $$(".mock-troca button").forEach(b => b.classList.toggle("ativo", b.dataset.ir === nome));
+      scrollTo(0, 0);
+      requestAnimationFrame(() => { posicionarNav(); if (nome === "inicio") iniciarInicio(); });
+    };
+    document.startViewTransition && !reduz ? document.startViewTransition(fazer) : fazer();
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-ir]");
+    if (b) { e.preventDefault(); ir(b.dataset.ir); }
+  });
+
+  // ── luz que segue o cursor ──
+  document.addEventListener("pointermove", e => {
+    for (const el of $$(".tela.ativa .luz")) {
+      const r = el.getBoundingClientRect();
+      el.style.setProperty("--mx", e.clientX - r.left + "px");
+      el.style.setProperty("--my", e.clientY - r.top + "px");
+    }
+  });
+
+  // ── inclinação 3D do cartão de acesso ──
+  const cartao = $("#cartao-acesso");
+  if (!reduz) {
+    cartao.addEventListener("pointermove", e => {
+      const r = cartao.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+      cartao.style.transform = `perspective(1000px) rotateY(${x * 7}deg) rotateX(${-y * 7}deg)`;
+    });
+    cartao.addEventListener("pointerleave", () => cartao.style.transform = "");
+  }
+
+  // ── abas do login ──
+  const abas = $("#abas");
+  $$(".aba", abas).forEach(b => b.addEventListener("click", () => {
+    abas.dataset.aba = b.dataset.aba;
+    $$(".aba", abas).forEach(x => x.setAttribute("aria-selected", x === b));
+    const novo = b.dataset.aba === "cadastro";
+    $("#titulo").textContent = novo ? "Crie sua Conta Solo" : "Bem-vindo de volta";
+    $("#sub").textContent = novo ? "Uma conta para todos os sistemas." : "Entre na sua Conta Solo.";
+    $("#entrar span").textContent = novo ? "Criar conta" : "Entrar";
+  }));
+  $("#olho").addEventListener("click", () => { const s = $("#l-senha"); s.type = s.type === "password" ? "text" : "password"; });
+  $("#form-login").addEventListener("submit", e => {
+    e.preventDefault();
+    const b = $("#entrar"); b.classList.add("carregando");
+    setTimeout(() => { b.classList.remove("carregando"); ir("inicio"); }, 900);
+  });
+
+  // ── bolha do menu superior ──
+  function posicionarNav() {
+    $$(".tela.ativa [data-nav]").forEach(nav => {
+      const a = $(".ativo", nav), bolha = $(".bolha", nav);
+      if (!a) return;
+      bolha.style.left = a.offsetLeft + "px"; bolha.style.width = a.offsetWidth + "px";
+    });
+  }
+  addEventListener("resize", posicionarNav);
+
+  // ── segmentados ──
+  $$("[data-seg]").forEach(g => g.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    $$("button", g).forEach(x => x.setAttribute("aria-checked", x === b));
+  }));
+
+  // ── ondas de voz ──
+  const onda = $("#onda");
+  for (let k = 0; k < 34; k++) { const i = document.createElement("i"); i.style.cssText = `--k:${k};--h:${25 + Math.abs(Math.sin(k * .7)) * 75}%`; onda.append(i); }
+  $$("[data-mini]").forEach(m => { for (let k = 0; k < 26; k++) { const i = document.createElement("i"); i.style.cssText = `--k:${k};--h:${20 + Math.abs(Math.sin(k * 1.3)) * 80}%`; m.append(i); } });
+
+  // ── velocidade ──
+  const vel = $("#vel"), velOut = $("#vel-out");
+  const pintar = () => { const p = (vel.value - vel.min) / (vel.max - vel.min) * 100; vel.style.setProperty("--v", p + "%"); velOut.textContent = Number(vel.value).toFixed(2).replace(".", ",") + "×"; };
+  vel.addEventListener("input", pintar); pintar();
+
+  // ── salvar → toast ──
+  const toast = $("#toast");
+  $$("[data-salvar]").forEach(b => b.addEventListener("click", () => {
+    b.classList.add("carregando");
+    setTimeout(() => { b.classList.remove("carregando"); toast.classList.add("on"); setTimeout(() => toast.classList.remove("on"), 2200); }, 700);
+  }));
+
+  // ── navegação lateral das configurações ──
+  const links = $$("#cfg-nav a[href^='#s-']");
+  const obs = new IntersectionObserver(es => es.forEach(en => {
+    if (en.isIntersecting) links.forEach(a => a.classList.toggle("ativo", a.getAttribute("href") === "#" + en.target.id));
+  }), { rootMargin: "-40% 0px -55% 0px" });
+  links.forEach(a => { const s = $(a.getAttribute("href")); s && obs.observe(s); a.addEventListener("click", e => { e.preventDefault(); s.scrollIntoView({ behavior: "smooth" }); }); });
+
+  // ── saudação ──
+  const h = new Date().getHours();
+  $("#periodo").textContent = h < 5 ? "Boa noite" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  $("#data-hoje").textContent = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+
+  // ── início: contador + conversa ──
+  const roteiro = [
+    ["eu", "/fin gastei 42 no mercado"],
+    ["bot", '<span class="selo fin">💰 Finances</span>✓ Despesa de <b>R$ 42,00</b> — Mercado'],
+    ["eu", "/rot hoje"],
+    ["bot", '<span class="selo rot">⚔️ Rotinas</span>3 missões hoje · 1 concluída'],
+    ["eu", "✓ Leitura"],
+    ["bot", '<span class="selo rot">⚔️ Rotinas</span>Missão concluída! <b>+40 XP</b> · 12 dias seguidos'],
+  ];
+  let rodando = false;
+  function iniciarInicio() {
+    const n = $("[data-conta]"), alvo = +n.dataset.conta, t0 = performance.now();
+    const fmt = v => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    (function passo(t) { const p = Math.min(1, (t - t0) / 1400), e = 1 - Math.pow(1 - p, 4); n.textContent = fmt(alvo * e); if (p < 1) requestAnimationFrame(passo); })(t0);
+    if (rodando) return; rodando = true;
+    const chat = $("#chat");
+    let i = 0;
+    (function prox() {
+      if (i >= roteiro.length) { setTimeout(() => { chat.innerHTML = ""; i = 0; prox(); }, 4000); return; }
+      const [quem, html] = roteiro[i++];
+      const atraso = quem === "bot" ? 900 : 700;
+      let dig;
+      if (quem === "bot") { dig = document.createElement("div"); dig.className = "bal bot mostra digitando"; dig.innerHTML = "<i></i><i></i><i></i>"; chat.append(dig); }
+      setTimeout(() => {
+        dig && dig.remove();
+        const b = document.createElement("div"); b.className = "bal " + quem; b.innerHTML = html; chat.append(b);
+        requestAnimationFrame(() => b.classList.add("mostra"));
+        while (chat.children.length > 7) chat.firstElementChild.remove();
+        setTimeout(prox, 650);
+      }, atraso);
+    })();
+  }
+})();
+</script>
+</body>
+</html>
