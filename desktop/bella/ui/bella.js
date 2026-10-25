@@ -333,11 +333,37 @@
       const linha = document.createElement("div"); linha.className = "fala-ela";
       const av = document.createElement("div"); av.className = "rosto av"; av.setAttribute("data-avatar", "pequeno");
       const bolha = document.createElement("div"); bolha.className = "ela";
-      montarResposta(bolha, m.texto || "", m.opcoes || []);
+      if (ehPrompt(m.texto)) montarPrompt(bolha, m.texto); else montarResposta(bolha, m.texto || "", m.opcoes || []);
       linha.appendChild(av); linha.appendChild(bolha); c.appendChild(linha);
       aplicarAvatar();
     }
     rolar();
+  }
+
+  // ── Prompt de imagem: caixa com rolagem e um clique para copiar ──
+  const RE_PROMPT = /^\s*Use a imagem da nova modelo como refer[êe]ncia/i;
+  function ehPrompt(texto) { return typeof texto === "string" && texto.length > 600 && RE_PROMPT.test(texto); }
+  function copiarTexto(caixa, texto) {
+    const manual = () => { caixa.focus(); caixa.select(); try { return document.execCommand("copy"); } catch (e) { return false; } };
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(texto).then(() => true, () => manual());
+    return Promise.resolve(manual());
+  }
+  function montarPrompt(bolha, texto) {
+    bolha.classList.add("prompt");
+    const topo = document.createElement("div"); topo.className = "prompt-topo";
+    const titulo = document.createElement("span"); titulo.className = "prompt-titulo"; titulo.textContent = "🖼️ Prompt pronto";
+    const botao = document.createElement("button"); botao.type = "button"; botao.className = "prompt-copiar"; botao.textContent = "Copiar prompt";
+    topo.appendChild(titulo); topo.appendChild(botao);
+    const caixa = document.createElement("textarea"); caixa.className = "prompt-caixa"; caixa.readOnly = true;
+    caixa.spellcheck = false; caixa.value = texto.trim(); caixa.setAttribute("aria-label", "Prompt para copiar");
+    caixa.onfocus = () => caixa.select();
+    const dica = document.createElement("small"); dica.className = "prompt-dica"; dica.textContent = "Cole no Grok Imagine com a foto da modelo anexada.";
+    botao.onclick = () => copiarTexto(caixa, caixa.value).then(ok => {
+      botao.textContent = ok ? "Copiado ✓" : "Selecione e use Ctrl+C";
+      botao.classList.toggle("ok", !!ok);
+      setTimeout(() => { botao.textContent = "Copiar prompt"; botao.classList.remove("ok"); }, 2200);
+    });
+    bolha.appendChild(topo); bolha.appendChild(caixa); bolha.appendChild(dica);
   }
 
   function montarResposta(bolha, texto, opcoes) {
