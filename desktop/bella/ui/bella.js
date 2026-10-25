@@ -341,7 +341,7 @@
   }
 
   // ── Prompt de imagem: caixa com rolagem e um clique para copiar ──
-  const RE_PROMPT = /^\s*Use a imagem da nova modelo como refer[êe]ncia/i;
+  const RE_PROMPT = /^\s*(?:Use a imagem da nova modelo como refer[êe]ncia|Crie uma modelo original com as seguintes)/i;
   function ehPrompt(texto) { return typeof texto === "string" && texto.length > 600 && RE_PROMPT.test(texto); }
   function copiarTexto(caixa, texto) {
     const manual = () => { caixa.focus(); caixa.select(); try { return document.execCommand("copy"); } catch (e) { return false; } };

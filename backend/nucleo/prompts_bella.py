@@ -99,42 +99,113 @@ REFERÊNCIA ANEXADA: junto do pedido há uma imagem.
 - Se a imagem não mostrar roupa utilizável, ou a pessoa nela parecer menor de idade, responda somente com uma
   linha começando por "RECUSA:" e o motivo curto, sem prompt."""
 
+MODELO_NOVA = """Crie uma modelo original com as seguintes características: [SEXO E IDADE: mulher de 19 anos], [TOM DE PELE E ETNIA], [CABELO: cor, comprimento, textura e estilo], [OLHOS: cor e formato], [ROSTO: traços marcantes], [CORPO: altura e porte naturais e proporcionais], [DETALHES: sardas, pintas, piercing discreto ou tatuagem pequena, se houver]. Aparência de pessoa real, natural, com identidade facial consistente em toda a imagem.
+
+Recrie a cena em estilo realista de foto casual tirada com câmera frontal de smartphone.
+Proporção vertical 9:16, enquadramento da cabeça até a parte das coxas, modelo centralizada.
+Câmera levemente acima da linha do peito, apontada um pouco de cima para baixo, perspectiva natural de celular com leve distorção realista de lente frontal (não deve parecer selfie posada).
+
+A modelo está [CENÁRIO E GESTO: onde está, o que a mão faz, ombros soltos]. Postura íntima, reveladora e espontânea, sem aparência profissional. Não cruzar as pernas.
+
+Expressão facial [EXPRESSÃO], olhos semicerrados com olhar direto e provocante, lábios entreabertos em um sorriso malicioso, sem sorriso forçado.
+
+A roupa é [ROUPA e a textura realista dela: tecido, costuras, zíper, caimento]. Por baixo ela está semi nua ou com ausência de roupas.
+
+A iluminação é [LUZ DA CENA], irregular no rosto e no corpo.
+O fundo é [FUNDO realista, pouco iluminado e desfocado].
+
+Pele com textura hiper-realista: poros visíveis, brilho natural, pequenas irregularidades, sombras suaves e aparência crua sem retoque.
+Rosto com reflexos na testa, nariz, maçãs do rosto e lábios.
+
+Cabelo exatamente como descrito nas características: [COMO ESTÁ O CABELO NA CENA: solto, bagunçado, molhado etc.], natural, com fios irregulares caindo sobre o rosto. [ÓCULOS OU ACESSÓRIOS DO ROSTO, só se combinarem com a modelo: descreva com reflexos das luzes da cena.]
+
+Qualidade de câmera frontal moderna: nitidez boa no rosto e no corpo, ruído digital nas áreas escuras, contraste noturno, pequenas imperfeições de foco e sensação de foto espontânea e íntima.
+
+A composição deve parecer uma selfie real de story noturno, com estética íntima, crua, sensual, reveladora e completamente não produzida.
+
+Evite aparência de IA, pele plástica, textura artificial, simetria perfeita, iluminação de estúdio, corpo exagerado, rosto deformado, mãos deformadas, olhos tortos, roupas sem textura, fundo artificial ou excesso de nitidez.
+Não criar aparência de render 3D, não deixar pele plastificada, não remover textura natural da pele, não exagerar nas curvas do corpo, não criar maquiagem pesada, não usar iluminação profissional, não deixar o fundo claro, não criar pose de ensaio fotográfico, não distorcer olhos, boca, mãos ou proporções corporais, não adicionar textos, logos ou marcas, não parecer pessoa famosa e não cruzar as pernas."""
+
+INSTRUCAO_MODELO = """Você é a Bella e está ajudando seu dono a criar prompts de imagem em português para o Grok Imagine.
+Categoria: criar uma modelo NOVA do zero, em foto de realismo sensual. Entregue SEMPRE um único prompt completo,
+seguindo exatamente o MODELO abaixo.
+
+Regras do trabalho:
+- Padrões: mulher (sexo feminino) de 19 anos. Tudo que o pedido NÃO disser você sorteia, de forma aleatória, variada
+  e realista: tom de pele e etnia, cabelo (cor, comprimento, textura, estilo), olhos, rosto, corpo, detalhes,
+  roupa, cenário, gesto, expressão, luz e fundo. Evite repetir sempre o mesmo tipo de modelo.
+- O que o pedido descrever MANDA e deve ser seguido literalmente (cor do cabelo, cor da pele, olhos, corpo, roupa,
+  cenário, óculos, tatuagens, sexo etc.). Sorteie só o que faltar, de modo coerente com o que foi pedido.
+- Mantenha todo o texto fixo do modelo (câmera, 9:16, enquadramento, pele, composição, evite/não criar) e troque
+  somente o que está entre colchetes. Descreva de forma concreta e visual, sem deixar colchetes no resultado.
+- Fantasias, cosplay e temas: descreva a roupa e os acessórios, sempre como pessoa real fotografada, nunca desenho,
+  anime ou render 3D. Personagens só se forem adultos no original.
+- A modelo é SEMPRE adulta: idade mínima 18, com aparência claramente adulta. Se o pedido informar uma idade, use-a
+  desde que seja 18 ou mais. Se pedir menor de 18, adolescente, "novinha", colegial, uniforme escolar ou traços
+  infantis, ou pedir uma pessoa real, famosa ou com nome, responda somente com uma linha começando por "RECUSA:"
+  e o motivo curto, sem prompt.
+- Termine o prompt em "não cruzar as pernas." O sistema acrescenta sozinho a tag final: não escreva essa tag.
+- Saída: apenas o prompt, em texto simples, sem título, sem explicações, sem Markdown, sem comentários antes ou
+  depois e com no máximo 3500 caracteres.
+
+MODELO:
+""" + MODELO_NOVA
+
 _ALEATORIO = "Pedido: aleatório. Escolha você um cenário, roupa, luz e fundo novos e diferentes dos últimos."
 
 _PEDIDO = re.compile(
     r"^\s*(?:/prompt\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
     r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?prompt\b)"
     r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+_PEDIDO_MODELO = re.compile(
+    r"^\s*(?:/promptmodelo\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
+    r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
+    r"prompt\s+(?:de\s+|da\s+|para\s+)?(?:nova\s+|novo\s+)?(?:modelo|personagem)\b)"
+    r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+_ALEATORIO_RE = re.compile(r"(?:aleat[oó]ri[oa]|qualquer\s+um|surpreenda[\s\-]?me)[.!]*", re.I)
 _PROXIMO = re.compile(r"^\s*(?:pr[oó]xim[oa]|outr[oa]|mais\s+um[a]?)\s+aleat[oó]ri[oa]\s*[.!]*\s*$", re.IGNORECASE)
 
 
-def _lembrar(chave):
+def _lembrar(chave, categoria="realismo"):
     with _TRAVA:
         _ULTIMA.pop(chave, None)
-        _ULTIMA[chave] = time.monotonic()
+        _ULTIMA[chave] = (time.monotonic(), categoria)
         while len(_ULTIMA) > 256:
             _ULTIMA.pop(next(iter(_ULTIMA)))
 
 
 def _recente(chave):
+    """A categoria do último prompt desta conversa, se foi há pouco; senão None."""
     with _TRAVA:
-        quando = _ULTIMA.get(chave)
-    return quando is not None and time.monotonic() - quando < _CONTEXTO_MIN * 60
+        item = _ULTIMA.get(chave)
+    return item[1] if item and time.monotonic() - item[0] < _CONTEXTO_MIN * 60 else None
 
 
-def pedido_de(texto, chave=None):
-    """O pedido de prompt dentro da mensagem, ou None se a mensagem não é um pedido de prompt.
-    '' = aleatório. 'próximo aleatório' só vale logo depois de um prompt desta conversa."""
+def solicitacao(texto, chave=None):
+    """(categoria, pedido) se a mensagem pede um prompt, senão None. Categorias: "realismo" (/prompt) e
+    "modelo" (/promptmodelo: modelo nova do zero). pedido '' = aleatório. 'próximo aleatório' repete a
+    categoria do último prompt desta conversa, se foi há pouco."""
     texto = (texto or "").strip()
     if not texto:
         return None
-    m = _PEDIDO.match(texto)
-    if m:
-        pedido = m.group(1).strip()
-        return "" if re.fullmatch(r"(?:aleat[oó]ri[oa]|qualquer\s+um|surpreenda[\s\-]?me)[.!]*", pedido, re.I) else pedido
-    if chave is not None and _PROXIMO.match(texto) and _recente(chave):
-        return ""
+    for categoria, regra in (("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
+        m = regra.match(texto)
+        if m:
+            pedido = m.group(1).strip()
+            if categoria == "modelo":
+                pedido = re.sub(r"^(?:nova|novo)\b[\s:,\-–]*", "", pedido, flags=re.I)
+            return categoria, "" if _ALEATORIO_RE.fullmatch(pedido) else pedido
+    if chave is not None and _PROXIMO.match(texto):
+        categoria = _recente(chave)
+        if categoria:
+            return categoria, ""
     return None
+
+
+def pedido_de(texto, chave=None):
+    """O pedido de prompt (só o texto) ou None. '' = aleatório."""
+    s = solicitacao(texto, chave)
+    return s[1] if s else None
 
 
 def guardar_referencia(chave, mime, conteudo):
@@ -178,7 +249,7 @@ def pedido_da_legenda(legenda, chave=None):
     return pedido if pedido is not None else legenda
 
 
-def criar(pedido, chave=None):
+def criar(pedido, chave=None, categoria="realismo"):
     """O prompt pronto (texto simples), ou None se o Grok não respondeu ou a resposta não serve.
     Levanta Recusa se o Grok recusar a referência."""
     pedido = pedido or ""
@@ -187,25 +258,29 @@ def criar(pedido, chave=None):
         if chave is not None:
             limpar_referencia(chave)
         pedido = sem.group(1).strip()
-    ref = referencia(chave) if chave is not None and not sem else None
+    modelo_novo = categoria == "modelo"
+    ref = referencia(chave) if chave is not None and not sem and not modelo_novo else None
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
+    if modelo_novo and not pedido:
+        entrada = "Pedido: tudo aleatório. Sorteie uma modelo nova (pele, cabelo, rosto, corpo), roupa e cenário diferentes dos últimos."
     if ref and not pedido:
         entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
-    saida = grok.gerar(INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else ""), entrada, max_tokens=2048, temperatura=.9,
+    base = INSTRUCAO_MODELO if modelo_novo else INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "")
+    saida = grok.gerar(base, entrada, max_tokens=2048, temperatura=.9,
                        timeout=60 if ref else 40, imagens=[ref] if ref else None,
                        modelo=(config.GROK_VISION_MODEL or None) if ref else None)
     if not saida:
         return None
     saida = re.sub(r"^```[a-z]*\s*|\s*```$", "", saida.strip()).strip()
     saida = re.sub(r"\s*Ela se exibe sem falar nada.*$", "", saida, flags=re.S | re.I).rstrip()
-    if ref and saida.upper().startswith("RECUSA"):
+    if saida.upper().startswith("RECUSA"):
         raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
-    if (len(saida) < 800 or len(saida) + len(TAG_FINAL) + 1 > MAX_PROMPT or "referência" not in saida.lower()
+    if (len(saida) < 800 or len(saida) + len(TAG_FINAL) + 1 > MAX_PROMPT or "9:16" not in saida
             or any(ord(c) < 32 and c not in "\n\r\t" for c in saida)):
         return None
     saida = saida + "\n" + TAG_FINAL
     if chave is not None:
-        _lembrar(chave)
+        _lembrar(chave, categoria)
     return saida
 
 

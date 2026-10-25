@@ -323,7 +323,7 @@ def test_prompt_pelo_whatsapp_e_telegram(logado, sistemas, caixa, monkeypatch):
     logado.post("/api/conectar", json={"app": "rot", "codigo": "CODROT1"})
     _ligar_telegram(logado)
     pedidos = []
-    monkeypatch.setattr(prompts_bella, "criar", lambda pedido, chave=None: pedidos.append(pedido) or "PROMPT-PRONTO:" + pedido)
+    monkeypatch.setattr(prompts_bella, "criar", lambda pedido, chave=None, categoria="realismo": pedidos.append(pedido) or "PROMPT-PRONTO:" + pedido)
     antes = len(sistemas.recebidos)
     _tg(logado, "/prompt cozinha com cosplay")
     assert "PROMPT-PRONTO:cozinha com cosplay" in caixa[-1][2]
@@ -345,7 +345,7 @@ def test_imagem_de_referencia_no_telegram(logado, sistemas, caixa, monkeypatch):
     prompts_bella._REFERENCIAS.clear()
     monkeypatch.setattr(telegram, "baixar", lambda f: b"\xff\xd8JPEGDATA")
     pedidos = []
-    monkeypatch.setattr(prompts_bella, "criar", lambda pedido, chave=None: pedidos.append(pedido) or "PROMPT:" + pedido)
+    monkeypatch.setattr(prompts_bella, "criar", lambda pedido, chave=None, categoria="realismo": pedidos.append(pedido) or "PROMPT:" + pedido)
 
     def foto(legenda=None, uid=[90000]):
         uid[0] += 1
@@ -367,7 +367,7 @@ def test_imagem_de_referencia_no_whatsapp(logado, sistemas, caixa, monkeypatch):
     logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
     prompts_bella._REFERENCIAS.clear()
     pedidos = []
-    monkeypatch.setattr(prompts_bella, "criar", lambda pedido, chave=None: pedidos.append(pedido) or "PROMPT:" + pedido)
+    monkeypatch.setattr(prompts_bella, "criar", lambda pedido, chave=None, categoria="realismo": pedidos.append(pedido) or "PROMPT:" + pedido)
     jid = "5561988887777@s.whatsapp.net"
     codigo = logado.post("/api/conta/canais/whatsapp/codigo").json()["codigo"]
     _wa(logado, f"SOLO {codigo}", jid)
@@ -384,3 +384,17 @@ def test_imagem_de_referencia_no_whatsapp(logado, sistemas, caixa, monkeypatch):
     assert len(prompts_bella._REFERENCIAS) == 1 and pedidos == []
     imagem("cozinha à noite")
     assert pedidos == ["cozinha à noite"]
+
+
+def test_promptmodelo_no_hub(logado, sistemas, caixa, monkeypatch):
+    from nucleo import prompts_bella
+    logado.post("/api/conectar", json={"app": "fin", "codigo": "CODFIN1"})
+    _ligar_telegram(logado)
+    visto = []
+    monkeypatch.setattr(prompts_bella, "criar", lambda pedido, chave=None, categoria="realismo": visto.append((pedido, categoria)) or "PROMPT:" + categoria)
+    _tg(logado, "/promptmodelo cabelo ruivo")
+    assert visto[-1] == ("cabelo ruivo", "modelo") and "PROMPT:modelo" in caixa[-1][2]
+    _tg(logado, "/promptmodelo")
+    assert visto[-1] == ("", "modelo")
+    _tg(logado, "/prompt bar")
+    assert visto[-1] == ("bar", "realismo")

@@ -268,6 +268,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/conta` — canais e sistemas ligados",
         "▸ `/bella` — conversar com a Bella (modo adulto, `/esquecer` limpa a memória)",
         "▸ `/prompt` — a Bella cria um prompt de imagem (realismo sensual): `/prompt cozinha, cosplay de odalisca`",
+        "▸ `/promptmodelo` — cria uma modelo nova do zero (19 anos, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`",
         "▸ `/voz` — responder falando (áudio, sempre ou nunca)",
         "",
         "_Dentro de um sistema, `/ajuda` mostra os comandos dele. "
@@ -464,8 +465,9 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _conta_resumo(db, conta)
     if cmd == "/voz":
         return _cmd_voz(db, conta, resto.strip().lower())
-    if cmd == "/prompt":
-        return _prompt_responder(db, conta, canal, prompts_bella_pedido(txt, canal, conta) or "")
+    if cmd in ("/prompt", "/promptmodelo"):
+        pedido = prompts_bella_pedido(txt, canal, conta) or ("modelo" if cmd == "/promptmodelo" else "realismo", "")
+        return _prompt_responder(db, conta, canal, pedido[1], pedido[0])
     if cmd in ("/bella", "/safada"):
         _entrar_modo(db, s, MODO_BELLA)
         return _bella_entrar(canal, conta, resto.strip())
@@ -488,7 +490,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if modo in (None, MODO_BELLA):
         pedido_prompt = prompts_bella_pedido(txt, canal, conta)
         if pedido_prompt is not None:
-            return _prompt_responder(db, conta, canal, pedido_prompt)
+            return _prompt_responder(db, conta, canal, pedido_prompt[1], pedido_prompt[0])
 
     if modo == MODO_BELLA:
         _entrar_modo(db, s, MODO_BELLA)          # renova a validade
@@ -551,18 +553,19 @@ def _chave_bella(canal: str, conta: Conta) -> str:
     return f"{canal}:{conta.id}"          # memória própria deste canal, separada do Bella.exe
 
 
-def prompts_bella_pedido(txt: str, canal: str, conta: Conta) -> Optional[str]:
+def prompts_bella_pedido(txt: str, canal: str, conta: Conta):
+    """(categoria, pedido) se a mensagem pede um prompt; senão None."""
     from nucleo import prompts_bella
-    return prompts_bella.pedido_de(txt, _chave_bella(canal, conta))
+    return prompts_bella.solicitacao(txt, _chave_bella(canal, conta))
 
 
-def _prompt_responder(db, conta: Conta, canal: str, pedido: str) -> Resposta:
+def _prompt_responder(db, conta: Conta, canal: str, pedido: str, categoria: str = "realismo") -> Resposta:
     """A Bella cria um prompt de imagem (realismo sensual). A voz diz só que está pronto."""
     from nucleo import prompts_bella
     try:
-        texto = prompts_bella.criar(pedido, _chave_bella(canal, conta))
+        texto = prompts_bella.criar(pedido, _chave_bella(canal, conta), categoria)
     except prompts_bella.Recusa as erro:
-        return Resposta().diz(f"🖼️ Não usei a referência: {erro}. Mande outra imagem ou `/prompt sem referência ...`.")
+        return Resposta().diz(f"🖼️ Não criei o prompt: {erro}.")
     if not texto:
         return Resposta().diz("😶 Não consegui criar o prompt agora. Tente de novo em instantes.")
     _registrar(db, conta, canal, None, "bella", "prompt")

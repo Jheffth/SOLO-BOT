@@ -332,7 +332,8 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
         raise HTTPException(422, "Escreva ou fale uma mensagem.")
     from nucleo import bella_conversa, prompts_bella
     chave = f"bella:{conta.id}"
-    pedido = prompts_bella.pedido_de(p.texto, chave)
+    pedida = prompts_bella.solicitacao(p.texto, chave)
+    pedido, categoria = (pedida[1], pedida[0]) if pedida else (None, "realismo")
     if p.imagem_base64:
         import base64
         try:
@@ -346,9 +347,9 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
             pedido = p.texto.strip()          # com imagem anexa, o texto é o pedido do prompt
     if pedido is not None:
         try:
-            texto = prompts_bella.criar(pedido, chave)
+            texto = prompts_bella.criar(pedido, chave, categoria)
         except prompts_bella.Recusa as erro:
-            raise HTTPException(422, f"Não usei a referência: {erro}.") from None
+            raise HTTPException(422, f"Não criei o prompt: {erro}.") from None
         falar = prompts_bella.FALADO
     else:
         texto = bella_conversa.responder(p.texto, conta.id)

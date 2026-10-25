@@ -347,7 +347,7 @@ def test_criar_prompt_usa_grok_e_valida(monkeypatch):
 
 def test_rota_conversa_cria_prompt_e_fala_curto(monkeypatch):
     from nucleo import prompts_bella as pb
-    monkeypatch.setattr(pb, "criar", lambda pedido, chave=None: "PROMPT:" + pedido)
+    monkeypatch.setattr(pb, "criar", lambda pedido, chave=None, categoria="realismo": "PROMPT:" + pedido)
     conta = SimpleNamespace(id=7)
     monkeypatch.setattr(bella, "_autenticar", lambda db, chave: conta)
     monkeypatch.setattr(bella, "_limitar", lambda *a: None)
@@ -404,3 +404,34 @@ def test_grok_envia_imagem(monkeypatch):
     assert corpo["model"] == "grok-visao"
     assert corpo["input"][-1]["content"] == [{"type": "input_text", "text": "veja"},
                                              {"type": "input_image", "image_url": "data:image/png;base64,QUJD"}]
+
+
+def test_solicitacao_modelo_nova_e_categoria_do_proximo():
+    from nucleo import prompts_bella as pb
+    assert pb.solicitacao("/promptmodelo cabelo ruivo, pele morena") == ("modelo", "cabelo ruivo, pele morena")
+    assert pb.solicitacao("/promptmodelo") == ("modelo", "")
+    assert pb.solicitacao("crie um prompt de modelo nova aleatória") == ("modelo", "")
+    assert pb.solicitacao("/prompt bar") == ("realismo", "bar")
+    pb._lembrar("m1", "modelo")
+    assert pb.solicitacao("próximo aleatório", "m1") == ("modelo", "")
+    pb._lembrar("m1", "realismo")
+    assert pb.solicitacao("próximo aleatório", "m1") == ("realismo", "")
+
+
+def test_criar_modelo_nova_usa_instrucao_propria(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pb.guardar_referencia("m2", "image/png", b"abc")
+    vistos = []
+    nova = pb.MODELO_NOVA.replace("[SEXO E IDADE: mulher de 19 anos]", "mulher de 19 anos")
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or nova)
+    texto = pb.criar("cabelo ruivo", "m2", "modelo")
+    instr, entrada, kw = vistos[0]
+    assert "mulher (sexo feminino) de 19 anos" in instr and "SOMENTE a roupa" not in instr
+    assert kw["imagens"] is None and entrada == "Pedido: cabelo ruivo"        # modelo nova ignora a referência de roupa
+    assert texto.endswith(pb.TAG_FINAL) and pb._recente("m2") == "modelo"
+    pb.criar("", "m2", "modelo")
+    assert "tudo aleatório" in vistos[1][1]
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "RECUSA: pedido de menor de idade")
+    with pytest.raises(pb.Recusa):
+        pb.criar("uma adolescente", "m2", "modelo")
