@@ -409,7 +409,8 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
             return audio
     from nucleo import voicestudio
     tom = tom_valido(tom)
-    audio = voicestudio.sintetizar(texto, canal, tom=tom, guardar=guardar or bool(tom))
+    audio = voicestudio.sintetizar(texto, canal, tom=tom, guardar=guardar or bool(tom),
+                                   id_voz=id_voz if motor == "voicestudio" else None)
     if audio:
         _estado["ultimo_erro"] = None
     elif motor == "voicestudio":

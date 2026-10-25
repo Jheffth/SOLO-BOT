@@ -210,19 +210,37 @@
         ? '<div class="voice-notice"><b>Vamos conectar sua voz?</b><p>Configure o motor no servidor para começar a ouvir a Bella.</p></div>'
         : `<div class="voice-preview"><div class="voice-preview-icon">${icon("play")}</div>
             <div class="voice-preview-content"><div class="voice-preview-heading"><h3>Uma prévia da sua voz</h3><span class="chip">Português · ritmo natural</span></div>
-              <p class="muted pequeno">O clone da Bella já está selecionado no VoiceStudio.</p>
+              ${(() => {
+                const lista = v.vozes_voicestudio || [], atual = (v.voz_voicestudio || {}).id;
+                if (!lista.length) return `<p class="muted pequeno">Não consegui listar as vozes do VoiceStudio (app fechado ou fora da rede?). Voz atual: ${esc(atual || "—")}.</p>`;
+                const opcoesVoz = lista.map(x => `<option value="${esc(x.voice_id)}" ${x.voice_id === atual ? "selected" : ""}>${esc(x.nome)}</option>`).join("");
+                return `<label class="sr-only" for="vs-voz">Voz do VoiceStudio</label>
+                  <div class="voice-preview-form"><select id="vs-voz">${opcoesVoz}</select><button class="btn" id="vs-usar" type="button">Usar esta voz</button></div>
+                  <p class="muted pequeno">Clone novas vozes no próprio VoiceStudio; elas aparecem aqui.</p>`;
+              })()}
               <label class="sr-only" for="voz-frase">Frase para testar a voz</label>
               <div class="voice-preview-form"><input id="voz-frase" maxlength="200" value="Olá! Estou aqui. Pode falar comigo."><button class="btn primario" id="voz-testar" type="button">${icon("play")}Ouvir amostra</button></div>
               <small class="faint">Mantenha o VoiceStudio aberto e o computador conectado.</small>
             </div></div>
            ${v.ultimo_erro ? `<p class="erro-form" role="alert">${esc(v.ultimo_erro)}</p>` : ""}`);
       ligarMotor();
+      const usarVS = document.getElementById("vs-usar");
+      if (usarVS) usarVS.onclick = async function () {
+        carregando(this, true);
+        try {
+          await api("/api/admin/voz", { method: "PUT", body: { voice_id_voicestudio: document.getElementById("vs-voz").value } });
+          toast("Voz do VoiceStudio trocada.");
+          await carregarVoz();
+        } catch (e) { toast(e.message, "erro"); carregando(this, false); }
+      };
       const testar = document.getElementById("voz-testar");
       if (testar) testar.onclick = async function () {
         carregando(this, true);
         try {
+          const escolhida = document.getElementById("vs-voz");
           const r = await fetch("/api/admin/voz/amostra", { method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" }, body: JSON.stringify({ texto: document.getElementById("voz-frase").value }) });
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ texto: document.getElementById("voz-frase").value, ...(escolhida ? { voice_id: escolhida.value } : {}) }) });
           if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "Não gerou a amostra.");
           tocar(URL.createObjectURL(await r.blob()));
         } catch (e) { toast(e.message, "erro"); }

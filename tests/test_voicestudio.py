@@ -258,3 +258,25 @@ def test_disponibilidade_respeita_escolha_manual(reserva, monkeypatch):
     with database.SessionLocal() as db:
         database.gravar_config(db, fala.CHAVE_MOTOR, "elevenlabs")
     assert fala.disponivel()
+
+
+def test_listar_vozes_e_escolher(monkeypatch):
+    from nucleo import voicestudio
+    monkeypatch.setattr(config, "VOICESTUDIO_URL", "http://100.1.2.3")
+    monkeypatch.setattr(config, "VOICESTUDIO_API_KEY", "k")
+    voicestudio._VOZES.update(quando=0.0, origem=None, itens=[])
+    vistos = []
+
+    class Cliente:
+        def __init__(self, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def get(self, url, headers=None):
+            vistos.append((url, headers))
+            return httpx.Response(200, request=httpx.Request("GET", url),
+                                  json={"voices": [{"id": "a1", "name": "Bella"}, {"id": "b2", "name": "Jefferson"}, {"id": "a1"}]})
+    monkeypatch.setattr(voicestudio.httpx, "Client", Cliente)
+    assert voicestudio.listar_vozes() == [{"voice_id": "a1", "nome": "Bella"}, {"voice_id": "b2", "nome": "Jefferson"}]
+    assert vistos[0] == ("http://100.1.2.3/v1/audio/voices", {"Authorization": "Bearer k"})
+    voicestudio.listar_vozes()
+    assert len(vistos) == 1                         # cache

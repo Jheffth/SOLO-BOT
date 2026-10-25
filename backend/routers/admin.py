@@ -117,8 +117,12 @@ def painel_voz(_: Conta = Depends(conta_admin)):
     motores = fala.motores()
     if motores["atual"] == "voicestudio":
         from nucleo import voicestudio
+        vozes = voicestudio.listar_vozes()
+        atual = voicestudio.voz_id()
         return {"disponivel": fala.disponivel(), "motor": motores,
-                "perfil_voicestudio": voicestudio.perfil(), "ultimo_erro": fala.ultimo_erro()}
+                "perfil_voicestudio": voicestudio.perfil(), "ultimo_erro": fala.ultimo_erro(),
+                "vozes_voicestudio": vozes,
+                "voz_voicestudio": {"id": atual, "nome": next((x["nome"] for x in vozes if x["voice_id"] == atual), None)}}
     if not fala.disponivel():
         return {"disponivel": False, "motor": motores}
     vozes = fala.listar_vozes()
@@ -156,12 +160,22 @@ class AjusteVoz(BaseModel):
     voice_id: Optional[str] = None
     modelo: Optional[str] = None
     voice_id_sistema: Optional[str] = None        # a voz dos sussurros; "" volta a usar a voz do bot
+    voice_id_voicestudio: Optional[str] = None    # a voz (clone) usada no VoiceStudio
 
 
 @router.put("/voz")
 def ajustar_voz(dados: AjusteVoz, _: Conta = Depends(conta_admin), db: Session = Depends(get_db)):
     from database import gravar_config
     from nucleo import fala
+    if dados.voice_id_voicestudio is not None:
+        from nucleo import voicestudio
+        if not voicestudio.disponivel_servidor():
+            raise HTTPException(409, "Configure o VoiceStudio no servidor antes de escolher a voz.")
+        if dados.voice_id_voicestudio not in {v["voice_id"] for v in voicestudio.listar_vozes(forcar=True)}:
+            raise HTTPException(404, "Essa voz não está no VoiceStudio. Confira se ele está aberto e conectado.")
+        gravar_config(db, voicestudio.CHAVE_VOZ, dados.voice_id_voicestudio)
+        fala._estado["ultimo_erro"] = None
+        return {"ok": True, "voz_voicestudio": voicestudio.voz_id()}
     if dados.motor is not None:
         if dados.motor not in fala.MOTORES:
             raise HTTPException(422, "Motor de voz desconhecido.")

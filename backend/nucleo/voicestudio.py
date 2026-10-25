@@ -11,19 +11,81 @@ import config
 log = logging.getLogger("solobot.voicestudio")
 
 
+CHAVE_VOZ = "voz_voicestudio"
+
+
+def voz_id() -> str:
+    """A voz escolhida no painel; sem escolha, a do .env."""
+    from database import ler_config
+    return ler_config(CHAVE_VOZ) or config.VOICESTUDIO_VOICE_ID
+
+
 def disponivel() -> bool:
-    return bool(config.VOICESTUDIO_URL and config.VOICESTUDIO_VOICE_ID)
+    return bool(config.VOICESTUDIO_URL and voz_id())
+
+
+def disponivel_servidor() -> bool:
+    return bool(config.VOICESTUDIO_URL)
+
+
+_VOZES = {"quando": 0.0, "origem": None, "itens": []}
+
+
+def _endereco_vozes():
+    base = config.VOICESTUDIO_URL.rstrip("/")
+    destino = urlsplit(base)
+    if (destino.scheme not in ("http", "https") or not destino.hostname
+            or destino.username or destino.password or destino.query or destino.fragment
+            or destino.path not in ("", "/v1")):
+        return None
+    return base + ("/audio/voices" if destino.path == "/v1" else "/v1/audio/voices")
+
+
+def listar_vozes(forcar=False) -> list:
+    """Os perfis de voz do VoiceStudio (inclui os clones): [{voice_id, nome}]. Vazio se não responder."""
+    import time
+    if not config.VOICESTUDIO_URL:
+        return []
+    origem = config.VOICESTUDIO_URL
+    if (not forcar and _VOZES["origem"] == origem and time.monotonic() - _VOZES["quando"] < 30):
+        return _VOZES["itens"]
+    endpoint = _endereco_vozes()
+    if not endpoint:
+        return []
+    headers = {"Authorization": "Bearer " + config.VOICESTUDIO_API_KEY} if config.VOICESTUDIO_API_KEY else {}
+    try:
+        with httpx.Client(timeout=httpx.Timeout(10.0, connect=5.0), follow_redirects=False) as cliente:
+            r = cliente.get(endpoint, headers=headers)
+        r.raise_for_status()
+        bruto = r.json()
+        if isinstance(bruto, dict):
+            bruto = bruto.get("voices") or bruto.get("data") or bruto.get("profiles") or []
+        itens, vistos = [], set()
+        for v in bruto if isinstance(bruto, list) else []:
+            if isinstance(v, str):
+                v = {"id": v}
+            ident = str(v.get("voice_id") or v.get("id") or v.get("name") or "").strip()
+            if not ident or ident in vistos:
+                continue
+            vistos.add(ident)
+            itens.append({"voice_id": ident, "nome": str(v.get("name") or v.get("nome") or ident)[:80]})
+    except Exception:
+        log.warning("Nao consegui listar as vozes do VoiceStudio.")
+        return []
+    _VOZES.update(quando=time.monotonic(), origem=origem, itens=itens)
+    return itens
 
 
 def perfil() -> dict:
-    return {"conta": "voicestudio", "voz": config.VOICESTUDIO_VOICE_ID,
+    return {"conta": "voicestudio", "voz": voz_id(),
             "modelo": config.VOICESTUDIO_MODEL,
             "origem": hashlib.sha256(config.VOICESTUDIO_URL.rstrip("/").encode()).hexdigest()}
 
 
-def sintetizar(texto: str, canal: str, tom=None, guardar=False):
+def sintetizar(texto: str, canal: str, tom=None, guardar=False, id_voz=None):
     if not disponivel() or not texto:
         return None
+    voz = id_voz or voz_id()
     from nucleo import audio_cache, fala
 
     base = config.VOICESTUDIO_URL.rstrip("/")
@@ -39,7 +101,7 @@ def sintetizar(texto: str, canal: str, tom=None, guardar=False):
         return None
     endpoint = base + ("/audio/speech" if destino.path == "/v1" else "/v1/audio/speech")
     formato, mime = ("opus", "audio/ogg") if canal == "telegram" else ("mp3", "audio/mpeg")
-    corpo = {"model": config.VOICESTUDIO_MODEL, "voice": config.VOICESTUDIO_VOICE_ID,
+    corpo = {"model": config.VOICESTUDIO_MODEL, "voice": voz,
              "input": fala._TAGS.sub("", texto).strip(), "language": "pt",
              "response_format": formato, "speed": 1.0, "num_step": 32}
     if not corpo["input"] or len(corpo["input"]) > 4096:
@@ -47,9 +109,9 @@ def sintetizar(texto: str, canal: str, tom=None, guardar=False):
     if tom == "sussurro":
         corpo["instruct"] = "whisper"
     origem = hashlib.sha256(base.encode()).hexdigest()
-    identidade = "voicestudio:" + origem + ":" + config.VOICESTUDIO_VOICE_ID
+    identidade = "voicestudio:" + origem + ":" + voz
     cache_id = audio_cache.identidade(identidade, formato, corpo) if guardar else None
-    perfil_voz = perfil()
+    perfil_voz = {**perfil(), "voz": voz}
     headers = {"Accept": mime}
     if config.VOICESTUDIO_API_KEY:
         headers["Authorization"] = "Bearer " + config.VOICESTUDIO_API_KEY
