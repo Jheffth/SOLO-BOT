@@ -132,3 +132,17 @@ def test_rota_word_transmite_opcao(monkeypatch):
     for modo in ["normal", "safada"]:
         bella.programa(bella.PedidoPrograma(texto="Crie uma mensagem", comandos=[WORD], modo=modo), "teste", None)
     assert calls == ["normal", "safada"]
+
+
+def test_conteudo_adulto_desligado_por_padrao(monkeypatch):
+    monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", False)
+    assert "Sem descrição sexual explícita" in bella_conversa.prompt()
+
+
+def test_conteudo_adulto_ligado_mantem_limites_fixos(monkeypatch):
+    monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", True)
+    p = bella_conversa.prompt()
+    assert "Sem descrição sexual explícita" not in p
+    for limite in ("menores de 18 anos", "consentimento", "pessoas reais", "exclusividade", "pare"):
+        assert limite in p
+    assert programas.estilo() == bella_conversa.estilo()

@@ -56,6 +56,8 @@ GEMINI_AUDIO_MODEL_RESERVA = _env("GEMINI_AUDIO_MODEL_RESERVA", "gemini-3.1-flas
 GROK_API_KEY = _env("GROK_API_KEY")
 GROK_TEXT_MODEL = _env("GROK_TEXT_MODEL", "grok-4.7")
 GROK_STT_MODEL = _env("GROK_STT_MODEL", "grok-voice-transcribe-2.0")
+# Libera conversa sexual explícita entre adultos no Modo Safada da Bella. Desligado por padrão.
+BELLA_CONTEUDO_ADULTO = _env("BELLA_CONTEUDO_ADULTO").strip().lower() in ("1", "true", "sim", "yes")
 
 # ── Fala (responder por voz, para todos os sistemas) ─────────────
 ELEVENLABS_API_KEY = _env("ELEVENLABS_API_KEY")

@@ -4,7 +4,7 @@ import logging
 import time
 
 from nucleo import gemini, grok
-from nucleo.bella_conversa import ESTILO
+from nucleo.bella_conversa import estilo
 
 PROMPT = """Você interpreta UM pedido para aplicativos cadastrados no computador.
 Cada comando tem id, frase e tipo: word ou programa. As frases podem usar {pedido}.
@@ -30,7 +30,7 @@ def interpretar(texto, comandos, modo="normal"):
     vazio = {"comando_id": None, "acao": None, "texto": "", "motivo": "incerto"}
     inicio = time.monotonic()
     motor = grok if modo == "safada" else gemini
-    instrucao = PROMPT + ("\nPara criação de texto, escreva como Bella. " + ESTILO if modo == "safada" else "")
+    instrucao = PROMPT + ("\nPara criação de texto, escreva como Bella. " + estilo() if modo == "safada" else "")
     bruto = motor.gerar(instrucao, json.dumps({"pedido": texto, "comandos": comandos}, ensure_ascii=False),
                          json_saida=True, max_tokens=1536, temperatura=.7 if modo == "safada" else .3, timeout=18 if modo == "safada" else 8)
     logging.getLogger("solobot.programas").info("Interpretacao de aplicativo: %.0f ms, resposta=%s",
