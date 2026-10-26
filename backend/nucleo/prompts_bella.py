@@ -414,8 +414,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
     if saida.upper().startswith("RECUSA"):
         raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
     if roupa or pose:   # troca de roupa/pose em imagem externa: sem 9:16 e sem a tag de movimento
-        inicio = "vista a pessoa" if roupa else "recrie a pessoa"
-        if (len(saida) < 600 or len(saida) > MAX_PROMPT or not saida.lower().startswith(inicio)
+        inicios = ("vista a pessoa", "dress the person") if roupa else ("recrie a pessoa", "recreate the person")
+        if (len(saida) < 600 or len(saida) > MAX_PROMPT or not saida.lower().startswith(inicios)
                 or any(ord(c) < 32 and c not in "\n\r\t" for c in saida)):
             return None
         if chave is not None:
