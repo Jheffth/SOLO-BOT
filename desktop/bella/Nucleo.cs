@@ -18,6 +18,7 @@ namespace Bella {
         readonly Playback player=new Playback();
         readonly Arquivos arquivos;
         readonly IndicePastas indicePastas;
+        readonly IndiceArquivos indiceArquivos;
         readonly PedidosWindows pedidos=new PedidosWindows();
         readonly Programas programas;
         public System.Collections.Generic.Dictionary<string,long> Tempos {get {return pedidos.Tempos;}}
@@ -64,7 +65,10 @@ namespace Bella {
             try { ApertarParaFalar.Validar(Config.TalkKey,Config.TalkModifiers,Config.TalkSeconds); }
             catch { Config.TalkKey=119; Config.TalkModifiers=0; Config.TalkSeconds=5; }
             indicePastas=new IndicePastas(()=>IndicePastas.RaizesLocais());
-            arquivos=new Arquivos(()=>Config.PastasArquivos,commands:()=>Config.ComandosPastas,folderIndex:indicePastas);
+            indiceArquivos=new IndiceArquivos(()=>IndiceArquivos.RaizesLocais());
+            arquivos=new Arquivos(()=>Config.PastasArquivos,commands:()=>Config.ComandosPastas,folderIndex:indicePastas,fileIndex:indiceArquivos);
+            // Esquenta os índices pouco depois da abertura, para a primeira busca já encontrar tudo.
+            ThreadPool.QueueUserWorkItem(_=> { Thread.Sleep(15000); if(!quitting) { indicePastas.Iniciar(); indiceArquivos.Iniciar(); } });
             programas=new Programas(()=>Config.ComandosPastas);
             arquivos.ProgressoBusca+=q=> { if(!quitting) Ui(()=> { if(!quitting && BuscaMudou!=null) BuscaMudou(q); }); };
         }
@@ -374,12 +378,12 @@ namespace Bella {
             await player.Say(reply);
         }
 
-        public void Encerrar() { quitting=true; indicePastas.Dispose(); arquivos.Cancelar(); pedidos.Cancelar(); Pause(); }
+        public void Encerrar() { quitting=true; indicePastas.Dispose(); indiceArquivos.Dispose(); arquivos.Cancelar(); pedidos.Cancelar(); Pause(); }
         public void Dispose() {
             quitting=true; PararVoz();
             if(mic!=null) { try { mic.Dispose(); } catch { } mic=null; }
             if(wake!=null) { wake.Dispose(); wake=null; }
-            indicePastas.Dispose();
+            indicePastas.Dispose(); indiceArquivos.Dispose();
             player.Dispose();
         }
     }

@@ -23,7 +23,7 @@ namespace Bella {
                 catch(Exception e) { File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"avatar-self-test.txt"),e.ToString()); return 1; }
             }
             if(args.Contains("--voice-self-test")) {
-                try { VozRedeTestes.Run(); PastasTestes.Run(AppDomain.CurrentDomain.BaseDirectory); ProgramasTestes.Run(); ImagensTestes.Run(AppDomain.CurrentDomain.BaseDirectory); ArquivosTestes.Run(AppDomain.CurrentDomain.BaseDirectory); NavegadorTestes.Run(); File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"voice-self-test.txt"),"OK"); return 0; }
+                try { VozRedeTestes.Run(); PastasTestes.Run(AppDomain.CurrentDomain.BaseDirectory); ArquivosLivresTestes.Run(AppDomain.CurrentDomain.BaseDirectory); ProgramasTestes.Run(); ImagensTestes.Run(AppDomain.CurrentDomain.BaseDirectory); ArquivosTestes.Run(AppDomain.CurrentDomain.BaseDirectory); NavegadorTestes.Run(); File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"voice-self-test.txt"),"OK"); return 0; }
                 catch(Exception e) { File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"voice-self-test.txt"),e.ToString()); return 1; }
             }
             if(args.Contains("--word-self-test")) {
@@ -71,7 +71,7 @@ namespace Bella {
         static void Check(bool condition,string name) { if(!condition) throw new Exception(name); }
         public static void Run() {
             AnexoTestes.Run();
-            PastasTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
+            PastasTestes.Run(AppDomain.CurrentDomain.BaseDirectory); ArquivosLivresTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
             ImagensTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
             ProgramasTestes.Run();
             VozRedeTestes.Run();
