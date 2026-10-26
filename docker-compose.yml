@@ -18,8 +18,10 @@ services:
       - .env
     environment:
       BELLA_AUDIO_DIR: /app/dados/bella-audios
+      BIBLIOTECA_DIR: /app/dados/biblioteca
     volumes:
       - bella-audios:/app/dados/bella-audios
+      - bella-biblioteca:/app/dados/biblioteca
     networks:
       - solo-network
 
@@ -29,3 +31,4 @@ networks:
 
 volumes:
   bella-audios:
+  bella-biblioteca:

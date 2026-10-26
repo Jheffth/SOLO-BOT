@@ -91,6 +91,7 @@ ELEVENLABS_CONTAS_EXTRAS = {
 }
 ELEVENLABS_VOICE_ID = _env("ELEVENLABS_VOICE_ID")   # se definido, FIXA a voz (a tela de Administração não troca)
 ELEVENLABS_MODEL = _env("ELEVENLABS_MODEL")         # se definido, FIXA o modelo; vazio = escolhido na tela
+BIBLIOTECA_DIR = _env("BIBLIOTECA_DIR", "dados/biblioteca")  # controle de repetição dos prompts da Bella (volume)
 BELLA_AUDIO_DIR = _env("BELLA_AUDIO_DIR", "dados/bella-audios")  # cache persistente das saudações e dos Ecos
 
 # ── Sistemas conectados ───────────────────────────────────────────

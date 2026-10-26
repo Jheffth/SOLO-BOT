@@ -10,7 +10,7 @@ import threading
 import time
 
 import config
-from nucleo import grok
+from nucleo import biblioteca_prompts, grok
 
 MAX_PROMPT = 3900            # cabe numa mensagem do Telegram (4096)
 _CONTEXTO_MIN = 30
@@ -30,7 +30,8 @@ class Recusa(Exception):
 CATEGORIAS = {"realismo": "Realismo sensual (selfie de smartphone, modelo própria)",
               "modelo": "Modelo nova do zero (/promptmodelo)",
               "roupa": "Troca de roupa em imagem externa (/promptroupa)",
-              "pose": "Troca de pose em imagem externa (/posehot)"}
+              "pose": "Troca de pose em imagem externa (/posehot)",
+              "criativo": "Realismo sensual criativo, fora da biblioteca (/promptcriativo)"}
 # Começa o texto enviado ao Bella.exe quando a resposta é um prompt; a tela tira a marca e abre a caixa de copiar.
 MARCA_PROMPT = "[[prompt]]"
 
@@ -260,6 +261,14 @@ REFERÊNCIA ANEXADA: junto do pedido há uma imagem com a pose que ele quer copi
 - Se a imagem mostrar uma pessoa que nela parecer menor de idade, responda somente
   com uma linha começando por "RECUSA:" e o motivo curto, sem prompt."""
 
+EXTRA_CRIATIVO = """
+
+MODO CRIATIVO: o dono quer algo que ele ainda NÃO viu. Invente uma ideia incomum e específica, com uma história
+curta por trás da cena, em vez do cenário óbvio: combine um lugar inesperado com um look surpreendente (profissões
+de adulta, épocas, esportes, festas, viagens, fantasias de personagens adultos, objetos do ambiente que interagem
+com o gesto). Fuja de quarto, cozinha, banheiro e jaqueta, a menos que o pedido peça. NÃO repita nem se aproxime
+de nada da lista "Já usados". Mantenha todo o texto fixo do modelo; só as partes entre colchetes mudam."""
+
 _ALEATORIO = "Pedido: aleatório. Escolha você um cenário, roupa, luz e fundo novos e diferentes dos últimos."
 
 _PEDIDO = re.compile(
@@ -275,6 +284,11 @@ _PEDIDO_ROUPA = re.compile(
     r"^\s*(?:/promptroupa\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
     r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
     r"prompt\s+(?:de\s+|da\s+|para\s+)(?:roupas?|vestimentas?|figurinos?)\b)"
+    r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+_PEDIDO_CRIATIVO = re.compile(
+    r"^\s*(?:/promptcriativo\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
+    r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
+    r"prompt\s+criativ[oa]\b)"
     r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
 _PEDIDO_POSE = re.compile(
     r"^\s*(?:/posehot\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
@@ -307,7 +321,7 @@ def solicitacao(texto, chave=None):
     texto = (texto or "").strip()
     if not texto:
         return None
-    for categoria, regra in (("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
+    for categoria, regra in (("criativo", _PEDIDO_CRIATIVO), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
         m = regra.match(texto)
         if m:
             pedido = m.group(1).strip()
@@ -393,6 +407,18 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
     pose = categoria == "pose"
     ref = (referencia_anexa or (referencia(chave) if chave is not None else None)) if not sem else None
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
+    criativo = categoria == "criativo"
+    ambiente = roupa_base = None
+    if (categoria == "realismo" and not pedido and not ref) or criativo:
+        lista = biblioteca_prompts.evitar(36 if criativo else 24)
+        jaque = ("\nJá usados (NÃO repita cenário, roupa nem fundo parecidos com estes):\n- " + "\n- ".join(lista)) if lista else ""
+        if criativo:
+            entrada = ("Pedido: criativo" + (", com este tema: " + pedido[:300] if pedido else ", tema livre")) + jaque
+        else:
+            ambiente, roupa_base = biblioteca_prompts.sortear()
+            entrada = ("Pedido: aleatório." + (f"\nAmbiente desta vez (obrigatório): {ambiente}." if ambiente else "")
+                       + (f"\nRoupa de partida (adapte com detalhes concretos de tecido e caimento): {roupa_base}." if roupa_base else "")
+                       + jaque)
     if modelo_novo and not pedido:
         entrada = "Pedido: tudo aleatório. Sorteie uma modelo nova (pele, cabelo, rosto, corpo), roupa e cenário diferentes dos últimos."
     if ref and modelo_novo and not pedido:
@@ -410,8 +436,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
     elif modelo_novo:
         base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "")
     else:
-        base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "")
-    saida = grok.gerar(base, entrada, max_tokens=2048, temperatura=.9,
+        base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "")
+    saida = grok.gerar(base, entrada, max_tokens=2048, temperatura=1.0 if criativo else .9,
                        timeout=60 if ref else 40, imagens=[ref] if ref else None,
                        modelo=(config.GROK_VISION_MODEL or None) if ref else None)
     if not saida:
@@ -432,6 +458,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
             or any(ord(c) < 32 and c not in "\n\r\t" for c in saida)):
         return None
     saida = saida + "\n" + TAG_FINAL
+    if categoria in ("realismo", "criativo"):
+        biblioteca_prompts.registrar(saida, categoria, ambiente, roupa_base)
     if chave is not None:
         _lembrar(chave, categoria)
     return saida

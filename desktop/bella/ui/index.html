@@ -70,6 +70,22 @@
       <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
     </button>
   </form>
+  <!-- Ferramentas laterais: recolhível, fica na borda direita da janela -->
+  <button class="lateral-aba" id="lateral-aba" type="button" aria-controls="lateral" aria-expanded="false" title="Ferramentas">
+    <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg><span>Ferramentas</span>
+  </button>
+  <aside class="lateral" id="lateral" aria-label="Ferramentas" aria-hidden="true">
+    <header class="lateral-topo">
+      <b>Ferramentas</b>
+      <button class="icobtn" id="lateral-fechar" type="button" title="Recolher" aria-label="Recolher as ferramentas"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+    </header>
+    <section class="ferramenta" id="ferr-criativo">
+      <h3>Criativo</h3>
+      <p>A Bella inventa um prompt novo, fora da biblioteca, sem repetir os que já saíram.</p>
+      <input id="criativo-tema" maxlength="300" placeholder="Tema (opcional): praia, cosplay, festa…" aria-label="Tema do prompt criativo" autocomplete="off">
+      <button class="btn criativo-ir" id="criativo-ir" type="button">Criar prompt criativo</button>
+    </section>
+  </aside>
   <p class="rodape"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>A escuta de espera fica no seu computador</p>
 
   <!-- ─── Configurações ─── -->

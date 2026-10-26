@@ -271,6 +271,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/promptmodelo` — cria uma modelo nova do zero (19 anos, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`",
         "▸ `/promptroupa` — descreve uma roupa (da foto que você mandar ou do pedido) para vestir em outra imagem, sem mexer no resto: `/promptroupa lingerie preta de renda`",
         "▸ `/posehot` — prompt de pose sensual (uma pessoa, sozinha) para aplicar em outra imagem, da foto que você mandar ou do pedido: `/posehot de bruços olhando para trás`",
+        "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca, sem repetir os que já saíram: `/promptcriativo praia`",
         "▸ `/voz` — responder falando (áudio, sempre ou nunca)",
         "",
         "_Dentro de um sistema, `/ajuda` mostra os comandos dele. "
@@ -467,8 +468,9 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _conta_resumo(db, conta)
     if cmd == "/voz":
         return _cmd_voz(db, conta, resto.strip().lower())
-    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot"):
-        padrao = {"/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose"}.get(cmd, "realismo")
+    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo"):
+        padrao = {"/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose",
+                  "/promptcriativo": "criativo"}.get(cmd, "realismo")
         pedido = prompts_bella_pedido(txt, canal, conta) or (padrao, "")
         return _prompt_responder(db, conta, canal, pedido[1], pedido[0])
     if cmd in ("/bella", "/safada"):
@@ -670,6 +672,7 @@ def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: 
         "`/promptmodelo` cria uma modelo nova a partir das características da foto.\n"
         "`/promptroupa` descreve toda a roupa da foto para vestir em outra imagem.\n"
         "`/posehot` copia a pose da foto para aplicar em outra imagem.\n"
+        "`/promptcriativo` usa a foto como roupa e inventa o resto.\n"
         "`/prompt sem referência ...` descarta a imagem.")
 
 

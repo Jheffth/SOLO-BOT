@@ -466,6 +466,24 @@
       }
       $("entrada").value = ""; enviar("enviar", { texto: t });
     };
+    // Ferramentas laterais: recolhível; a primeira é o "Criativo" (prompt fora da biblioteca)
+    const lateral = (abrir) => {
+      $("lateral").classList.toggle("aberta", abrir); $("lateral").setAttribute("aria-hidden", String(!abrir));
+      $("lateral-aba").setAttribute("aria-expanded", String(abrir)); document.body.classList.toggle("lateral-aberta", abrir);
+      try { localStorage.setItem("bella.lateral", abrir ? "1" : "0"); } catch (e) { }
+    };
+    $("lateral-aba").onclick = () => { lateral(true); $("criativo-tema").focus(); };
+    $("lateral-fechar").onclick = () => lateral(false);
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && $("lateral").classList.contains("aberta")) lateral(false); });
+    const criarCriativo = () => {
+      if (estado.ocupada) return toast("Espere eu terminar o pedido anterior.");
+      const tema = $("criativo-tema").value.trim(); $("criativo-tema").value = "";
+      lateral(false);
+      enviar("enviar", { texto: "/promptcriativo" + (tema ? " " + tema : ""), exibir: "✨ Prompt criativo" + (tema ? ": " + tema : "") });
+    };
+    $("criativo-ir").onclick = criarCriativo;
+    $("criativo-tema").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); criarCriativo(); } });
+    try { if (localStorage.getItem("bella.lateral") === "1") lateral(true); } catch (e) { }
     // Referência de roupa para o prompt: botão, Ctrl+V ou arrastar a imagem para a janela
     $("btn-anexo").onclick = () => $("anexo-arquivo").click();
     $("anexo-arquivo").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) anexar(f); };

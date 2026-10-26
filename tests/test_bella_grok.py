@@ -456,7 +456,7 @@ def test_posehot_reconhece_pedido_e_cria_pose(monkeypatch):
 def test_todo_prompt_sai_marcado_para_a_caixa_de_copiar(monkeypatch):
     """Regra: toda categoria de prompt (inclusive as futuras) é marcada, para o Bella.exe abrir a caixa de copiar."""
     from nucleo import prompts_bella as pb, roteador
-    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x"}
+    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "criativo": "/promptcriativo x"}
     assert set(comandos) == set(pb.CATEGORIAS), "categoria nova: registre o comando aqui e em CATEGORIAS"
     monkeypatch.setattr(pb, "criar", lambda *a, **k: "texto do prompt")
     monkeypatch.setattr(roteador, "_registrar", lambda *a, **k: None)
@@ -464,3 +464,81 @@ def test_todo_prompt_sai_marcado_para_a_caixa_de_copiar(monkeypatch):
         assert pb.solicitacao(comando)[0] == categoria
         r = roteador._prompt_responder(None, SimpleNamespace(id=1), "telegram", "x", categoria)
         assert r.mensagens[-1].get("prompt") is True
+
+
+@pytest.fixture(autouse=True)
+def _biblioteca_em_pasta_temporaria(tmp_path, monkeypatch):
+    import config
+    monkeypatch.setattr(config, "BIBLIOTECA_DIR", str(tmp_path / "biblioteca"), raising=False)
+
+
+def test_biblioteca_semente_tem_os_prompts_salvos_e_os_bancos():
+    import re
+    from nucleo import biblioteca_prompts as bp
+    sem = bp.semente()
+    ids = {p["id"] for p in sem["prompts"]}
+    assert {"jaqueta-couro-quarto", "jaqueta-jeans-sinuca", "odalisca-cobertura"} <= ids
+    assert all(p["prompt"].startswith("Use a imagem da nova modelo") and "[" not in p["prompt"] for p in sem["prompts"] if "prompt" in p)      # os resumidos não têm o texto completo
+    assert len(sem["ambientes"]) >= 30 and len(sem["roupas"]) >= 25
+    assert not any(re.search(r"escolar|colegial|novinha|crian", t, re.I) for t in sem["ambientes"] + sem["roupas"])
+
+
+def test_sorteio_gira_pelos_menos_usados_e_so_conta_ao_registrar():
+    from nucleo import biblioteca_prompts as bp
+    sem = bp.semente()
+    amb1, rou1 = bp.sortear()
+    assert bp.sortear()[0] in sem["ambientes"]          # sortear não consome
+    bp.registrar(_prompt_valido(), "realismo", amb1, rou1)
+    usados = set()
+    for _ in range(len(sem["ambientes"])):
+        a, r = bp.sortear()
+        usados.add(a)
+        bp.registrar(_prompt_valido(), "realismo", a, r)
+    assert usados | {amb1} == set(sem["ambientes"])               # todos saem antes de qualquer um repetir uma segunda vez
+    assert bp.resumo()["ambientes"][amb1] >= 1
+
+
+def test_registrar_resume_o_prompt_e_conta_repeticao():
+    from nucleo import biblioteca_prompts as bp
+    bp.registrar(_prompt_valido(), "realismo")
+    bp.registrar(_prompt_valido(), "realismo")
+    geradas = bp._uso()["geradas"]
+    assert len(geradas) == 1 and geradas[0]["vezes"] == 2 and "cozinha" in geradas[0]["cenario"]
+    assert any("cozinha" in x for x in bp.evitar())
+    assert any("jaqueta de couro" in x for x in bp.evitar(500))      # os prompts salvos também entram na lista
+
+
+def test_prompt_aleatorio_manda_ambiente_e_lista_do_que_ja_saiu(monkeypatch):
+    from nucleo import biblioteca_prompts as bp, grok, prompts_bella as pb
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or _prompt_valido())
+    pb.criar("", "a1")
+    entrada = vistos[0][1]
+    assert "Ambiente desta vez (obrigatório):" in entrada and "Já usados" in entrada and "| roupa:" in entrada
+    assert sum(bp._uso()["ambientes"].values()) == 1
+    pb.criar("cozinha à noite", "a1")                    # pedido específico: não sorteia, mas lembra para a próxima
+    assert "Ambiente desta vez" not in vistos[1][1] and sum(bp._uso()["ambientes"].values()) == 1
+
+
+def test_prompt_criativo_proibe_repetir_e_usa_temperatura_alta(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or _prompt_valido())
+    texto = pb.criar("praia", "c1", "criativo")
+    instr, entrada, kw = vistos[0]
+    assert "MODO CRIATIVO" in instr and kw["temperatura"] == 1.0
+    assert "com este tema: praia" in entrada and "NÃO repita" in entrada and "| roupa:" in entrada
+    assert texto.endswith(pb.TAG_FINAL) and pb._recente("c1") == "criativo"
+    pb.criar("", "c1", "criativo")
+    assert "tema livre" in vistos[1][1]
+
+
+def test_biblioteca_tem_dezenas_de_prompts_e_o_evitar_varia(monkeypatch, tmp_path):
+    from nucleo import biblioteca_prompts as bib
+    monkeypatch.setattr(bib.config, "BIBLIOTECA_DIR", str(tmp_path))
+    sem = bib.semente()
+    assert len(sem["prompts"]) >= 60 and len({p["id"] for p in sem["prompts"]}) == len(sem["prompts"])
+    textos = " ".join(p["cenario"] + p["roupa"] for p in sem["prompts"]).lower()
+    assert "hinata" not in textos and "emília" not in textos          # personagens de aparência infantil ficam de fora
+    amostras = {tuple(bib.evitar(12)) for _ in range(8)}
+    assert len(amostras) > 1                                          # não mostra sempre as mesmas primeiras entradas
