@@ -57,7 +57,14 @@ def _gravar(dados):
         tmp = _arquivo_uso() + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(dados, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, _arquivo_uso())
+        for _ in range(5):
+            try:
+                os.replace(tmp, _arquivo_uso())
+                break
+            except PermissionError:
+                time.sleep(0.01)
+        else:
+            os.replace(tmp, _arquivo_uso())
     except OSError:
         log.warning("Biblioteca: não consegui gravar o controle de uso")
 
