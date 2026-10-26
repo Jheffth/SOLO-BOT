@@ -52,7 +52,7 @@ namespace Bella {
             while(true) {
                 if(encerrado || (continuar!=null && !continuar())) throw new OperationCanceledException();
                 if(tempo.ElapsedMilliseconds-ultimaConsulta>=250 || !Trabalhando) {
-                    var resultado=Consultar(termo,lugar,tempo.ElapsedMilliseconds>=esperaMs); ultimaConsulta=tempo.ElapsedMilliseconds;
+                    var resultado=Consultar(termo,lugar,tempo.ElapsedMilliseconds>=esperaMs || !Trabalhando); ultimaConsulta=tempo.ElapsedMilliseconds;
                     // Acertos exatos aparecem na hora; achados aproximados esperam o fim da varredura.
                     if(resultado.Caminhos.Length>0 || !resultado.EmAndamento || tempo.Elapsed>orcamento+TimeSpan.FromSeconds(2)) return resultado;
                 }
