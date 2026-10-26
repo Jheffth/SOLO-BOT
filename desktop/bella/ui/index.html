@@ -79,6 +79,7 @@
       <b>Ferramentas</b>
       <button class="icobtn" id="lateral-fechar" type="button" title="Recolher" aria-label="Recolher as ferramentas"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
     </header>
+    <div class="lateral-corpo" id="lateral-corpo">
     <section class="ferramenta" id="ferr-criativo">
       <h3>Criativo</h3>
       <p>A Bella inventa um prompt novo, fora da biblioteca, sem repetir os que já saíram.</p>
@@ -97,6 +98,11 @@
       <small class="montar-dica" id="montar-dica"></small>
       <div class="itens" id="montar-itens" aria-live="polite"></div>
       <textarea id="montar-extra" rows="2" maxlength="400" placeholder="Mais detalhes (opcional): escreva o que quiser…" aria-label="Mais detalhes do pedido"></textarea>
+      <input id="montar-busca" type="search" placeholder="Buscar opção (ex.: tatuagem, ruivo, praia)…" aria-label="Buscar opção" autocomplete="off">
+      <div class="grupos" id="montar-grupos"></div>
+    </section>
+    </div>
+    <footer class="lateral-rodape" id="lateral-rodape">
       <small class="montar-conta" id="montar-conta"></small>
       <div class="montar-acoes">
         <button class="btn pri" id="montar-enviar" type="button">Enviar ao chat</button>
@@ -104,9 +110,7 @@
         <button class="btn" id="montar-sorte" type="button" title="Escolhe várias opções ao acaso">🎲 Surpreenda-me</button>
         <button class="btn" id="montar-limpar" type="button">Limpar</button>
       </div>
-      <input id="montar-busca" type="search" placeholder="Buscar opção (ex.: tatuagem, ruivo, praia)…" aria-label="Buscar opção" autocomplete="off">
-      <div class="grupos" id="montar-grupos"></div>
-    </section>
+    </footer>
   </aside>
   <p class="rodape"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>A escuta de espera fica no seu computador</p>
 
