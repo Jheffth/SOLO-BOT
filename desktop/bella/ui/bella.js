@@ -342,7 +342,10 @@
 
   // ── Prompt de imagem: caixa com rolagem e um clique para copiar ──
   const RE_PROMPT = /^\s*(?:Use a imagem da nova modelo como refer[êe]ncia|Crie uma modelo original com as seguintes|Vista a pessoa da imagem de refer[êe]ncia|Recrie a pessoa da imagem de refer[êe]ncia)/i;
+  const MARCA_PROMPT = "[[prompt]]";
   function ehPrompt(texto) {
+    // o servidor marca todo prompt (de qualquer categoria, inclusive as futuras) com [[prompt]] no começo
+    if (typeof texto === "string" && texto.trimStart().startsWith(MARCA_PROMPT)) return true;
     // pelo começo fixo do modelo, ou pelo conteúdo (o Grok às vezes muda a primeira linha)
     return typeof texto === "string" && texto.length > 600 &&
       (RE_PROMPT.test(texto) || (/9:16/.test(texto) && /n[ãa]o cruzar as pernas/i.test(texto)));
@@ -353,6 +356,7 @@
     return Promise.resolve(manual());
   }
   function montarPrompt(bolha, texto) {
+    texto = String(texto).replace(/^\s*\[\[prompt\]\]\s*/, "");
     bolha.classList.add("prompt");
     const topo = document.createElement("div"); topo.className = "prompt-topo";
     const titulo = document.createElement("span"); titulo.className = "prompt-titulo"; titulo.textContent = "🖼️ Prompt pronto";
@@ -361,7 +365,7 @@
     const caixa = document.createElement("textarea"); caixa.className = "prompt-caixa"; caixa.readOnly = true;
     caixa.spellcheck = false; caixa.value = texto.trim(); caixa.setAttribute("aria-label", "Prompt para copiar");
     caixa.onfocus = () => caixa.select();
-    const dica = document.createElement("small"); dica.className = "prompt-dica"; dica.textContent = "Cole no Grok Imagine com a foto da modelo anexada.";
+    const dica = document.createElement("small"); dica.className = "prompt-dica"; dica.textContent = "Cole no Grok Imagine junto da imagem de referência.";
     botao.onclick = () => copiarTexto(caixa, caixa.value).then(ok => {
       botao.textContent = ok ? "Copiado ✓" : "Selecione e use Ctrl+C";
       botao.classList.toggle("ok", !!ok);

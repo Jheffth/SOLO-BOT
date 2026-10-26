@@ -25,7 +25,14 @@ MAX_IMAGEM = 6 * 1024 * 1024
 class Recusa(Exception):
     """O Grok recusou o pedido ou a referência (menor de idade, sem roupa visível etc.)."""
 
-CATEGORIAS = {"realismo": "Realismo sensual (selfie de smartphone, modelo própria)"}
+# REGRA: todo prompt novo entra aqui e é entregue por roteador._prompt_responder (ou pelo /api/bella/conversa),
+# que o marca como "prompt": o Bella.exe mostra todo prompt marcado numa caixa de texto com botão de copiar.
+CATEGORIAS = {"realismo": "Realismo sensual (selfie de smartphone, modelo própria)",
+              "modelo": "Modelo nova do zero (/promptmodelo)",
+              "roupa": "Troca de roupa em imagem externa (/promptroupa)",
+              "pose": "Troca de pose em imagem externa (/posehot)"}
+# Começa o texto enviado ao Bella.exe quando a resposta é um prompt; a tela tira a marca e abre a caixa de copiar.
+MARCA_PROMPT = "[[prompt]]"
 
 MODELO_REALISMO = """Use a imagem da nova modelo como referência principal para manter o mesmo rosto, identidade facial, proporções naturais, cor de pele, cabelo e aparência geral da pessoa original. Nunca altere a cor do cabelo, não adicione perucas nem mude o estilo natural do cabelo da referência.
 

@@ -36,3 +36,8 @@ botao.onclick().then ? 0 : 0;
   assert.equal(botao.textContent, 'Copiado ✓');
   console.log('ok');
 })();
+assert.equal(contexto.ehPrompt('[[prompt]]\nQualquer prompt futuro, mesmo curto'), true);        // marca do servidor
+const marcada = new Elemento('div');
+contexto.montarPrompt(marcada, '[[prompt]]\nTexto do prompt');
+assert.equal(marcada.children[1].value, 'Texto do prompt');
+console.log('ok marca do servidor');

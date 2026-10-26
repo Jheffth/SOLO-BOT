@@ -318,7 +318,7 @@ def test_rota_conversa_cria_prompt_e_fala_curto(monkeypatch):
     guardado = {}
     monkeypatch.setattr(bella, "_guardar_fala", lambda c, mensagens, falar, x: guardado.update(m=mensagens, f=falar) or "vid")
     r = bella.conversa(bella.PedidoConversa(texto="crie um prompt de bar", modo="safada"), "k", None)
-    assert r["texto"] == "PROMPT:de bar" and r["falar"] == pb.FALADO and guardado["f"] == pb.FALADO
+    assert r["texto"] == pb.MARCA_PROMPT + "\nPROMPT:de bar" and r["falar"] == pb.FALADO and guardado["f"] == pb.FALADO
 
 def test_referencia_vai_ao_grok_so_para_roupa(monkeypatch):
     from nucleo import grok, prompts_bella as pb
@@ -451,3 +451,16 @@ def test_posehot_reconhece_pedido_e_cria_pose(monkeypatch):
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: pose)
     texto2 = pb.criar("com um parceiro plush Stitch", "p1", "pose")
     assert texto2 == pose
+
+
+def test_todo_prompt_sai_marcado_para_a_caixa_de_copiar(monkeypatch):
+    """Regra: toda categoria de prompt (inclusive as futuras) é marcada, para o Bella.exe abrir a caixa de copiar."""
+    from nucleo import prompts_bella as pb, roteador
+    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x"}
+    assert set(comandos) == set(pb.CATEGORIAS), "categoria nova: registre o comando aqui e em CATEGORIAS"
+    monkeypatch.setattr(pb, "criar", lambda *a, **k: "texto do prompt")
+    monkeypatch.setattr(roteador, "_registrar", lambda *a, **k: None)
+    for categoria, comando in comandos.items():
+        assert pb.solicitacao(comando)[0] == categoria
+        r = roteador._prompt_responder(None, SimpleNamespace(id=1), "telegram", "x", categoria)
+        assert r.mensagens[-1].get("prompt") is True

@@ -363,6 +363,8 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
     if not texto:
         raise HTTPException(503, "O Grok não respondeu. Confira a chave e o modelo de texto no servidor.")
     mensagens = [{"texto": texto, "falado": falar}]
+    if pedido is not None:
+        texto = prompts_bella.MARCA_PROMPT + "\n" + texto       # a tela abre a caixa de copiar
     saida = {"texto": texto, "falar": falar, "opcoes": []}
     if p.voz_separada:
         saida["voz_id"] = _guardar_fala(conta, mensagens, falar, False)
@@ -449,7 +451,11 @@ def mensagem(p: Pedido, x_bella_chave: str = Header(""), db: Session = Depends(g
     roteador.guardar_escolhas(db, "bella", origem, itens)
     fallback = (" ".join(m["falado"] for m in r.mensagens if m.get("falado")) or
                 fala.texto_falavel("\n".join(blocos), None) or "Pronto.")[:fala.MAX_CARACTERES]
-    saida = {"pedido_id": str(p.pedido_id), "ouvido": ouvido, "texto": _sem_marcacao("\n\n".join(blocos)),
+    texto_final = _sem_marcacao("\n\n".join(blocos))
+    if any(m.get("prompt") for m in r.mensagens):
+        from nucleo.prompts_bella import MARCA_PROMPT
+        texto_final = MARCA_PROMPT + "\n" + texto_final     # a tela abre a caixa de copiar
+    saida = {"pedido_id": str(p.pedido_id), "ouvido": ouvido, "texto": texto_final,
              "falar": fallback, "opcoes": [{"numero": i, "rotulo": a["rotulo"], "titulo": a["titulo"]}
                                            for i, a in enumerate(itens, 1)]}
     if p.voz and p.voz_separada:

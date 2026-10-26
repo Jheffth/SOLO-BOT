@@ -574,6 +574,7 @@ def _prompt_responder(db, conta: Conta, canal: str, pedido: str, categoria: str 
     _registrar(db, conta, canal, None, "bella", "prompt")
     r = Resposta().diz(texto)
     r.mensagens[-1]["falado"] = prompts_bella.FALADO
+    r.mensagens[-1]["prompt"] = True        # o Bella.exe mostra numa caixa de texto para copiar
     return r
 
 
