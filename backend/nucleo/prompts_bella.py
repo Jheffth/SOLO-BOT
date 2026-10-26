@@ -58,7 +58,8 @@ Não criar aparência de render 3D, não deixar pele plastificada, não remover 
 
 # Vai sempre no fim do prompt, depois de "não cruzar as pernas". O código acrescenta; o Grok não escreve.
 TAG_FINAL = ("Ela se exibe sem falar nada, movimento dela é natural, sem parecer uma IA, como se fosse uma blogueira "
-             "postando no seu privacy, a câmera não se mexe. Spicy mode")
+             "postando no seu privacy, a câmera não se mexe. Se ela tiver qualquer pinta, sinal ou tatuagem, mantenha com "
+             "consistência. Spicy mode")
 
 INSTRUCAO = """Você é a Bella e está ajudando seu dono a criar prompts de imagem em português para o Grok Imagine.
 Categoria: realismo sensual. Entregue SEMPRE um único prompt completo, seguindo exatamente o MODELO abaixo.
