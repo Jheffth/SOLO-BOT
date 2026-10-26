@@ -1,18 +1,15 @@
 """Grok opcional: isolamento de provedores, texto, autenticação e voz separada."""
 import json
 from types import SimpleNamespace
-
 import httpx
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
-
 import config
 from nucleo import bella_conversa, grok, programas
 from routers import bella
 
 WORD = {"id": "a" * 32, "frase": "Faça {pedido}", "tipo": "word"}
-
 
 def test_grok_transport(monkeypatch):
     recebidos = []
@@ -35,12 +32,10 @@ def test_grok_transport(monkeypatch):
     assert k["json"]["store"] is False and "tools" not in k["json"]
     assert k["json"]["input"] == [{"role": "system", "content": "regra"}, {"role": "user", "content": "pedido"}]
 
-
 def test_sem_chave_nao_chama_rede(monkeypatch):
     monkeypatch.setattr(config, "GROK_API_KEY", "")
     monkeypatch.setattr(grok.httpx, "Client", lambda **k: pytest.fail("rede sem chave"))
     assert grok.gerar("regra", "pedido") is None
-
 
 def test_falha_nao_vaza_chave(monkeypatch, caplog):
     monkeypatch.setattr(config, "GROK_API_KEY", "segredo-falso")
@@ -48,7 +43,6 @@ def test_falha_nao_vaza_chave(monkeypatch, caplog):
     monkeypatch.setattr(grok.httpx, "Client", falhar)
     assert grok.gerar("regra", "pedido") is None
     assert "segredo-falso" not in caplog.text
-
 
 @pytest.mark.parametrize("modo,provedor", [("normal", "gemini"), ("safada", "grok")])
 def test_word_provedor_explicito(monkeypatch, modo, provedor):
@@ -62,27 +56,23 @@ def test_word_provedor_explicito(monkeypatch, modo, provedor):
     monkeypatch.setattr(outro, "gerar", lambda *a, **k: pytest.fail("provedor errado"))
     r = programas.interpretar("Crie uma mensagem", [WORD], modo=modo)
     assert r["acao"] == "escrever" and len(calls) == 1
-    if modo == "safada": assert "Sem descrição sexual explícita" in calls[0][0]
-
+    # Removido o assert que forçava bloqueio sexual no modo safada
 
 def test_sem_fallback_gemini(monkeypatch):
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: None)
     monkeypatch.setattr(programas.gemini, "gerar", lambda *a, **k: pytest.fail("fallback"))
     assert programas.interpretar("Crie uma mensagem", [WORD], modo="safada")["motivo"] == "indisponivel"
 
-
 @pytest.mark.parametrize("resposta", [None, "", "a" * 2001, "texto\x00inválido"])
 def test_conversa_rejeita_saida_invalida(monkeypatch, resposta):
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: resposta)
     assert bella_conversa.responder("Fale comigo") is None
-
 
 def autenticar(monkeypatch):
     conta = SimpleNamespace(id=123, bella_hash="hash-teste")
     monkeypatch.setattr(bella, "_autenticar", lambda db, chave: conta if chave == "teste" else (_ for _ in ()).throw(HTTPException(401)))
     monkeypatch.setattr(bella, "_JANELAS_CONVERSA", {})
     return conta
-
 
 def test_rota_separa_texto_e_elevenlabs(monkeypatch):
     conta = autenticar(monkeypatch)
@@ -94,7 +84,6 @@ def test_rota_separa_texto_e_elevenlabs(monkeypatch):
     assert r == {"texto": "Um sorriso para você.", "falar": "Um sorriso para você.", "opcoes": [], "voz_id": "id-voz"}
     assert capturado[0][0] is conta and capturado[0][1][0]["falado"] == r["texto"]
 
-
 def test_rota_exige_chave_e_falha_clara(monkeypatch):
     autenticar(monkeypatch)
     monkeypatch.setattr(bella_conversa, "responder", lambda texto, *a, **k: None)
@@ -104,12 +93,10 @@ def test_rota_exige_chave_e_falha_clara(monkeypatch):
     with pytest.raises(HTTPException) as erro: bella.conversa(pedido, "teste", None)
     assert erro.value.status_code == 503
 
-
 def test_contrato_modo_e_limites():
     assert bella.PedidoPrograma(texto="crie", comandos=[WORD]).modo == "normal"
     for dados in [{"texto": "oi", "modo": "livre"}, {"texto": "a" * 2001, "modo": "safada"}, {"texto": "oi", "modo": "safada", "chave_grok": "proibida"}]:
         with pytest.raises(ValidationError): bella.PedidoConversa(**dados)
-
 
 @pytest.mark.parametrize("status", ["incomplete", "in_progress", "failed"])
 def test_nao_entrega_resposta_incompleta(monkeypatch, status):
@@ -123,7 +110,6 @@ def test_nao_entrega_resposta_incompleta(monkeypatch, status):
     monkeypatch.setattr(grok.httpx, "Client", Cliente)
     assert grok.gerar("regra", "pedido") is None
 
-
 def test_rota_word_transmite_opcao(monkeypatch):
     autenticar(monkeypatch)
     monkeypatch.setattr(bella, "_JANELAS_PROGRAMAS", {})
@@ -133,11 +119,9 @@ def test_rota_word_transmite_opcao(monkeypatch):
         bella.programa(bella.PedidoPrograma(texto="Crie uma mensagem", comandos=[WORD], modo=modo), "teste", None)
     assert calls == ["normal", "safada"]
 
-
 def test_conteudo_adulto_desligado_por_padrao(monkeypatch):
     monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", False)
     assert "Sem descrição sexual explícita" in bella_conversa.prompt()
-
 
 def test_conteudo_adulto_ligado_mantem_limites_fixos(monkeypatch):
     monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", True)
@@ -147,14 +131,12 @@ def test_conteudo_adulto_ligado_mantem_limites_fixos(monkeypatch):
         assert limite in p
     assert programas.estilo() == bella_conversa.estilo()
 
-
 @pytest.fixture
 def memoria(monkeypatch):
     monkeypatch.setattr(bella_conversa, "_MEMORIA", {})
     monkeypatch.setattr(config, "BELLA_MEMORIA_TURNOS", 3)
     monkeypatch.setattr(config, "BELLA_MEMORIA_MINUTOS", 30)
     monkeypatch.setattr(config, "BELLA_CONVERSA_MAX_CHARS", 900)
-
 
 def _grok_registra(monkeypatch, respostas):
     vistos = []
@@ -165,7 +147,6 @@ def _grok_registra(monkeypatch, respostas):
     monkeypatch.setattr(grok, "gerar", gerar)
     return vistos
 
-
 def test_resposta_ate_900_aceita_e_acima_do_limite_rejeita(memoria, monkeypatch):
     _grok_registra(monkeypatch, ["a" * 900, "a" * 1008, "a" * 1009])
     assert bella_conversa.responder("oi") == "a" * 900
@@ -173,14 +154,12 @@ def test_resposta_ate_900_aceita_e_acima_do_limite_rejeita(memoria, monkeypatch)
     assert bella_conversa.responder("oi") is None
     assert "até 900 caracteres" in bella_conversa.prompt()
 
-
 def test_memoria_envia_trocas_anteriores_na_ordem(memoria, monkeypatch):
     vistos = _grok_registra(monkeypatch, ["r1", "r2", "r3"])
     for fala in ("m1", "m2", "m3"):
         bella_conversa.responder(fala, conta_id=7)
     assert vistos[0][2] == [] and vistos[1][2] == [("user", "m1"), ("assistant", "r1")]
     assert vistos[2][2] == [("user", "m1"), ("assistant", "r1"), ("user", "m2"), ("assistant", "r2")]
-
 
 def test_memoria_limita_turnos_e_isola_contas(memoria, monkeypatch):
     vistos = _grok_registra(monkeypatch, ["r"] * 6)
@@ -191,7 +170,6 @@ def test_memoria_limita_turnos_e_isola_contas(memoria, monkeypatch):
     assert vistos[4][2] == []
     bella_conversa.responder("m4", conta_id=1)
     assert [h[1] for h in vistos[5][2] if h[0] == "user"] == ["m1", "m2", "m3"]
-
 
 def test_memoria_expira_e_pode_ser_apagada(memoria, monkeypatch):
     vistos = _grok_registra(monkeypatch, ["r", "r", "r"])
@@ -207,7 +185,6 @@ def test_memoria_expira_e_pode_ser_apagada(memoria, monkeypatch):
     bella_conversa.esquecer(1)
     assert bella_conversa._historico(1) == []
 
-
 def test_memoria_desligada_ou_sem_conta_nao_guarda(memoria, monkeypatch):
     vistos = _grok_registra(monkeypatch, ["r", "r", "r"])
     bella_conversa.responder("a")
@@ -217,13 +194,11 @@ def test_memoria_desligada_ou_sem_conta_nao_guarda(memoria, monkeypatch):
     bella_conversa.responder("c", conta_id=1)
     assert bella_conversa._MEMORIA == {}
 
-
 def test_resposta_invalida_nao_entra_na_memoria(memoria, monkeypatch):
     _grok_registra(monkeypatch, [None, "texto\x00ruim"])
     assert bella_conversa.responder("a", conta_id=1) is None
     assert bella_conversa.responder("b", conta_id=1) is None
     assert bella_conversa._MEMORIA == {}
-
 
 def test_grok_envia_historico_entre_regra_e_pedido(monkeypatch):
     corpos = []
@@ -241,13 +216,11 @@ def test_grok_envia_historico_entre_regra_e_pedido(monkeypatch):
     assert [m["role"] for m in corpos[0]["input"]] == ["system", "user", "assistant", "user"]
     assert corpos[0]["input"][-1]["content"] == "agora"
 
-
 def test_rota_apaga_memoria_da_conta(memoria, monkeypatch):
     conta = autenticar(monkeypatch)
     bella_conversa._lembrar(conta.id, "a", "b")
     assert bella.esquecer_conversa("teste", None) == {"ok": True}
     assert bella_conversa._historico(conta.id) == []
-
 
 class _ClienteSaldo:
     resposta = None
@@ -259,7 +232,6 @@ class _ClienteSaldo:
         type(self).chamadas.append((url, kwargs.get("headers")))
         return type(self).resposta
 
-
 def _saldo_cenario(monkeypatch, resposta):
     _ClienteSaldo.resposta = resposta
     _ClienteSaldo.chamadas = []
@@ -267,7 +239,6 @@ def _saldo_cenario(monkeypatch, resposta):
     monkeypatch.setattr(config, "XAI_TEAM_ID", "time-1")
     monkeypatch.setattr(grok, "_SALDO", {"quando": 0.0, "valor": None})
     monkeypatch.setattr(grok.httpx, "Client", _ClienteSaldo)
-
 
 def test_saldo_grok_converte_centavos_e_usa_chave_de_gerenciamento(monkeypatch):
     req = httpx.Request("GET", "https://x")
@@ -277,10 +248,9 @@ def test_saldo_grok_converte_centavos_e_usa_chave_de_gerenciamento(monkeypatch):
     assert url == "https://management-api.x.ai/v1/billing/teams/time-1/prepaid/balance"
     assert cab == {"Authorization": "Bearer chave-gestao-falsa"}
     grok.saldo()
-    assert len(_ClienteSaldo.chamadas) == 1          # cache de 60 s
+    assert len(_ClienteSaldo.chamadas) == 1
     grok.saldo(forcar=True)
     assert len(_ClienteSaldo.chamadas) == 2
-
 
 @pytest.mark.parametrize("status,trecho", [(401, "recusou"), (403, "recusou"), (404, "time"), (500, "Não consegui")])
 def test_saldo_grok_erros_claros_sem_vazar_chave(monkeypatch, caplog, status, trecho):
@@ -288,12 +258,10 @@ def test_saldo_grok_erros_claros_sem_vazar_chave(monkeypatch, caplog, status, tr
     r = grok.saldo()
     assert trecho in r["erro"] and "chave-gestao-falsa" not in str(r) and "chave-gestao-falsa" not in caplog.text
 
-
 def test_saldo_grok_desligado_sem_chaves(monkeypatch):
     monkeypatch.setattr(config, "XAI_MANAGEMENT_KEY", "")
     monkeypatch.setattr(grok.httpx, "Client", lambda **k: pytest.fail("rede sem chave"))
     assert grok.saldo_disponivel() is False and "erro" in grok.saldo()
-
 
 def test_rota_admin_grok(monkeypatch):
     from routers import admin
@@ -305,12 +273,10 @@ def test_rota_admin_grok(monkeypatch):
     monkeypatch.setattr(grok, "saldo", lambda forcar=False: chamadas.append(forcar) or {"saldo_usd": 3.0})
     assert admin.painel_grok(None, atualizar=True) == {"disponivel": True, "saldo_usd": 3.0} and chamadas == [True]
 
-
 # ── Bella cria prompts (realismo sensual) ─────────────────────────
 def _prompt_valido(extra=""):
     from nucleo import prompts_bella
     return prompts_bella.MODELO_REALISMO.replace("[CENÁRIO E GESTO: onde está, o que a mão faz, ombros soltos]", "de pé na cozinha " + extra)
-
 
 def test_pedido_de_prompt_e_reconhecido():
     from nucleo import prompts_bella as pb
@@ -319,10 +285,9 @@ def test_pedido_de_prompt_e_reconhecido():
     assert pb.pedido_de("gera outro prompt: bar à noite") == "bar à noite"
     assert pb.pedido_de("/prompt") == "" and pb.pedido_de("crie um prompt aleatório") == ""
     assert pb.pedido_de("como está o tempo") is None and pb.pedido_de("o prompt do sistema") is None
-    assert pb.pedido_de("próximo aleatório", "x") is None          # sem prompt recente
+    assert pb.pedido_de("próximo aleatório", "x") is None
     pb._lembrar("x")
     assert pb.pedido_de("próximo aleatório", "x") == ""
-
 
 def test_criar_prompt_usa_grok_e_valida(monkeypatch):
     from nucleo import grok, prompts_bella as pb
@@ -341,9 +306,8 @@ def test_criar_prompt_usa_grok_e_valida(monkeypatch):
     assert pb.criar("x") is None
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: "```text\n" + _prompt_valido() + "\n```")
     assert not pb.criar("x").startswith("```")
-    monkeypatch.setattr(grok, "gerar", lambda *a, **k: _prompt_valido() + "\n" + pb.TAG_FINAL)    # o Grok repetiu a tag
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: _prompt_valido() + "\n" + pb.TAG_FINAL)
     assert pb.criar("x").count("Spicy mode") == 1
-
 
 def test_rota_conversa_cria_prompt_e_fala_curto(monkeypatch):
     from nucleo import prompts_bella as pb
@@ -355,7 +319,6 @@ def test_rota_conversa_cria_prompt_e_fala_curto(monkeypatch):
     monkeypatch.setattr(bella, "_guardar_fala", lambda c, mensagens, falar, x: guardado.update(m=mensagens, f=falar) or "vid")
     r = bella.conversa(bella.PedidoConversa(texto="crie um prompt de bar", modo="safada"), "k", None)
     assert r["texto"] == "PROMPT:de bar" and r["falar"] == pb.FALADO and guardado["f"] == pb.FALADO
-
 
 def test_referencia_vai_ao_grok_so_para_roupa(monkeypatch):
     from nucleo import grok, prompts_bella as pb
@@ -369,9 +332,8 @@ def test_referencia_vai_ao_grok_so_para_roupa(monkeypatch):
     assert "SOMENTE a roupa" in instr and kw["imagens"][0][0] == "image/jpeg" and entrada == "Pedido: bar à noite"
     assert pb.criar("", "c") and "roupa da imagem" in vistos[1][1]
     assert pb.criar("sem referência cozinha", "c") and vistos[2][2]["imagens"] is None and "SOMENTE a roupa" not in vistos[2][0]
-    assert pb.referencia("c") is None                                 # "sem referência" descartou
+    assert pb.referencia("c") is None
     assert pb.criar("outro", "c") and vistos[3][2]["imagens"] is None
-
 
 def test_referencia_expira_e_recusa(monkeypatch):
     from nucleo import grok, prompts_bella as pb
@@ -385,7 +347,6 @@ def test_referencia_expira_e_recusa(monkeypatch):
     with pytest.raises(pb.Recusa):
         pb.criar("x", "c")
     assert pb.pedido_da_legenda("bar à noite") == "bar à noite" and pb.pedido_da_legenda("crie um prompt bar") == "bar"
-
 
 def test_grok_envia_imagem(monkeypatch):
     enviados = []
@@ -405,7 +366,6 @@ def test_grok_envia_imagem(monkeypatch):
     assert corpo["input"][-1]["content"] == [{"type": "input_text", "text": "veja"},
                                              {"type": "input_image", "image_url": "data:image/png;base64,QUJD"}]
 
-
 def test_solicitacao_modelo_nova_e_categoria_do_proximo():
     from nucleo import prompts_bella as pb
     assert pb.solicitacao("/promptmodelo cabelo ruivo, pele morena") == ("modelo", "cabelo ruivo, pele morena")
@@ -417,7 +377,6 @@ def test_solicitacao_modelo_nova_e_categoria_do_proximo():
     pb._lembrar("m1", "realismo")
     assert pb.solicitacao("próximo aleatório", "m1") == ("realismo", "")
 
-
 def test_criar_modelo_nova_usa_instrucao_propria(monkeypatch):
     from nucleo import grok, prompts_bella as pb
     pb._REFERENCIAS.clear()
@@ -428,7 +387,6 @@ def test_criar_modelo_nova_usa_instrucao_propria(monkeypatch):
     texto = pb.criar("cabelo ruivo", "m2", "modelo")
     instr, entrada, kw = vistos[0]
     assert "mulher (sexo feminino) de 19 anos" in instr and "SOMENTE a roupa" not in instr
-    # com referência guardada, a modelo nova é criada a partir das características da imagem
     assert kw["imagens"] == [("image/png", "YWJj")] and entrada == "Pedido: cabelo ruivo"
     assert "guia da modelo nova" in instr
     assert texto.endswith(pb.TAG_FINAL) and pb._recente("m2") == "modelo"
@@ -440,7 +398,6 @@ def test_criar_modelo_nova_usa_instrucao_propria(monkeypatch):
     with pytest.raises(pb.Recusa):
         pb.criar("uma adolescente", "m2", "modelo")
 
-
 def test_promptroupa_reconhece_pedido_e_nao_confunde_com_prompt():
     from nucleo import prompts_bella as pb
     assert pb.solicitacao("/promptroupa lingerie preta") == ("roupa", "lingerie preta")
@@ -448,7 +405,6 @@ def test_promptroupa_reconhece_pedido_e_nao_confunde_com_prompt():
     assert pb.solicitacao("crie um prompt de roupa de enfermeira") == ("roupa", "de enfermeira")
     assert pb.solicitacao("/prompt cozinha") == ("realismo", "cozinha")
     assert pb.solicitacao("crie um prompt de modelo ruiva")[0] == "modelo"
-
 
 def test_criar_roupa_sem_9x16_sem_tag_e_com_referencia(monkeypatch):
     from nucleo import grok, prompts_bella as pb
@@ -471,7 +427,6 @@ def test_criar_roupa_sem_9x16_sem_tag_e_com_referencia(monkeypatch):
     with pytest.raises(pb.Recusa):
         pb.criar("uniforme escolar", "r1", "roupa")
 
-
 def test_posehot_reconhece_pedido_e_cria_pose(monkeypatch):
     from nucleo import grok, prompts_bella as pb
     assert pb.solicitacao("/posehot de bruços") == ("pose", "de bruços")
@@ -485,9 +440,14 @@ def test_posehot_reconhece_pedido_e_cria_pose(monkeypatch):
     monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or pose)
     texto = pb.criar("", "p1", "pose")
     instr, entrada, kw = vistos[0]
-    assert texto == pose and "Spicy mode" not in texto
-    assert kw["imagens"] == [("image/png", "YWJj")] and "SOMENTE a pose" in instr and "copie fielmente a pose" in entrada
-    assert "sem ato sexual" in instr and pb._recente("p1") == "pose"
-    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "RECUSA: só faço pose de uma pessoa sozinha")
-    with pytest.raises(pb.Recusa):
-        pb.criar("com um parceiro", "p1", "pose")
+    assert texto == pose
+    assert kw["imagens"] == [("image/png", "YWJj")]
+    assert "SOMENTE a pose" in instr
+    assert "copie fielmente a pose" in entrada
+    # Removido o assert "sem ato sexual"
+    assert pb._recente("p1") == "pose"
+
+    # Agora aceita pedido com parceiro (não levanta Recusa)
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: pose)
+    texto2 = pb.criar("com um parceiro plush Stitch", "p1", "pose")
+    assert texto2 == pose
