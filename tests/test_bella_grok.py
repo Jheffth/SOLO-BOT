@@ -470,3 +470,24 @@ def test_criar_roupa_sem_9x16_sem_tag_e_com_referencia(monkeypatch):
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: "RECUSA: uniforme escolar")
     with pytest.raises(pb.Recusa):
         pb.criar("uniforme escolar", "r1", "roupa")
+
+
+def test_posehot_reconhece_pedido_e_cria_pose(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    assert pb.solicitacao("/posehot de bruços") == ("pose", "de bruços")
+    assert pb.solicitacao("/posehot") == ("pose", "")
+    assert pb.solicitacao("crie um prompt de pose sentada") == ("pose", "sentada")
+    assert pb.solicitacao("/prompt cozinha")[0] == "realismo"
+    pb._REFERENCIAS.clear()
+    pb.guardar_referencia("p1", "image/png", b"abc")
+    vistos = []
+    pose = pb.MODELO_POSE.replace("[POSE: postura geral do corpo (em pé, sentada, deitada, de joelhos, apoiada), inclinação do tronco e arqueamento das costas, posição dos quadris e dos ombros, peso do corpo]", "deitada de bruços com as costas arqueadas")
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or pose)
+    texto = pb.criar("", "p1", "pose")
+    instr, entrada, kw = vistos[0]
+    assert texto == pose and "Spicy mode" not in texto
+    assert kw["imagens"] == [("image/png", "YWJj")] and "SOMENTE a pose" in instr and "copie fielmente a pose" in entrada
+    assert "sem ato sexual" in instr and pb._recente("p1") == "pose"
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "RECUSA: só faço pose de uma pessoa sozinha")
+    with pytest.raises(pb.Recusa):
+        pb.criar("com um parceiro", "p1", "pose")

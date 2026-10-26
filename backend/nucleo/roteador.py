@@ -270,6 +270,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/prompt` — a Bella cria um prompt de imagem (realismo sensual): `/prompt cozinha, cosplay de odalisca`",
         "▸ `/promptmodelo` — cria uma modelo nova do zero (19 anos, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`",
         "▸ `/promptroupa` — descreve uma roupa (da foto que você mandar ou do pedido) para vestir em outra imagem, sem mexer no resto: `/promptroupa lingerie preta de renda`",
+        "▸ `/posehot` — prompt de pose sensual (uma pessoa, sozinha) para aplicar em outra imagem, da foto que você mandar ou do pedido: `/posehot de bruços olhando para trás`",
         "▸ `/voz` — responder falando (áudio, sempre ou nunca)",
         "",
         "_Dentro de um sistema, `/ajuda` mostra os comandos dele. "
@@ -466,8 +467,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _conta_resumo(db, conta)
     if cmd == "/voz":
         return _cmd_voz(db, conta, resto.strip().lower())
-    if cmd in ("/prompt", "/promptmodelo", "/promptroupa"):
-        padrao = {"/promptmodelo": "modelo", "/promptroupa": "roupa"}.get(cmd, "realismo")
+    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot"):
+        padrao = {"/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose"}.get(cmd, "realismo")
         pedido = prompts_bella_pedido(txt, canal, conta) or (padrao, "")
         return _prompt_responder(db, conta, canal, pedido[1], pedido[0])
     if cmd in ("/bella", "/safada"):
@@ -655,7 +656,7 @@ def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: 
     if erro:
         return Resposta().diz(erro)
     pedida = prompts_bella.solicitacao(legenda, chave)
-    if pedida and pedida[0] in ("modelo", "roupa"):          # legenda "/promptmodelo ..." ou "/promptroupa ..."
+    if pedida and pedida[0] != "realismo":          # legenda "/promptmodelo", "/promptroupa" ou "/posehot ..."
         return _prompt_responder(db, conta, canal, pedida[1], pedida[0])
     pedido = prompts_bella.pedido_da_legenda(legenda, chave)
     if pedido:
@@ -667,6 +668,7 @@ def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: 
         "`/prompt use o penteado e o cenário da foto`.\n"
         "`/promptmodelo` cria uma modelo nova a partir das características da foto.\n"
         "`/promptroupa` descreve toda a roupa da foto para vestir em outra imagem.\n"
+        "`/posehot` copia a pose da foto para aplicar em outra imagem.\n"
         "`/prompt sem referência ...` descarta a imagem.")
 
 

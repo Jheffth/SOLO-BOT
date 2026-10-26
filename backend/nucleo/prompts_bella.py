@@ -215,6 +215,54 @@ REFERÊNCIA ANEXADA: junto do pedido há uma imagem da roupa que ele quer vestir
 - Se a imagem não mostrar roupa utilizável, ou a pessoa nela parecer menor de idade, responda somente com uma
   linha começando por "RECUSA:" e o motivo curto, sem prompt."""
 
+MODELO_POSE = """Recrie a pessoa da imagem de referência na pose descrita abaixo, mudando SOMENTE a pose. Mantenha exatamente o mesmo rosto, identidade, cabelo (cor, corte e estilo), maquiagem, tom de pele, corpo, proporções, roupa, acessórios, cenário, fundo, iluminação, cores e qualidade da foto original. Nada além da pose e do que ela exige (posição do corpo, dos braços, das pernas e da cabeça) muda.
+
+A pose é [POSE: postura geral do corpo (em pé, sentada, deitada, de joelhos, apoiada), inclinação do tronco e arqueamento das costas, posição dos quadris e dos ombros, peso do corpo].
+Pernas e pés: [POSIÇÃO DAS PERNAS E PÉS: abertura, dobra, qual perna fica à frente, apoio no chão ou na superfície].
+Braços e mãos: [BRAÇOS E MÃOS: onde cada mão está, sobre o próprio cabelo, cintura, coxa, pescoço, alça da roupa ou apoiada na superfície, sempre de forma sensual e natural, com dedos relaxados e anatomicamente corretos].
+Cabeça e olhar: [CABEÇA, OLHAR E EXPRESSÃO: inclinação da cabeça, direção do olhar, olhos, lábios, expressão provocante e natural].
+Enquadramento: [ENQUADRAMENTO E ÂNGULO: o que aparece da pessoa e o ângulo da câmera, ajustados à pose, mantendo o estilo de foto casual de smartphone da imagem original].
+
+A pose parece espontânea e íntima, não de ensaio fotográfico: peso do corpo coerente, dobras da pele e da roupa naturais, sombras e reflexos coerentes com a mesma luz da cena, sem rigidez e sem simetria perfeita.
+
+Não alterar rosto, cabelo, cor da pele, corpo, roupa, cenário, fundo, iluminação nem proporções da imagem original; não adicionar nem remover objetos ou pessoas; não criar aparência de IA, pele plástica, render 3D ou desenho; não distorcer mãos, dedos, pernas, pés, rosto ou proporções corporais; não deixar membros extras, fundidos ou tortos; não adicionar textos, logos ou marcas."""
+
+INSTRUCAO_POSE = """Você é a Bella e está ajudando seu dono a criar prompts de POSE em português para o Grok Imagine:
+a pose será aplicada a uma imagem externa que ele vai enviar ao Grok junto do prompt. Entregue SEMPRE um único
+prompt completo, seguindo exatamente o MODELO abaixo.
+
+Regras do trabalho:
+- Mantenha todo o texto fixo do modelo e troque somente o que está entre colchetes pela descrição da pose, concreta
+  e visual, parte por parte do corpo (tronco e costas, quadris e ombros, pernas e pés, braços e mãos, cabeça,
+  olhar e expressão, enquadramento). Nunca descreva rosto, roupa, cenário ou luz: só a pose. Não deixe colchetes
+  no resultado.
+- As poses são sensuais, provocantes e naturais, de UMA pessoa sozinha, como uma foto íntima de blogueira:
+  costas arqueadas, quadris para trás, olhar por cima do ombro, mão no cabelo, mão na cintura ou na coxa, deitada de
+  bruços com as pernas dobradas, sentada com as pernas de lado, de joelhos, apoiada na parede, deitada de lado
+  com uma perna elevada, ajoelhada com o tronco inclinado, de quatro com as costas arqueadas e outras assim.
+- Descreva as mãos com cuidado (dedos relaxados, anatomicamente corretos) e diga onde cada uma está.
+- O pedido escrito manda: aplique exatamente a pose pedida (por exemplo "de bruços olhando para trás") e
+  sorteie só o que faltar. Pedido vazio ou "aleatório": invente uma pose diferente das últimas.
+- Só pose de uma pessoa sozinha e adulta (18+). Sem parceiro, sem outra pessoa, sem bicho de pelúcia ou personagem
+  como parceiro, sem ato sexual, sem a mão dentro da roupa íntima e sem tocar as partes íntimas. Se o pedido pedir
+  isso, ou pedir menor de idade ("novinha", colegial, infantil), ou uma pessoa real ou famosa, ou um personagem
+  de desenho, responda somente com uma linha começando por "RECUSA:" e o motivo curto, sem prompt.
+- Saída: apenas o prompt, em texto simples, sem título, sem explicações, sem Markdown, sem comentários antes ou
+  depois e com no máximo 3000 caracteres.
+
+MODELO:
+""" + MODELO_POSE
+
+INSTRUCAO_REFERENCIA_POSE = """
+
+REFERÊNCIA ANEXADA: junto do pedido há uma imagem com a pose que ele quer copiar.
+- Descreva SOMENTE a pose da pessoa da imagem, parte por parte e com precisão (tronco, costas, quadris, pernas,
+  pés, braços, mãos, cabeça, olhar e enquadramento). Seja fiel: copie a pose, não invente outra.
+- Nunca descreva rosto, cabelo, corpo, roupa, cenário ou luz da imagem, nem diga quem é.
+- Se o pedido escrito mandar mudar algo (outra perna, olhar para a câmera, mais arqueada), aplique sobre a pose da imagem.
+- Se a imagem mostrar mais de uma pessoa, ato sexual, ou a pessoa nela parecer menor de idade, responda somente
+  com uma linha começando por "RECUSA:" e o motivo curto, sem prompt."""
+
 _ALEATORIO = "Pedido: aleatório. Escolha você um cenário, roupa, luz e fundo novos e diferentes dos últimos."
 
 _PEDIDO = re.compile(
@@ -230,6 +278,11 @@ _PEDIDO_ROUPA = re.compile(
     r"^\s*(?:/promptroupa\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
     r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
     r"prompt\s+(?:de\s+|da\s+|para\s+)(?:roupas?|vestimentas?|figurinos?)\b)"
+    r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+_PEDIDO_POSE = re.compile(
+    r"^\s*(?:/posehot\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
+    r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
+    r"prompt\s+(?:de\s+|da\s+|para\s+)(?:poses?)\b)"
     r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
 _ALEATORIO_RE = re.compile(r"(?:aleat[oó]ri[oa]|qualquer\s+um|surpreenda[\s\-]?me)[.!]*", re.I)
 _PROXIMO = re.compile(r"^\s*(?:pr[oó]xim[oa]|outr[oa]|mais\s+um[a]?)\s+aleat[oó]ri[oa]\s*[.!]*\s*$", re.IGNORECASE)
@@ -257,7 +310,7 @@ def solicitacao(texto, chave=None):
     texto = (texto or "").strip()
     if not texto:
         return None
-    for categoria, regra in (("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
+    for categoria, regra in (("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
         m = regra.match(texto)
         if m:
             pedido = m.group(1).strip()
@@ -340,6 +393,7 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
         pedido = sem.group(1).strip()
     modelo_novo = categoria == "modelo"
     roupa = categoria == "roupa"
+    pose = categoria == "pose"
     ref = (referencia_anexa or (referencia(chave) if chave is not None else None)) if not sem else None
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
     if modelo_novo and not pedido:
@@ -348,7 +402,11 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
         entrada = "Pedido: crie a modelo a partir das características da imagem de referência; cenário à sua escolha."
     elif ref and not pedido:
         entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
-    if roupa:
+    if pose:
+        base = INSTRUCAO_POSE + (INSTRUCAO_REFERENCIA_POSE if ref else "")
+        if ref and not pedido:
+            entrada = "Pedido: copie fielmente a pose da imagem de referência."
+    elif roupa:
         base = INSTRUCAO_ROUPA + (INSTRUCAO_REFERENCIA_ROUPA if ref else "")
         if ref and not pedido:
             entrada = "Pedido: copie fielmente toda a roupa da imagem de referência."
@@ -365,8 +423,9 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
     saida = re.sub(r"\s*Ela se exibe sem falar nada.*$", "", saida, flags=re.S | re.I).rstrip()
     if saida.upper().startswith("RECUSA"):
         raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
-    if roupa:       # troca de roupa em imagem externa: sem 9:16 e sem a tag de movimento
-        if (len(saida) < 600 or len(saida) > MAX_PROMPT or not saida.lower().startswith("vista a pessoa")
+    if roupa or pose:   # troca de roupa/pose em imagem externa: sem 9:16 e sem a tag de movimento
+        inicio = "vista a pessoa" if roupa else "recrie a pessoa"
+        if (len(saida) < 600 or len(saida) > MAX_PROMPT or not saida.lower().startswith(inicio)
                 or any(ord(c) < 32 and c not in "\n\r\t" for c in saida)):
             return None
         if chave is not None:

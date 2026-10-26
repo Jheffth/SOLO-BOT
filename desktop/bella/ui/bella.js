@@ -341,7 +341,7 @@
   }
 
   // ── Prompt de imagem: caixa com rolagem e um clique para copiar ──
-  const RE_PROMPT = /^\s*(?:Use a imagem da nova modelo como refer[êe]ncia|Crie uma modelo original com as seguintes|Vista a pessoa da imagem de refer[êe]ncia)/i;
+  const RE_PROMPT = /^\s*(?:Use a imagem da nova modelo como refer[êe]ncia|Crie uma modelo original com as seguintes|Vista a pessoa da imagem de refer[êe]ncia|Recrie a pessoa da imagem de refer[êe]ncia)/i;
   function ehPrompt(texto) {
     // pelo começo fixo do modelo, ou pelo conteúdo (o Grok às vezes muda a primeira linha)
     return typeof texto === "string" && texto.length > 600 &&
