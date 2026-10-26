@@ -54,6 +54,7 @@ GEMINI_AUDIO_MODEL = _env("GEMINI_AUDIO_MODEL", GEMINI_MODEL)
 # "nenhum" desliga a alternativa; não troca o modelo da interpretação dos comandos.
 GEMINI_AUDIO_MODEL_RESERVA = _env("GEMINI_AUDIO_MODEL_RESERVA", "gemini-3.1-flash-lite")
 GROK_API_KEY = _env("GROK_API_KEY")
+GROK_API_KEY_TESTE = _env("GROK_API_KEY_TESTE")  # chave de testes: só é usada quando a Bella liga "Usar API Grok de Testes"
 GROK_TEXT_MODEL = _env("GROK_TEXT_MODEL", "grok-4.7")
 GROK_IMAGE_MODEL = _env("GROK_IMAGE_MODEL", "grok-imagine-image-2.0")
 GROK_VISION_MODEL = _env("GROK_VISION_MODEL")        # lê imagens de referência; vazio = o modelo de texto

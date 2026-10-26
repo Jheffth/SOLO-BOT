@@ -41,3 +41,10 @@ const marcada = new Elemento('div');
 contexto.montarPrompt(marcada, '[[prompt]]\nTexto do prompt');
 assert.equal(marcada.children[1].value, 'Texto do prompt');
 console.log('ok marca do servidor');
+{
+  const sep = contexto.separarNota('[[prompt]]\nCorpo\n[[nota]] 🧪 API Grok de Testes: ok');
+  assert.equal(sep.texto, '[[prompt]]\nCorpo');
+  assert.equal(sep.nota, '🧪 API Grok de Testes: ok');
+  assert.equal(contexto.separarNota('sem nota').nota, '');
+  console.log('ok nota de teste');
+}

@@ -33,6 +33,16 @@ _JANELAS_TRANSCRICAO = {}
 _JANELAS_VOZ_LOCAL = {}
 _JANELAS_COMANDOS = {}
 CANAL_TRANSCRICAO = "bella-stt"  # canal do registro persistente tem no máximo 16 caracteres
+MARCA_TESTE = "[[grok-teste]]"   # a tela acrescenta ao pedido quando "Usar API Grok de Testes" está marcada
+MARCA_NOTA = "[[nota]]"
+
+
+def _tirar_teste(texto):
+    """(texto sem a marca, True se o pedido pede a API Grok de testes)."""
+    texto = texto or ""
+    return (texto.replace(MARCA_TESTE, "").strip(), MARCA_TESTE in texto)
+
+
 RE_CHAMADA = re.compile(r"^(?:(?:ei|oi|ola|olá)\s+)?(?:bella|bela)\b[\s,:.!?—-]*", re.I)
 
 
@@ -324,8 +334,26 @@ class PedidoConversa(BaseModel):
 _JANELAS_CONVERSA = {}
 
 
-@router.post("/api/bella/conversa")
-def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+def _com_teste(p, executar):
+    """Se o pedido traz a marca de testes, roda com a API Grok de testes e acrescenta a nota do resultado."""
+    from nucleo import grok
+    texto, teste = _tirar_teste(getattr(p, "texto", None))
+    if not teste:
+        return executar(p)
+    estado = grok.iniciar_teste()
+    try:
+        try:
+            saida = executar(p.model_copy(update={"texto": texto}))
+        except HTTPException as erro:
+            raise HTTPException(erro.status_code, f"{erro.detail}\n{grok.nota_teste(estado)}") from None
+        if isinstance(saida, dict) and isinstance(saida.get("texto"), str):
+            saida["texto"] += "\n" + MARCA_NOTA + " " + grok.nota_teste(estado)
+        return saida
+    finally:
+        grok.encerrar_teste()
+
+
+def _conversa(p: PedidoConversa, x_bella_chave, db):
     conta = _autenticar(db, x_bella_chave)
     _limitar(conta, _JANELAS_CONVERSA)
     if not p.texto.strip():
@@ -373,6 +401,11 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
     return saida
 
 
+@router.post("/api/bella/conversa")
+def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    return _com_teste(p, lambda q: _conversa(q, x_bella_chave, db))
+
+
 @router.delete("/api/bella/conversa")
 def esquecer_conversa(x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
     """Apaga a memória curta da conversa pessoal desta conta."""
@@ -416,8 +449,7 @@ def voz_local(p: PedidoVozLocal, x_bella_chave: str = Header(""), db: Session = 
     return saida
 
 
-@router.post("/api/bella/mensagem")
-def mensagem(p: Pedido, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+def _mensagem(p: Pedido, x_bella_chave, db):
     conta = _autenticar(db, x_bella_chave)
     if bool(p.texto and p.texto.strip()) == bool(p.audio_base64):
         raise HTTPException(422, "Envie um pedido por texto ou áudio.")
@@ -465,3 +497,8 @@ def mensagem(p: Pedido, x_bella_chave: str = Header(""), db: Session = Depends(g
     else:
         saida.update(_preparar_voz(r.mensagens, fallback, bool(itens), p.voz))
     return saida
+
+
+@router.post("/api/bella/mensagem")
+def mensagem(p: Pedido, x_bella_chave: str = Header(""), db: Session = Depends(get_db)):
+    return _com_teste(p, lambda q: _mensagem(q, x_bella_chave, db))
