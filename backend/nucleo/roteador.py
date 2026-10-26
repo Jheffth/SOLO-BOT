@@ -652,6 +652,9 @@ def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: 
     erro = prompts_bella.guardar_referencia(chave, mime, conteudo)
     if erro:
         return Resposta().diz(erro)
+    pedida = prompts_bella.solicitacao(legenda, chave)
+    if pedida and pedida[0] == "modelo":                     # legenda "/promptmodelo ...": a foto guia a modelo nova
+        return _prompt_responder(db, conta, canal, pedida[1], "modelo")
     pedido = prompts_bella.pedido_da_legenda(legenda, chave)
     if pedido:
         return _prompt_responder(db, conta, canal, pedido)
@@ -660,6 +663,7 @@ def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: 
         "Agora diga o resto: `/prompt bar à noite`.\n"
         "Para usar também o penteado, a maquiagem ou o cenário da foto, peça: "
         "`/prompt use o penteado e o cenário da foto`.\n"
+        "`/promptmodelo` cria uma modelo nova a partir das características da foto.\n"
         "`/prompt sem referência ...` descarta a imagem.")
 
 

@@ -428,10 +428,14 @@ def test_criar_modelo_nova_usa_instrucao_propria(monkeypatch):
     texto = pb.criar("cabelo ruivo", "m2", "modelo")
     instr, entrada, kw = vistos[0]
     assert "mulher (sexo feminino) de 19 anos" in instr and "SOMENTE a roupa" not in instr
-    assert kw["imagens"] is None and entrada == "Pedido: cabelo ruivo"        # modelo nova ignora a referência de roupa
+    # com referência guardada, a modelo nova é criada a partir das características da imagem
+    assert kw["imagens"] == [("image/png", "YWJj")] and entrada == "Pedido: cabelo ruivo"
+    assert "guia da modelo nova" in instr
     assert texto.endswith(pb.TAG_FINAL) and pb._recente("m2") == "modelo"
     pb.criar("", "m2", "modelo")
-    assert "tudo aleatório" in vistos[1][1]
+    assert "características da imagem" in vistos[1][1]
+    pb.criar("sem referência", "m2", "modelo")
+    assert vistos[2][2]["imagens"] is None and "guia da modelo nova" not in vistos[2][0] and "tudo aleatório" in vistos[2][1]
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: "RECUSA: pedido de menor de idade")
     with pytest.raises(pb.Recusa):
         pb.criar("uma adolescente", "m2", "modelo")

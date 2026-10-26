@@ -100,6 +100,19 @@ REFERÊNCIA ANEXADA: junto do pedido há uma imagem.
 - Se a imagem não mostrar roupa utilizável, ou a pessoa nela parecer menor de idade, responda somente com uma
   linha começando por "RECUSA:" e o motivo curto, sem prompt."""
 
+INSTRUCAO_REFERENCIA_MODELO = """
+
+REFERÊNCIA ANEXADA: junto do pedido há uma imagem. Ela é o guia da modelo nova.
+- Descreva a modelo pelas características visíveis na imagem, de forma concreta nos campos entre colchetes:
+  tom de pele, cabelo (cor, comprimento, textura, estilo), olhos, traços do rosto, porte do corpo, detalhes
+  (sardas, pintas, tatuagens, piercings) e a roupa e acessórios. É uma modelo ORIGINAL inspirada nessas
+  características, em texto: não diga quem é a pessoa da imagem nem use nome.
+- Cenário, fundo e luz da imagem: NÃO use, a menos que o pedido peça de forma explícita; sorteie um cenário novo.
+- O que o pedido escrito descrever manda sobre a imagem (por exemplo "cabelo ruivo", "com óculos").
+- A idade segue a regra de adulta (19 por padrão, ou a pedida se for 18+).
+- Se a pessoa da imagem parecer menor de idade, ou for uma pessoa famosa que você reconheça, ou a imagem não
+  mostrar uma pessoa utilizável, responda somente com uma linha começando por "RECUSA:" e o motivo curto, sem prompt."""
+
 MODELO_NOVA = """Crie uma modelo original com as seguintes características: [SEXO E IDADE: mulher de 19 anos], [TOM DE PELE E ETNIA], [CABELO: cor, comprimento, textura e estilo], [OLHOS: cor e formato], [ROSTO: traços marcantes], [CORPO: altura e porte naturais e proporcionais], [DETALHES: sardas, pintas, piercing discreto ou tatuagem pequena, se houver]. Aparência de pessoa real, natural, com identidade facial consistente em toda a imagem.
 
 Recrie a cena em estilo realista de foto casual tirada com câmera frontal de smartphone.
@@ -271,13 +284,18 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
             limpar_referencia(chave)
         pedido = sem.group(1).strip()
     modelo_novo = categoria == "modelo"
-    ref = (referencia_anexa or (referencia(chave) if chave is not None else None)) if not sem and not modelo_novo else None
+    ref = (referencia_anexa or (referencia(chave) if chave is not None else None)) if not sem else None
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
     if modelo_novo and not pedido:
         entrada = "Pedido: tudo aleatório. Sorteie uma modelo nova (pele, cabelo, rosto, corpo), roupa e cenário diferentes dos últimos."
-    if ref and not pedido:
+    if ref and modelo_novo and not pedido:
+        entrada = "Pedido: crie a modelo a partir das características da imagem de referência; cenário à sua escolha."
+    elif ref and not pedido:
         entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
-    base = INSTRUCAO_MODELO if modelo_novo else INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "")
+    if modelo_novo:
+        base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "")
+    else:
+        base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "")
     saida = grok.gerar(base, entrada, max_tokens=2048, temperatura=.9,
                        timeout=60 if ref else 40, imagens=[ref] if ref else None,
                        modelo=(config.GROK_VISION_MODEL or None) if ref else None)
