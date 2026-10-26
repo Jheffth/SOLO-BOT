@@ -439,3 +439,34 @@ def test_criar_modelo_nova_usa_instrucao_propria(monkeypatch):
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: "RECUSA: pedido de menor de idade")
     with pytest.raises(pb.Recusa):
         pb.criar("uma adolescente", "m2", "modelo")
+
+
+def test_promptroupa_reconhece_pedido_e_nao_confunde_com_prompt():
+    from nucleo import prompts_bella as pb
+    assert pb.solicitacao("/promptroupa lingerie preta") == ("roupa", "lingerie preta")
+    assert pb.solicitacao("/promptroupa") == ("roupa", "")
+    assert pb.solicitacao("crie um prompt de roupa de enfermeira") == ("roupa", "de enfermeira")
+    assert pb.solicitacao("/prompt cozinha") == ("realismo", "cozinha")
+    assert pb.solicitacao("crie um prompt de modelo ruiva")[0] == "modelo"
+
+
+def test_criar_roupa_sem_9x16_sem_tag_e_com_referencia(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pb.guardar_referencia("r1", "image/png", b"abc")
+    vistos = []
+    roupa = pb.MODELO_ROUPA.replace("[DESCRIÇÃO COMPLETA PEÇA POR PEÇA: tipo de cada peça, cor exata, comprimento, decote, mangas, cintura, corte e caimento]",
+                                    "um conjunto de lingerie preta de renda com sutiã e calcinha")
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or roupa)
+    texto = pb.criar("", "r1", "roupa")
+    instr, entrada, kw = vistos[0]
+    assert texto == roupa and "Spicy mode" not in texto and "9:16" not in texto
+    assert kw["imagens"] == [("image/png", "YWJj")] and "TODA a roupa" in instr and "copie fielmente" in entrada
+    assert pb._recente("r1") == "roupa"
+    pb.criar("sem referência vestido vermelho", "r1", "roupa")
+    assert vistos[1][2]["imagens"] is None and "TODA a roupa" not in vistos[1][0]
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "texto qualquer que não começa pelo modelo " * 30)
+    assert pb.criar("x", "r1", "roupa") is None
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "RECUSA: uniforme escolar")
+    with pytest.raises(pb.Recusa):
+        pb.criar("uniforme escolar", "r1", "roupa")

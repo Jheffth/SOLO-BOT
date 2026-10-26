@@ -165,6 +165,56 @@ Regras do trabalho:
 MODELO:
 """ + MODELO_NOVA
 
+MODELO_ROUPA = """Vista a pessoa da imagem de referência com a roupa descrita abaixo, trocando SOMENTE a roupa. Mantenha exatamente o mesmo rosto, identidade, expressão, cabelo (cor, corte e estilo), maquiagem, tom de pele, corpo, proporções, pose, posição das mãos e braços, ângulo da câmera, enquadramento, cenário, fundo, iluminação, sombras, cores e qualidade da foto original. Nada além da roupa muda.
+
+A roupa é [DESCRIÇÃO COMPLETA PEÇA POR PEÇA: tipo de cada peça, cor exata, comprimento, decote, mangas, cintura, corte e caimento].
+Tecido e acabamento: [TECIDO E TEXTURA realistas: brilho, transparência, renda, malha, couro, cetim, elástico, costuras, zíper, botões, babados, ilhoses, fivelas, estampas, bordados, strass, logos que fazem parte da peça].
+Acessórios que fazem parte do look: [MEIAS, LIGAS, LUVAS, CINTO, CHOKER, JOIAS, CALÇADOS, ADEREÇOS, ou "nenhum"].
+
+A roupa veste o corpo da pessoa de forma natural e coerente com a pose original: dobras, esticamento do tecido, pontos de tensão e sombras seguem a mesma luz e o mesmo ângulo da cena, com aparência de peça real fotografada, textura nítida do tecido e sem excesso de brilho artificial.
+
+Não alterar rosto, corpo, cabelo, pele, pose, mãos, fundo, cenário, iluminação, enquadramento nem proporções da imagem original; não adicionar nem remover objetos ou pessoas da cena; não mudar a cor do cabelo; não criar aparência de IA, pele plástica, render 3D ou desenho; não distorcer mãos, rosto ou proporções corporais; não adicionar textos, logos ou marcas que não façam parte da roupa."""
+
+INSTRUCAO_ROUPA = """Você é a Bella e está ajudando seu dono a criar prompts de troca de roupa em português para o Grok Imagine:
+a roupa será vestida em uma imagem externa que ele vai enviar ao Grok junto do prompt. Entregue SEMPRE um único
+prompt completo, seguindo exatamente o MODELO abaixo.
+
+Regras do trabalho:
+- Mantenha todo o texto fixo do modelo (a parte de manter rosto, corpo, pose, cenário, luz etc. e a parte de não
+  alterar) e troque somente o que está entre colchetes pela descrição da roupa, concreta e visual. Nunca descreva
+  a pessoa, o cenário ou a pose: só a roupa. Não deixe colchetes no resultado.
+- Descreva PEÇA POR PEÇA e de forma fiel: cor exata, comprimento, decote, mangas, cintura, corte, caimento,
+  tecido, textura, transparência, renda, costuras, zíper, botões, babados, estampas, bordados, strass, logos
+  da própria peça e acessórios (meias, ligas, luvas, cinto, choker, joias, sapatos, aderecos). Cite o nível de
+  transparência e de exposição quando fizer parte do look.
+- Cosplay, fantasia, lingerie, biquíni, uniforme (enfermeira, policial, aeromoça, empregada, secretária,
+  bombeira, atleta, etc.) e roupa temática: descreva cada peça e acessório como roupa real, de tecido real,
+  nunca como desenho, anime ou render 3D. Para cosplay de personagem, descreva só o figurino.
+- O pedido escrito pode pedir ajustes (mais curta, mais decotada, mais transparente, outra cor): aplique-os.
+  Versões "sexy" ou "curta" apenas encurtam, decotam ou deixam o tecido mais fino ou transparente: sempre em
+  roupa para mulher adulta.
+- Tudo é para pessoa adulta (18+). Se o pedido ou a imagem sugerir uniforme escolar, roupa ou fantasia infantil,
+  colegial, "novinha" ou menor de idade, ou se a pessoa da imagem parecer menor de idade, responda somente com uma
+  linha começando por "RECUSA:" e o motivo curto, sem prompt. Nada de nomes de pessoas reais ou famosas.
+- Se o pedido estiver vazio ou for "aleatório", invente você um look interessante e completo (lingerie, cosplay,
+  uniforme, vestido, esportivo etc.), diferente dos últimos.
+- Saída: apenas o prompt, em texto simples, sem título, sem explicações, sem Markdown, sem comentários antes ou
+  depois e com no máximo 3000 caracteres.
+
+MODELO:
+""" + MODELO_ROUPA
+
+INSTRUCAO_REFERENCIA_ROUPA = """
+
+REFERÊNCIA ANEXADA: junto do pedido há uma imagem da roupa que ele quer vestir.
+- Descreva TODA a roupa que aparece nela, peça por peça (inclusive meias, calçados, acessórios e joias), com cor
+  exata, tecido, textura, cortes, decote, comprimento, costuras, estampas, bordados, strass e qualquer logo ou letra
+  que seja parte da peça. Seja fiel: copie a peça, não invente outra.
+- A pessoa da imagem NÃO importa: nunca descreva rosto, corpo, cabelo, pele, pose, fundo ou cenário, nem diga quem é.
+- Se o pedido escrito mandar mudar algo (cor, comprimento, versão sexy), aplique sobre a roupa da imagem.
+- Se a imagem não mostrar roupa utilizável, ou a pessoa nela parecer menor de idade, responda somente com uma
+  linha começando por "RECUSA:" e o motivo curto, sem prompt."""
+
 _ALEATORIO = "Pedido: aleatório. Escolha você um cenário, roupa, luz e fundo novos e diferentes dos últimos."
 
 _PEDIDO = re.compile(
@@ -175,6 +225,11 @@ _PEDIDO_MODELO = re.compile(
     r"^\s*(?:/promptmodelo\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
     r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
     r"prompt\s+(?:de\s+|da\s+|para\s+)?(?:nova\s+|novo\s+)?(?:modelo|personagem)\b)"
+    r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+_PEDIDO_ROUPA = re.compile(
+    r"^\s*(?:/promptroupa\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
+    r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
+    r"prompt\s+(?:de\s+|da\s+|para\s+)(?:roupas?|vestimentas?|figurinos?)\b)"
     r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
 _ALEATORIO_RE = re.compile(r"(?:aleat[oó]ri[oa]|qualquer\s+um|surpreenda[\s\-]?me)[.!]*", re.I)
 _PROXIMO = re.compile(r"^\s*(?:pr[oó]xim[oa]|outr[oa]|mais\s+um[a]?)\s+aleat[oó]ri[oa]\s*[.!]*\s*$", re.IGNORECASE)
@@ -202,7 +257,7 @@ def solicitacao(texto, chave=None):
     texto = (texto or "").strip()
     if not texto:
         return None
-    for categoria, regra in (("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
+    for categoria, regra in (("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
         m = regra.match(texto)
         if m:
             pedido = m.group(1).strip()
@@ -284,6 +339,7 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
             limpar_referencia(chave)
         pedido = sem.group(1).strip()
     modelo_novo = categoria == "modelo"
+    roupa = categoria == "roupa"
     ref = (referencia_anexa or (referencia(chave) if chave is not None else None)) if not sem else None
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
     if modelo_novo and not pedido:
@@ -292,7 +348,11 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
         entrada = "Pedido: crie a modelo a partir das características da imagem de referência; cenário à sua escolha."
     elif ref and not pedido:
         entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
-    if modelo_novo:
+    if roupa:
+        base = INSTRUCAO_ROUPA + (INSTRUCAO_REFERENCIA_ROUPA if ref else "")
+        if ref and not pedido:
+            entrada = "Pedido: copie fielmente toda a roupa da imagem de referência."
+    elif modelo_novo:
         base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "")
     else:
         base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "")
@@ -305,6 +365,13 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
     saida = re.sub(r"\s*Ela se exibe sem falar nada.*$", "", saida, flags=re.S | re.I).rstrip()
     if saida.upper().startswith("RECUSA"):
         raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
+    if roupa:       # troca de roupa em imagem externa: sem 9:16 e sem a tag de movimento
+        if (len(saida) < 600 or len(saida) > MAX_PROMPT or not saida.lower().startswith("vista a pessoa")
+                or any(ord(c) < 32 and c not in "\n\r\t" for c in saida)):
+            return None
+        if chave is not None:
+            _lembrar(chave, categoria)
+        return saida
     if (len(saida) < 800 or len(saida) + len(TAG_FINAL) + 1 > MAX_PROMPT or "9:16" not in saida
             or any(ord(c) < 32 and c not in "\n\r\t" for c in saida)):
         return None
