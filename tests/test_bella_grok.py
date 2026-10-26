@@ -607,3 +607,50 @@ def test_prompt_longo_e_dividido_nos_canais(monkeypatch):
     monkeypatch.setattr(telegram, "_chamar", lambda metodo, corpo: enviados.append(corpo) or {"ok": True})
     telegram.enviar("1", texto, teclado={"k": 1})
     assert len(enviados) == len(p) and "reply_markup" in enviados[-1] and "reply_markup" not in enviados[0]
+
+
+def test_sem_sensualizacao_troca_as_frases_do_mesmo_modelo(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    # cada troca existe nos modelos reais (se alguém reescrever o modelo, este teste avisa para atualizar a lista)
+    fontes = pb.INSTRUCAO + pb.INSTRUCAO_MODELO + pb.MODELO_POSE
+    for antes, _ in pb._SUAVIZAR:
+        assert antes in fontes, antes
+    suave = pb.suavizar(fontes)
+    for termo in ("semi nua", "provocante", "malicioso", "íntima, reveladora", "realismo sensual"):
+        assert termo not in suave
+    assert "Proporção vertical 9:16" in suave and "Pele com textura hiper-realista" in suave    # o resto do modelo fica igual
+    vistos = []
+    # o Grok de mentira obedece ao modo: com as regras suaves devolve o modelo suavizado
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto))
+                        or (pb.suavizar(_prompt_valido()) if "MODO SEM SENSUALIZAÇÃO" in instr else _prompt_valido()))
+    saida = pb.criar("café da manhã", "c", "realismo", suave=True)
+    assert saida.endswith(pb.TAG_SUAVE) and "Spicy" not in saida and "SEM sensualização" in vistos[0][0] and "MODO SEM SENSUALIZAÇÃO" in vistos[0][0]
+    normal = pb.criar("café da manhã", "c", "realismo")
+    assert normal.endswith(pb.TAG_FINAL) and "MODO SEM SENSUALIZAÇÃO" not in vistos[1][0]
+    # aleatório e criativo não usam a biblioteca (os exemplos dela são sensuais) nem registram nela
+    pb.criar("", "c", "realismo", suave=True)
+    pb.criar("", "c", "criativo", suave=True)
+    assert "Já usados" not in vistos[2][1] and "Já usados" not in vistos[3][1] and vistos[2][1] == pb._ALEATORIO_SUAVE
+    # pose: o modelo suave troca as regras do Grok
+    pb.criar("em pé", "c", "pose", suave=True)
+    assert "naturais e do dia a dia" in vistos[4][0] and "plush" not in vistos[4][0]
+
+def test_sem_sensualizacao_recusa_resposta_ainda_sensual(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    chamadas = []
+    def gerar(instr, texto, **kw):
+        chamadas.append(texto)
+        return _prompt_valido() if len(chamadas) == 1 else pb.suavizar(_prompt_valido())      # a 1ª ainda é sensual
+    monkeypatch.setattr(grok, "gerar", gerar)
+    assert pb.criar("x", "c", "realismo", suave=True)
+    assert len(chamadas) == 2 and "ainda com termos sensuais" in chamadas[1]
+
+def test_conta_guarda_sem_sensualizacao_e_o_roteador_usa(monkeypatch):
+    from nucleo import prompts_bella as pb, roteador
+    vistos = []
+    monkeypatch.setattr(pb, "criar", lambda pedido, chave=None, categoria="realismo", **k: vistos.append(k) or "texto")
+    monkeypatch.setattr(roteador, "_registrar", lambda *a, **k: None)
+    roteador._prompt_responder(None, SimpleNamespace(id=1, prompt_suave=True), "whatsapp", "x", "realismo")
+    roteador._prompt_responder(None, SimpleNamespace(id=1, prompt_suave=False), "telegram", "x", "realismo")
+    roteador._prompt_responder(None, SimpleNamespace(id=1), "telegram", "x", "realismo")
+    assert vistos == [{"suave": True}, {}, {}]

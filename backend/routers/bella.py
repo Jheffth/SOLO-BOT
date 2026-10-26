@@ -350,10 +350,11 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
             pedido = p.texto.strip()          # com imagem anexa, o texto é o pedido do prompt
     if pedido is not None:
         try:
+            extra = {"suave": True} if getattr(conta, "prompt_suave", False) else {}      # "Sem sensualização" da conta
             if referencia_anexa:
-                texto = prompts_bella.criar(pedido, chave, categoria, referencia_anexa=referencia_anexa)
+                texto = prompts_bella.criar(pedido, chave, categoria, referencia_anexa=referencia_anexa, **extra)
             else:
-                texto = prompts_bella.criar(pedido, chave, categoria)
+                texto = prompts_bella.criar(pedido, chave, categoria, **extra)
         except prompts_bella.Recusa as erro:
             raise HTTPException(422, f"Não criei o prompt: {erro}.") from None
         falar = prompts_bella.FALADO

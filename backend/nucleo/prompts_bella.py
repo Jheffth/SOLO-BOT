@@ -296,6 +296,70 @@ de adulta, épocas, esportes, festas, viagens, fantasias de personagens adultos,
 com o gesto). Fuja de quarto, cozinha, banheiro e jaqueta, a menos que o pedido peça. NÃO repita nem se aproxime
 de nada da lista "Já usados". Mantenha todo o texto fixo do modelo; só as partes entre colchetes mudam."""
 
+# ── "Sem sensualização" (opção da conta no painel do Solo Bot; vale para Bella, WhatsApp e Telegram) ──────────────
+# O MESMO modelo de qualidade, com as frases sensuais trocadas por equivalentes neutros: câmera, 9:16, pele, luz,
+# composição e negativos ficam idênticos. Só mudam postura, expressão, roupa, tag final e as regras do Grok.
+_SUAVIZAR = (
+    ("Postura íntima, reveladora e espontânea, sem aparência profissional.", "Postura natural, descontraída e espontânea, sem aparência profissional."),
+    ("olhos semicerrados com olhar direto e provocante, lábios entreabertos em um sorriso malicioso, sem sorriso forçado",
+     "olhar natural e direto para a câmera, sorriso leve e espontâneo, sem sorriso forçado"),
+    ("Por baixo ela está semi nua ou com ausência de roupas.",
+     "A roupa é discreta e cobre o corpo de forma adequada: sem decote profundo e sem partes do corpo expostas além do comum no dia a dia."),
+    ("sensação de foto espontânea e íntima", "sensação de foto espontânea e do dia a dia"),
+    ("com estética íntima, crua, sensual, reveladora e completamente não produzida", "com estética casual, crua, espontânea e completamente não produzida"),
+    ("Categoria: realismo sensual.", "Categoria: realismo casual, SEM sensualização."),
+    ("em foto de realismo sensual", "em foto de realismo casual, sem sensualização"),
+    ("sempre de forma sensual e natural", "sempre de forma natural"),
+    ("expressão provocante e natural", "expressão simpática e natural"),
+    ("A pose parece espontânea e íntima,", "A pose parece espontânea e do dia a dia,"),
+    ("não criar pose de ensaio fotográfico,", "não criar pose de ensaio fotográfico, não criar pose chamativa nem roupa curta ou justa demais,"),
+)
+TAG_SUAVE = ("Ela fica sem falar nada, movimento dela é natural, sem parecer uma IA, como se fosse uma blogueira "
+             "postando no seu perfil, a câmera não se mexe. Se ela tiver qualquer pinta, sinal ou tatuagem, mantenha com "
+             "consistência.")
+_TERMOS_SENSUAIS = re.compile(r"semi\s*nua|provocante|malicios|lingerie|aus[eê]ncia de roupas|spicy|eróti|seduto", re.I)
+
+
+def suavizar(texto):
+    for antes, depois in _SUAVIZAR:
+        texto = texto.replace(antes, depois)
+    return texto
+
+
+INSTRUCAO_POSE_SUAVE = """Você é a Bella e está ajudando seu dono a criar prompts de POSE em português para o Grok Imagine:
+a pose será aplicada a uma imagem externa que ele vai enviar ao Grok junto do prompt. Entregue SEMPRE um único
+prompt completo, seguindo exatamente o MODELO abaixo.
+
+Regras do trabalho:
+- Mantenha todo o texto fixo do modelo e troque somente o que está entre colchetes pela descrição da pose, concreta e
+  visual, parte por parte do corpo (tronco e costas, quadris e ombros, pernas e pés, braços e mãos, cabeça, olhar e
+  expressão, enquadramento).
+- As poses são naturais e do dia a dia (em pé, sentada, caminhando, apoiada, olhando para o lado, ajeitando o cabelo,
+  mexendo no celular, rindo, de braços cruzados, segurando uma xícara), sem teor sexual. Pedido vazio ou "aleatório":
+  invente uma pose diferente da anterior.
+- Descreva as mãos com cuidado (dedos relaxados, anatomicamente corretos) e diga onde cada uma está.
+- Só pose de uma pessoa adulta (18+). Se o pedido pedir menor de idade, ou uma pessoa real ou famosa, responda somente
+  com uma linha começando por "RECUSA:" e o motivo curto, sem prompt.
+- Saída: apenas o prompt, em português, em texto simples, sem título, sem explicações, sem Markdown e com no máximo
+  7000 caracteres.
+
+MODELO:
+""" + "{MODELO_POSE}"
+
+REGRAS_SUAVES = """
+
+MODO SEM SENSUALIZAÇÃO (vale acima de tudo que foi dito antes): a cena é uma foto casual do dia a dia, não sensual.
+- Roupa comum e discreta, que cobre o corpo (jeans, camiseta, vestido, moletom, roupa de academia, social, casaco,
+  camisa, saia), sem lingerie, sem biquíni, sem roupa curta ou justa demais, sem decote profundo e sem nudez.
+- Postura e gestos naturais e relaxados (em pé, sentada, caminhando, tomando café, mexendo no celular, rindo), sem poses
+  provocantes, sem morder o lábio, sem olhar sedutor e sem insinuação. Expressão simpática e natural.
+- Se o pedido escrito pedir algo sensual (lingerie, pose sexy, "semi nua"), mantenha o tema e o cenário, mas descreva
+  uma versão neutra e discreta, com roupa comum equivalente. Nunca use as palavras "sensual", "provocante", "sedutor",
+  "lingerie" ou "Spicy mode".
+- Mantenha todo o texto fixo do modelo, o formato, o 9:16 e o nível de realismo exatamente como estão."""
+
+_ALEATORIO_SUAVE = "Pedido: aleatório. Escolha um cenário cotidiano, roupa comum, luz e fundo novos e diferentes dos últimos."
+
 _ALEATORIO = "Pedido: aleatório. Escolha você um cenário, roupa, luz e fundo novos e diferentes dos últimos."
 
 _PEDIDO = re.compile(
@@ -422,7 +486,7 @@ def pedido_da_legenda(legenda, chave=None):
     return pedido if pedido is not None else legenda
 
 
-def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
+def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave=False):
     """O prompt pronto (texto simples), ou None se o Grok não respondeu ou a resposta não serve.
     Levanta Recusa se o Grok recusar a referência."""
     pedido = pedido or ""
@@ -441,7 +505,10 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
     criativo = categoria == "criativo"
     ambiente = roupa_base = None
-    if (categoria == "realismo" and not pedido and not ref) or criativo:
+    if suave and ((categoria == "realismo" and not pedido and not ref) or criativo):
+        # sem a biblioteca (os exemplos dela são sensuais) e sem registrar o resultado nela
+        entrada = (("Pedido: criativo" + (", com este tema: " + pedido[:300] if pedido else ", tema livre")) if criativo else _ALEATORIO_SUAVE)
+    elif (categoria == "realismo" and not pedido and not ref) or criativo:
         lista = biblioteca_prompts.evitar(36 if criativo else 24)
         jaque = ("\nJá usados (NÃO repita cenário, roupa nem fundo parecidos com estes):\n- " + "\n- ".join(lista)) if lista else ""
         if criativo:
@@ -474,6 +541,10 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
         base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "") + (INSTRUCAO_REFERENCIA_MODELO_TOTAL if tudo else "")
     else:
         base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "")
+    if suave:
+        if pose:
+            base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (INSTRUCAO_REFERENCIA_POSE if ref else "")
+        base = suavizar(base) + REGRAS_SUAVES
     orcamento = 70 if tudo else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
     inicio = time.monotonic()
     tokens = 8000 if tudo else 4096 if ref else 2048      # o raciocínio do modelo também conta nesse limite
@@ -496,6 +567,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
             motivo = ("curto demais" if len(saida) < 600 else "longo demais" if len(saida) > MAX_PROMPT
                       else "não começa pelo texto fixo do modelo" if not saida.lower().startswith(inicios)
                       else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")
+            if not motivo and suave and _TERMOS_SENSUAIS.search(saida):
+                motivo = "ainda com termos sensuais"
             if not motivo:
                 if chave is not None:
                     _lembrar(chave, categoria)
@@ -504,9 +577,11 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
             motivo = ("curto demais" if len(saida) < 800 else "longo demais" if len(saida) + len(TAG_FINAL) + 1 > MAX_PROMPT
                       else "sem a proporção 9:16 do modelo" if "9:16" not in saida
                       else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")
+            if not motivo and suave and _TERMOS_SENSUAIS.search(saida):
+                motivo = "ainda com termos sensuais"
             if not motivo:
-                saida = saida + "\n" + TAG_FINAL
-                if categoria in ("realismo", "criativo"):
+                saida = saida + "\n" + (TAG_SUAVE if suave else TAG_FINAL)
+                if categoria in ("realismo", "criativo") and not suave:
                     biblioteca_prompts.registrar(saida, categoria, ambiente, roupa_base)
                 if chave is not None:
                     _lembrar(chave, categoria)

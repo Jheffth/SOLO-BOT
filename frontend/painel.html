@@ -91,6 +91,7 @@
       <nav class="cfg-nav vidro entrar-animado" style="animation-delay:.12s" id="cfg-nav" role="tablist" aria-label="Seções">
         <button type="button" role="tab" data-secao="s-perfil" class="ativo"><span data-i="user"></span>Perfil</button>
         <button type="button" role="tab" data-secao="s-voz"><span data-i="mic"></span>Resposta por voz</button>
+        <button type="button" role="tab" data-secao="s-prompts"><span data-i="spark"></span>Prompts de imagem</button>
         <button type="button" role="tab" data-secao="s-avisos"><span data-i="bell"></span>Avisos</button>
         <button type="button" role="tab" data-secao="s-bella"><span data-i="spark"></span>Bella no computador</button>
         <button type="button" role="tab" data-secao="s-siri"><span data-i="chat"></span>Siri</button>
@@ -115,6 +116,14 @@
             <button type="button" role="radio" data-voz="nunca">Nunca</button>
           </div>
           <div class="onda" aria-hidden="true"></div>
+        </section>
+
+        <section class="secao vidro entrar-animado" data-corpo="s-prompts">
+          <header><div><h2>Prompts de imagem</h2><p class="muted">Vale para os prompts que a Bella cria no computador, no WhatsApp e no Telegram.</p></div></header>
+          <div class="linha" style="justify-content:space-between;gap:16px;align-items:center">
+            <div><h3 style="margin:0">Sem sensualização</h3><p class="muted pequeno" style="margin:4px 0 0">Mantém o mesmo modelo de prompt (câmera, 9:16, pele, luz, realismo), mas com roupa comum, poses e expressão naturais, sem lingerie, sem insinuação e sem o “Spicy mode”. Desmarcado, os prompts continuam como sempre.</p></div>
+            <button class="chave" role="switch" aria-checked="false" id="prompt-suave" aria-label="Sem sensualização"></button>
+          </div>
         </section>
 
         <section class="secao vidro entrar-animado" data-corpo="s-avisos">

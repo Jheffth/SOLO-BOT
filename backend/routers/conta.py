@@ -117,6 +117,7 @@ def desconectar_sistema(app: str, conta: Conta = Depends(conta_atual), db: Sessi
 class Perfil(BaseModel):
     nome: Optional[str] = Field(default=None, min_length=2, max_length=100)
     voz: Optional[str] = None           # audio | sempre | nunca
+    prompt_suave: Optional[bool] = None  # "Sem sensualização" nos prompts de imagem
 
 
 @router.patch("")
@@ -127,6 +128,8 @@ def perfil(dados: Perfil, conta: Conta = Depends(conta_atual), db: Session = Dep
         if dados.voz not in ("audio", "sempre", "nunca"):
             raise HTTPException(422, "Voz: audio, sempre ou nunca.")
         conta.voz = dados.voz
+    if dados.prompt_suave is not None:
+        conta.prompt_suave = dados.prompt_suave
     db.commit()
     return conta_publica(conta)
 

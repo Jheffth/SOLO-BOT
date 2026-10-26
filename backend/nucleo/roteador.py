@@ -568,7 +568,8 @@ def _prompt_responder(db, conta: Conta, canal: str, pedido: str, categoria: str 
     """A Bella cria um prompt de imagem (realismo sensual). A voz diz só que está pronto."""
     from nucleo import prompts_bella
     try:
-        texto = prompts_bella.criar(pedido, _chave_bella(canal, conta), categoria)
+        extra = {"suave": True} if getattr(conta, "prompt_suave", False) else {}      # "Sem sensualização" da conta
+        texto = prompts_bella.criar(pedido, _chave_bella(canal, conta), categoria, **extra)
     except prompts_bella.Recusa as erro:
         return Resposta().diz(f"🖼️ Não criei o prompt: {erro}.")
     if not texto:

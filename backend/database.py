@@ -27,6 +27,7 @@ class Conta(Base):
     usuario = Column(String(50), nullable=True, unique=True, index=True)   # o login do dia a dia
     email = Column(String(200), nullable=True, unique=True, index=True)    # opcional
     voz = Column(String(10), nullable=True)            # audio (padrão) | sempre | nunca — ver nucleo/fala.py
+    prompt_suave = Column(Boolean, default=False, nullable=True)   # "Sem sensualização": prompts de imagem neutros (Bella, WhatsApp, Telegram)
     avisos_silencio_de = Column(String(5), nullable=True)    # "22:00" — ver nucleo/avisos.py
     avisos_silencio_ate = Column(String(5), nullable=True)   # "07:00"
     avisos_voz = Column(String(10), nullable=True)           # sistema (padrão) | sempre | nunca
@@ -248,6 +249,7 @@ def _migrar():
       · contas.avisos_* — silêncio e voz dos avisos
       · avisos_pendentes.valido_ate — validade do aviso guardado
       · contas.atalho_*  — a chave da Siri / Atalhos
+      · contas.prompt_suave — "Sem sensualização" nos prompts de imagem
     """
     from sqlalchemy import inspect, text
     insp = inspect(engine)
@@ -266,6 +268,9 @@ def _migrar():
                            ("bella_criado_em", data), ("bella_usado_em", data)):
             if nome not in colunas:
                 con.execute(text(f"ALTER TABLE contas ADD COLUMN {nome} {tipo}"))
+        if "prompt_suave" not in colunas:
+            con.execute(text("ALTER TABLE contas ADD COLUMN prompt_suave BOOLEAN DEFAULT "
+                             + ("FALSE" if engine.dialect.name == "postgresql" else "0")))
         if engine.dialect.name == "postgresql" and not colunas.get("email", {}).get("nullable", True):
             con.execute(text("ALTER TABLE contas ALTER COLUMN email DROP NOT NULL"))
         if "avisos_pendentes" in insp.get_table_names():

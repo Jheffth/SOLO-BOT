@@ -170,3 +170,11 @@ def test_metadados_e_separadores_ficam_so_na_tela():
 def test_fala_literal_com_tom_nao_expande_termos_ou_remove_linhas():
     texto = 'Disp: código.\nID: 12'
     assert fala.o_que_falar([{'texto':texto, 'tom':'sussurro'}]) == 'Disp: código. ID: 12.'
+
+
+def test_painel_guarda_sem_sensualizacao(logado):
+    assert logado.get("/api/auth/eu").json()["prompt_suave"] is False
+    assert logado.patch("/api/conta", json={"prompt_suave": True}).json()["prompt_suave"] is True
+    assert logado.get("/api/auth/eu").json()["prompt_suave"] is True
+    assert logado.patch("/api/conta", json={"voz": "nunca"}).json()["prompt_suave"] is True      # outro ajuste não apaga
+    assert logado.patch("/api/conta", json={"prompt_suave": False}).json()["prompt_suave"] is False

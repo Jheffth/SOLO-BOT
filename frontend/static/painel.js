@@ -41,6 +41,8 @@
     if (!bella) carregarBella();
     document.querySelectorAll("#voz-opcoes [data-voz]").forEach(b =>
       b.setAttribute("aria-checked", String(b.dataset.voz === (c.voz || "audio"))));
+    const suave = document.getElementById("prompt-suave");
+    if (suave) suave.setAttribute("aria-checked", String(!!c.prompt_suave));
     renderSistemas();
     renderAtividade();
     renderComandos();
@@ -321,6 +323,15 @@
       if (!(await confirmar(`Desconectar ${s.nome}?`, `O bot deixa de falar pelo ${s.nome}. Nada lá dentro é apagado.`, "Desconectar"))) return;
       await api(`/api/conta/sistemas/${s.chave}`, { method: "DELETE" });
       toast(`${s.nome} desconectado.`); carregar();
+    }
+    if (b.id === "prompt-suave") {
+      const novo = b.getAttribute("aria-checked") !== "true";
+      b.setAttribute("aria-checked", String(novo));
+      try {
+        dados.conta = await api("/api/conta", { method: "PATCH", body: { prompt_suave: novo } });
+        toast(novo ? "Prompts sem sensualização ligados." : "Prompts como sempre.");
+      } catch (err) { b.setAttribute("aria-checked", String(!novo)); toast(err.message, "erro"); }
+      return;
     }
     if (b.dataset.voz) {
       try {
