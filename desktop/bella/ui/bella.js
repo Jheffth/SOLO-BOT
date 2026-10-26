@@ -452,10 +452,30 @@
     $("btn-parar").onclick = () => enviar("parar_voz");
     $("compositor").onsubmit = e => {
       e.preventDefault();
-      const t = $("entrada").value.trim(); if (!t) return;
+      let t = $("entrada").value.trim(); if (!t && !anexo) return;
       if (estado.ocupada) return toast("Espere eu terminar o pedido anterior.");
+      if (anexo) {
+        // com referência anexa, o texto é o pedido do prompt (vazio = prompt aleatório com as roupas da imagem)
+        const img = anexo; if (!t) t = "crie um prompt com essa referência";
+        $("entrada").value = ""; tirarAnexo();
+        return enviar("enviar", { texto: t, exibir: "🖼️ " + t, imagem: img });
+      }
       $("entrada").value = ""; enviar("enviar", { texto: t });
     };
+    // Referência de roupa para o prompt: botão, Ctrl+V ou arrastar a imagem para a janela
+    $("btn-anexo").onclick = () => $("anexo-arquivo").click();
+    $("anexo-arquivo").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) anexar(f); };
+    $("anexo-x").onclick = () => { tirarAnexo(); $("entrada").focus(); };
+    $("entrada").addEventListener("paste", e => {
+      const itens = (e.clipboardData && e.clipboardData.items) || [];
+      for (const it of itens) if (it.kind === "file" && /^image\//.test(it.type)) { e.preventDefault(); const f = it.getAsFile(); if (f) anexar(f); return; }
+    });
+    document.addEventListener("drop", e => {
+      if (e.target.closest && e.target.closest("#soltar")) return;
+      if (!$("gaveta") || $("gaveta").classList.contains("aberta")) return;
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f && /^image\//.test(f.type)) anexar(f);
+    });
     // Configurações
     const aba = nome => {
       $("cfg-geral").hidden = nome !== "geral"; $("cfg-comandos").hidden = nome !== "comandos";
@@ -581,6 +601,19 @@
   }
 
   // ── Foto: ler, reduzir e recortar ──────────────────────────
+  let anexo = null;
+  function tirarAnexo() { anexo = null; $("anexo").hidden = true; $("anexo-img").removeAttribute("src"); }
+  function anexar(f) {
+    if (!/^image\/(png|jpeg|webp)$/.test(f.type)) return toast("Use uma imagem JPG, PNG ou WEBP.", true);
+    if (f.size > 25 * 1024 * 1024) return toast("Essa imagem é grande demais (máximo 25 MB).", true);
+    const leitor = new FileReader();
+    leitor.onload = () => reduzir(leitor.result, 1280, .85).then(url => {
+      anexo = url; $("anexo-img").src = url; $("anexo").hidden = false;
+      toast("Referência anexada. Peça o prompt (ou só envie) para eu usar as roupas dela.");
+      $("entrada").focus();
+    }).catch(() => toast("Não consegui abrir essa imagem.", true));
+    leitor.readAsDataURL(f);
+  }
   function lerArquivo(f) {
     if (!/^image\/(png|jpeg|webp)$/.test(f.type)) return toast("Use uma imagem JPG, PNG ou WEBP.", true);
     if (f.size > 25 * 1024 * 1024) return toast("Essa imagem é grande demais (máximo 25 MB).", true);

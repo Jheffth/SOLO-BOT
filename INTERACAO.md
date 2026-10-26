@@ -413,8 +413,6 @@ trata como lançamento) é respondida direto pela Bella. `/bella` fixa a convers
 `BELLA_CONTEUDO_ADULTO`), com memória curta própria de cada canal. `/esquecer` limpa a memória,
 `/sair` volta ao hub e o modo expira após `MODO_MINUTOS` sem mensagem.
 
-A Bella também cria prompts de imagem (categoria atual: realismo sensual, no modelo da conversa "REALISMO SENSUAL" do Grok). No WhatsApp, no Telegram e no Bella.exe (Modo Safada), `/prompt cozinha, cosplay de odalisca` ou "crie um prompt de ..." devolve o prompt pronto para colar no Grok Imagine; `/prompt` sozinho ou "próximo aleatório" sorteia um cenário. A voz só diz que o prompt está pronto. O texto fixo fica em `backend/nucleo/prompts_bella.py`. `/promptmodelo` cria uma modelo nova do zero no mesmo formato (padrão: mulher de 19 anos; pele, cabelo, olhos, corpo, roupa e cenário sorteados). O que o pedido descrever manda; o resto é aleatório. Sempre adulta (18+): pedido de menor ou de pessoa real é recusado. No Bella.exe use "crie um prompt de modelo ...". Imagem de referência: mande uma foto no WhatsApp/Telegram (com legenda, ela vira o pedido; sem legenda, vale por 15 min para o próximo `/prompt`). A Bella usa só a roupa; penteado, maquiagem e cenário só se o pedido pedir. `/prompt sem referência ...` descarta. O Grok lê a imagem pelo modelo `GROK_VISION_MODEL` (vazio = o modelo de texto). A rota `/api/bella/conversa` aceita `imagem_base64` e `imagem_mime`.
-
 ## Imagens pelo Grok
 
 O botão Imagens abre um painel recolhível, separado do chat. Gere pela descrição
@@ -469,3 +467,41 @@ Os registros INFO mostram a duração de cada tentativa de síntese e do preparo
 texto falado, sem texto, áudio ou credenciais. Eles permitem separar demora do resumo,
 do provedor e da rede. Tempos reais dependem da implantação e do hardware.
 Aplicar os ajustes requer publicar o backend e atualizar o executável Bella.
+
+## Avatar animado da Bella (opcional)
+
+Em Configuracoes > Aparencia, Avatar animado fica desligado por padrao, inclusive
+ao carregar preferencias antigas. Desligado nao inicia Python, CUDA ou geracao.
+Ativado, usa a foto e o MP3 da voz ja configurada: nao chama outro motor de voz.
+O texto aparece antes da animacao. A tela mostra carregamento e progresso dos
+quadros; Interromper voz, desligar a opcao ou sair encerra o processo gerador.
+O video reproduz a propria trilha na janela principal; a Mini-Bella e muda e
+acompanha a posicao atual quando aberta durante a reproducao.
+
+O motor local SadTalker fica fora do executavel: inference.py, modelos 256 e
+um ambiente Python CUDA chamado sadtalker-env ao lado da pasta do motor. A
+instalacao ja testada em desktop/bella/.cache/sadtalker-test e descoberta ao
+lado do projeto. Em outro caminho, use Selecionar instalacao. O pacote Bella
+inclui avatar/gerar.py; nao inclui os varios GB de modelos e dependencias.
+
+A geracao usa 256px, batch 1, sem enhancer, maximo de 30 segundos de fala e
+limite de cinco minutos de processamento. Falas maiores ou falhas geram aviso
+e seguem como audio, sem repetir a operacao do pedido. Cancelamento interrompe
+o pedido de reproducao sem repetir a fala. Ate cinco MP4 de 16 MiB cada ficam
+no cache local privado, identificados por foto, audio, motor e versao do script.
+O processo termina depois de cada geracao e libera a GPU; nao ha servidor
+permanente. O primeiro teste integrado levou 43s e o cache retornou em 25ms.
+Esses valores sao de uma fala de 2,8s e variam com o computador e a carga.
+
+## Imagem de referência no compositor
+
+O clipe, Ctrl+V no campo de mensagem e arrastar para a janela aceitam JPG, PNG e
+WebP de até 25 MiB. A prévia pode ser removida pelo ×. Antes do envio, a imagem
+vira JPEG com lado máximo de 1280 px e qualidade 85%. Sem texto, o aplicativo
+pede um prompt usando a referência. Com anexo, o pedido vai direto para prompts,
+sem executar comandos de arquivos ou aplicativos. O resultado usa a caixa de copiar.
+
+O servidor aceita até 6 MiB e usa o anexo apenas nesse pedido, inclusive em caso
+de falha. A referência avulsa não entra no cache de referências da conversa.
+Essa garantia exige publicar o backend atualizado. --anexo-self-test valida o
+roteamento, serialização acima de 2 MB, descarte e falha de rede sem usar provedores.

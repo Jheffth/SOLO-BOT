@@ -202,3 +202,15 @@ sem repetir a chamada. A interface fica em `admin.html`, `static/disparos.js` e
 `VOICESTUDIO_STEPS` (16 por padrão, 1–128), incluído na identidade do cache.
 `GreetingLibrary.Warm` evita o lote de pré-geração quando o perfil é VoiceStudio,
 conservando geração sob demanda e cache. Consulte `VOICESTUDIO.md`.
+
+## Avatar local opcional
+
+Settings.AvatarAnimado (false por padrao) e AvatarMotor sao preferencias locais
+cifradas. Nucleo.Dizer passa pelo audio normal quando a opcao esta desligada.
+AvatarAnimado.cs inicia um processo Python descartavel, guarda ate cinco videos
+e cancela o processo pelo token de voz. avatar/gerar.py adapta o SadTalker
+local sem servidor HTTP, com limites de duracao e resolucao. Janela/Vista enviam
+o MP4 a ui/avatar.js, que confirma inicio/fim por identificador e espelha
+o video mudo na Mini-Bella. Nao ha alteracao na API ou no provedor de voz.
+Validacao: AvatarTestes, tests/test_bella_avatar_ui.cjs, geracao real via C#
+e reproducao real no WebView2 com o som do teste silenciado.

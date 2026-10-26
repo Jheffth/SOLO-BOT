@@ -34,6 +34,9 @@ namespace Bella {
         CoreWebView2Environment ambiente;
         MiniBella mini;
         string foto;
+        string avatarId,avatarUrl;
+        readonly Stopwatch avatarRelogio=new Stopwatch();
+        TaskCompletionSource<bool> avatarInicio,avatarFim;
         bool quitting, medidor, avisouBandeja, atalhoLivre=true;
 
         public Janela(bool startMinimized) {
@@ -50,6 +53,10 @@ namespace Bella {
             bella=new Nucleo(this,Settings.Load());
             foto=Foto.Recorte();
             bella.EstadoMudou+=AoMudar;
+            bella.ReproduzirAvatar=ReproduzirAvatar;
+            bella.AvatarEstado+=etapa=> {
+                var m=new {tipo="avatar_estado",etapa=etapa}; tela.Postar(m); if(mini!=null) mini.Postar(m);
+            };
             bella.Mensagem+=(de,texto,via,opcoes)=>{
                 var m=new { tipo="msg", de=de, texto=texto, via=via, opcoes=opcoes ?? new Opcao[0] };
                 tela.Postar(m); if(mini!=null) mini.Postar(m);
@@ -139,7 +146,7 @@ namespace Bella {
         async Task Abrir() {
             if(minimized) { Hide(); Opacity=1; }
             try {
-                ambiente=await CoreWebView2Environment.CreateAsync(null,Path.Combine(Foto.Pasta,"WebView2"));
+                ambiente=await CoreWebView2Environment.CreateAsync(null,Path.Combine(Foto.Pasta,"WebView2"),new CoreWebView2EnvironmentOptions("--autoplay-policy=no-user-gesture-required"));
                 await tela.Iniciar(ambiente,pastaUi,"index.html");
             } catch(Exception e) {
                 MessageBox.Show("Não consegui abrir a tela da Bella: "+e.Message+"\n\nConfira se a pasta “ui” está ao lado do Bella.exe e se o Microsoft Edge WebView2 está instalado.",
@@ -163,7 +170,7 @@ namespace Bella {
                     case "falar": await bella.Begin(); break;
                     case "parar_voz": bella.PararVoz(); break;
                     case "cancelar_busca": bella.CancelarBusca(); break;
-                    case "enviar": await bella.SendText(Vista.Texto(d,"texto"),Vista.Texto(d,"exibir")); break;
+                    case "enviar": await bella.SendText(Vista.Texto(d,"texto"),Vista.Texto(d,"exibir"),Vista.Texto(d,"imagem")); break;
                     case "imagens_abrir": await PostarGaleria(false); break;
                     case "imagem_gerar":
                         string prompt=Vista.Texto(d,"prompt");
@@ -219,10 +226,29 @@ namespace Bella {
                         } catch(Exception e) { tela.Postar(new {tipo="toast",texto=e.Message,erro=true}); }
                         PostarConfig(); AoMudar();
                         break;
+                    case "avatar_inicio":
+                        if(Vista.Texto(d,"id")==avatarId && avatarInicio!=null) { avatarRelogio.Restart(); avatarInicio.TrySetResult(true); }
+                        break;
+                    case "avatar_fim":
+                        if(Vista.Texto(d,"id")==avatarId && avatarFim!=null) avatarFim.TrySetResult(true);
+                        break;
+                    case "avatar_erro":
+                        if(Vista.Texto(d,"id")==avatarId && avatarFim!=null) {
+                            if(avatarInicio!=null && avatarInicio.Task.IsCompleted) avatarFim.TrySetResult(false);
+                            else avatarFim.TrySetException(new InvalidOperationException("Nao consegui iniciar o video."));
+                        }
+                        break;
+                    case "avatar_motor":
+                        if(bella.Ocupada) throw new InvalidOperationException("Espere a resposta terminar.");
+                        using(var escolhaMotor=new FolderBrowserDialog {Description="Escolha a pasta do SadTalker (inference.py).",ShowNewFolderButton=false}) {
+                            if(escolhaMotor.ShowDialog(this)==DialogResult.OK)
+                                await bella.Preferencias(null,null,null,null,motorAvatar:escolhaMotor.SelectedPath);
+                        }
+                        PostarConfig(); break;
                     case "preferencias":
                         try {
                             await bella.Preferencias(Vista.Logico(d,"iniciar"),Vista.Logico(d,"mini"),Vista.Inteiro(d,"sensibilidade"),Vista.Texto(d,"aparencia"),
-                                Vista.Logico(d,"apertarParaFalar"),Vista.Inteiro(d,"teclaFalar"),Vista.Inteiro(d,"modificadoresFalar"),Vista.Inteiro(d,"esperaFalar"),Vista.Logico(d,"ativacaoRapida"),Vista.Logico(d,"modoSafada"));
+                                Vista.Logico(d,"apertarParaFalar"),Vista.Inteiro(d,"teclaFalar"),Vista.Inteiro(d,"modificadoresFalar"),Vista.Inteiro(d,"esperaFalar"),Vista.Logico(d,"ativacaoRapida"),Vista.Logico(d,"modoSafada"),Vista.Logico(d,"avatarAnimado"));
                             if(d.ContainsKey("apertarParaFalar") || d.ContainsKey("teclaFalar") || d.ContainsKey("esperaFalar") || d.ContainsKey("modificadoresFalar")) AtualizarAtalho();
                         } catch(Exception e) { tela.Postar(new {tipo="toast",texto=e.Message,erro=true}); }
                         PostarConfig(); AtualizarMini();
@@ -254,10 +280,36 @@ namespace Bella {
             return new { tipo="config", temChave=bella.TemChave, servidor=c.Server, chaveFinal=final, iniciar=c.Startup,
                          apertarParaFalar=c.PushToTalk, teclaFalar=c.TalkKey, modificadoresFalar=c.TalkModifiers, esperaFalar=c.TalkSeconds,
                          frasesAtivacao=c.WakePhrases,
-                         ativacaoRapida=c.FastWake, modoSafada=c.ModoSafada,
+                         ativacaoRapida=c.FastWake, modoSafada=c.ModoSafada, avatarAnimado=c.AvatarAnimado, avatarDisponivel=AvatarAnimado.Disponivel(c.AvatarMotor),
                          nomeTeclaFalar=ApertarParaFalar.Nome(c.TalkKey,c.TalkModifiers),
                          mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto, pastasArquivos=c.PastasArquivos,
                          comandosPastas=c.ComandosPastas, modelosComandos=Navegador.Modelos() };
+        }
+        async Task ReproduzirAvatar(string caminho,System.Threading.CancellationToken token) {
+            if(!tela.Pronta) throw new InvalidOperationException("A tela ainda nao esta pronta para o video.");
+            avatarId=Guid.NewGuid().ToString("N");
+            var inicioTarefa=new TaskCompletionSource<bool>(); var fimTarefa=new TaskCompletionSource<bool>();
+            avatarInicio=inicioTarefa; avatarFim=fimTarefa;
+            using(token.Register(()=> { inicioTarefa.TrySetCanceled(); fimTarefa.TrySetCanceled(); })) {
+                try {
+                    // Apenas a janela principal toca som; a Mini-Bella mostra o espelho mudo.
+                    string url="data:video/mp4;base64,"+Convert.ToBase64String(File.ReadAllBytes(caminho));
+                    avatarUrl=url; avatarRelogio.Reset();
+                    var m=new {tipo="avatar_video",id=avatarId,url=url}; tela.Postar(m); if(mini!=null) mini.Postar(m);
+                    var inicio=await Task.WhenAny(inicioTarefa.Task,fimTarefa.Task,Task.Delay(10000,token));
+                    token.ThrowIfCancellationRequested();
+                    if(inicio==fimTarefa.Task) { await fimTarefa.Task; throw new InvalidOperationException("O video nao iniciou."); }
+                    if(inicio!=inicioTarefa.Task) throw new InvalidOperationException("O video demorou para iniciar.");
+                    await inicioTarefa.Task;
+                    var fim=await Task.WhenAny(fimTarefa.Task,Task.Delay(60000,token));
+                    token.ThrowIfCancellationRequested();
+                    if(fim!=fimTarefa.Task) throw new OperationCanceledException("Tempo de reproducao excedido.");
+                    if(!await fimTarefa.Task) tela.Postar(new {tipo="toast",texto="A reproducao do avatar foi interrompida.",erro=true});
+                } finally {
+                    var m=new {tipo="avatar_parar",id=avatarId}; tela.Postar(m); if(mini!=null) mini.Postar(m);
+                    avatarId=null; avatarUrl=null; avatarRelogio.Reset(); avatarInicio=null; avatarFim=null;
+                }
+            }
         }
         void PostarConfig() { var c=Config(); tela.Postar(c); if(mini!=null) mini.Postar(c); }
 
@@ -301,7 +353,7 @@ namespace Bella {
                 if(mini==null) {
                     mini=new MiniBella(ambiente,pastaUi);
                     mini.Abrir+=Reveal;
-                    mini.Pronta+=()=>{ mini.Postar(Config()); AoMudar(); };
+                    mini.Pronta+=()=>{ mini.Postar(Config()); AoMudar(); if(avatarId!=null && avatarUrl!=null) mini.Postar(new {tipo="avatar_video",id=avatarId,url=avatarUrl,tempo=avatarRelogio.Elapsed.TotalSeconds}); };
                 }
                 mini.Mostrar();
             } else if(mini!=null && mini.Visible && !esconderMini.Enabled) esconderMini.Start();

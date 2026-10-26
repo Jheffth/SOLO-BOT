@@ -209,8 +209,8 @@ def pedido_de(texto, chave=None):
     return s[1] if s else None
 
 
-def guardar_referencia(chave, mime, conteudo):
-    """Guarda a imagem de referência desta conversa. Devolve uma mensagem de erro, ou None se guardou."""
+def validar_referencia(mime, conteudo):
+    """Valida uma referência sem armazená-la na conversa."""
     mime = (mime or "").split(";")[0].strip().lower()
     if mime == "image/jpg":
         mime = "image/jpeg"
@@ -220,6 +220,17 @@ def guardar_referencia(chave, mime, conteudo):
         return "🖼️ Não consegui baixar a imagem. Tente enviar de novo."
     if len(conteudo) > MAX_IMAGEM:
         return "🖼️ A imagem passou de 6 MB. Mande uma menor."
+    return None
+
+
+def guardar_referencia(chave, mime, conteudo):
+    """Guarda a referência da conversa; a Bella usa referências avulsas por pedido."""
+    erro = validar_referencia(mime, conteudo)
+    if erro:
+        return erro
+    mime = (mime or "").split(";")[0].strip().lower()
+    if mime == "image/jpg":
+        mime = "image/jpeg"
     with _TRAVA:
         _REFERENCIAS.pop(chave, None)
         _REFERENCIAS[chave] = (time.monotonic(), mime, base64.b64encode(conteudo).decode("ascii"))
@@ -250,7 +261,7 @@ def pedido_da_legenda(legenda, chave=None):
     return pedido if pedido is not None else legenda
 
 
-def criar(pedido, chave=None, categoria="realismo"):
+def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
     """O prompt pronto (texto simples), ou None se o Grok não respondeu ou a resposta não serve.
     Levanta Recusa se o Grok recusar a referência."""
     pedido = pedido or ""
@@ -260,7 +271,7 @@ def criar(pedido, chave=None, categoria="realismo"):
             limpar_referencia(chave)
         pedido = sem.group(1).strip()
     modelo_novo = categoria == "modelo"
-    ref = referencia(chave) if chave is not None and not sem and not modelo_novo else None
+    ref = (referencia_anexa or (referencia(chave) if chave is not None else None)) if not sem and not modelo_novo else None
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
     if modelo_novo and not pedido:
         entrada = "Pedido: tudo aleatório. Sorteie uma modelo nova (pele, cabelo, rosto, corpo), roupa e cenário diferentes dos últimos."

@@ -9,6 +9,8 @@ namespace Bella {
         string tokenSolo;
         bool ultimoLocal;
         public Dictionary<string,long> Tempos {get;private set;}
+        /// <summary>Imagem de referência (data URL) anexada ao próximo pedido; é usada uma vez e some.</summary>
+        public string ImagemRef;
         public PedidosWindows() {Tempos=new Dictionary<string,long>();}
         public event Action<bool,string> GerandoImagem;
         public static bool PedidoImagem(string text,out string prompt) {
@@ -20,6 +22,7 @@ namespace Bella {
         public void Cancelar() { tokenSolo=null; ultimoLocal=true; }
         public async Task<Reply> Enviar(string text,byte[] audio,Arquivos arquivos,Func<Client> cliente,Action<string> ouvido,Func<bool> continuar=null,Action<Reply> resultado=null,Programas programas=null,bool safada=false) {
             Tempos=new Dictionary<string,long>(); var relogio=Stopwatch.StartNew();
+            var imagemRef=ImagemRef; ImagemRef=null;
             bool viaAudio=audio!=null;
             if(viaAudio) {
                 using(var c=cliente()) text=(await c.Transcribe(audio)).ouvido;
@@ -29,7 +32,7 @@ namespace Bella {
             }
             if(continuar!=null && !continuar()) throw new OperationCanceledException();
             string promptImagem;
-            if(PedidoImagem(text,out promptImagem)) {
+            if(imagemRef==null && PedidoImagem(text,out promptImagem)) {
                 if(promptImagem.Length>1800) throw new InvalidOperationException("Use até 1800 caracteres para descrever a imagem.");
                 arquivos.Cancelar(); tokenSolo=null; ultimoLocal=true;
                 if(GerandoImagem!=null) GerandoImagem(true,null);
@@ -47,7 +50,7 @@ namespace Bella {
                 } catch(Exception e) {erroImagem=e.Message; throw;}
                 finally {if(!imagemTerminou && GerandoImagem!=null) GerandoImagem(false,erroImagem);}
             }
-            var botao=Regex.Match(text ?? "",@"^/solo-escolher ([a-f0-9]{32}) (\d+)$");
+            var botao=Regex.Match(imagemRef==null ? (text ?? "") : "",@"^/solo-escolher ([a-f0-9]{32}) (\d+)$");
             if(botao.Success) {
                 if(botao.Groups[1].Value!=tokenSolo) {
                     arquivos.Cancelar(); ultimoLocal=true;
@@ -56,13 +59,13 @@ namespace Bella {
                     return await VozLocal(expirada,cliente);
                 }
                 text=botao.Groups[2].Value;
-            } else if(ultimoLocal && !arquivos.TemEscolha && Arquivos.EhResposta(text)) {
+            } else if(imagemRef==null && ultimoLocal && !arquivos.TemEscolha && Arquivos.EhResposta(text)) {
                 var expirada=new Reply { CodigoVoz="expirou", texto="Não há uma escolha de arquivo pendente. Faça o pedido novamente.", falar="Não há uma escolha de arquivo pendente." };
                 if(resultado!=null) resultado(expirada);
                 return await VozLocal(expirada,cliente);
             }
             Reply reply=null;
-            if(programas!=null && !arquivos.PastaExplicita(text)) reply=await programas.Atender(text,async(t,cs)=> {using(var c=cliente()) return await c.InterpretarPrograma(t,cs,safada);},continuar,Tempos);
+            if(imagemRef==null && programas!=null && !arquivos.PastaExplicita(text)) reply=await programas.Atender(text,async(t,cs)=> {using(var c=cliente()) return await c.InterpretarPrograma(t,cs,safada);},continuar,Tempos);
             if(reply!=null) {
                 arquivos.Cancelar(); tokenSolo=null; ultimoLocal=true;
                 if(resultado!=null) resultado(reply);
@@ -70,9 +73,9 @@ namespace Bella {
                 return await VozLocal(reply,cliente);
             }
             var tempoArquivos=Stopwatch.StartNew();
-            reply=await arquivos.Processar(text);
+            reply=imagemRef==null ? await arquivos.Processar(text) : null;
             Tempos["Arquivos locais"]=tempoArquivos.ElapsedMilliseconds;
-            if((reply==null || (!reply.SomenteLocal && (reply.CodigoVoz=="erro" || reply.CodigoVoz=="vazio"))) && arquivos.PodeInterpretar(text)) {
+            if((reply==null || (!reply.SomenteLocal && (reply.CodigoVoz=="erro" || reply.CodigoVoz=="vazio"))) && imagemRef==null && arquivos.PodeInterpretar(text)) {
                 var etapa=Stopwatch.StartNew();
                 InterpretacaoComando escolha=null;
                 try { using(var c=cliente()) escolha=await c.InterpretarComando(text,arquivos.CatalogoComandos); }
@@ -82,12 +85,12 @@ namespace Bella {
                 if(continuar!=null && !continuar()) throw new OperationCanceledException();
                 reply=await arquivos.Interpretar(escolha,text);
             }
-            if(reply==null && arquivos.PedidoLocal(text)) reply=await arquivos.Interpretar(null,text);
+            if(reply==null && imagemRef==null && arquivos.PedidoLocal(text)) reply=await arquivos.Interpretar(null,text);
             if(reply==null) {
                 arquivos.Cancelar(); tokenSolo=null; ultimoLocal=false;
                 var etapa=Stopwatch.StartNew();
-                using(var c=cliente()) reply=safada && !botao.Success && !Regex.IsMatch(text ?? "",@"^\s*/") && !Arquivos.EhResposta(text)
-                    ? await c.Conversar(text) : await c.Send(text,null,viaAudio);
+                using(var c=cliente()) reply=(imagemRef!=null || (safada && !botao.Success && !Regex.IsMatch(text ?? "",@"^\s*/") && !Arquivos.EhResposta(text)))
+                    ? await c.Conversar(text,imagemRef) : await c.Send(text,null,viaAudio);
                 Tempos["Sistemas Solo"]=etapa.ElapsedMilliseconds;
                 tokenSolo=Guid.NewGuid().ToString("N");
                 foreach(var o in reply.opcoes ?? new Opcao[0]) o.comando="/solo-escolher "+tokenSolo+" "+o.numero;

@@ -56,7 +56,12 @@
   <section class="conversa" id="conversa" aria-live="polite"></section>
 
   <form class="compositor" id="compositor" autocomplete="off">
+    <span class="anexo" id="anexo" hidden><img id="anexo-img" alt="Referência anexada"><button type="button" id="anexo-x" title="Tirar a referência" aria-label="Tirar a referência">×</button></span>
     <input id="entrada" maxlength="2000" placeholder="Escreva ou diga “Olá Bella”…" aria-label="Mensagem para a Bella">
+    <input type="file" id="anexo-arquivo" accept="image/png,image/jpeg,image/webp" hidden>
+    <button class="enviar" id="btn-anexo" type="button" title="Anexar imagem de referência (ou cole com Ctrl + V)" aria-label="Anexar imagem de referência">
+      <svg viewBox="0 0 24 24"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15 7"/></svg>
+    </button>
     <span class="tecla">Ctrl Alt B</span>
     <button class="enviar" id="btn-enviar" type="submit" title="Enviar">
       <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
@@ -96,6 +101,9 @@
       <div id="cfg-geral" role="tabpanel" aria-labelledby="aba-geral">
       <section class="grupo">
         <h3>Aparência</h3>
+        <label class="linha"><span>Avatar animado<small>Sincroniza a foto com a voz. Gera localmente antes de falar e pode levar cerca de um minuto. Falas de até 30 segundos.</small></span><input type="checkbox" class="sw" id="cfg-avatar"></label>
+        <p class="ajuda" id="avatar-motor-status">Verificando motor local…</p>
+        <button type="button" class="btn" id="avatar-motor">Selecionar instalação</button>
         <p class="ajuda">A foto da Bella aparece no centro, nas respostas e na Mini-Bella. Ela fica só neste computador.</p>
         <label class="soltar" id="soltar">
           <div class="soltar-prev"><i class="ring"></i><div class="rosto" data-avatar="medio"></div></div>
@@ -265,6 +273,7 @@
 </section>
 
 <div class="toasts" id="toasts"></div>
+<script src="avatar.js"></script>
 <script src="bella.js"></script>
 </body>
 </html>

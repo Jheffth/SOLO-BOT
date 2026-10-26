@@ -19,6 +19,8 @@ namespace Bella {
         public bool PushToTalk;
         public bool FastWake;
         public bool ModoSafada;
+        public bool AvatarAnimado; // Desligado em instalacoes novas e configuracoes antigas.
+        public string AvatarMotor="";
         public string[] WakePhrases=Chamadas.Padrao();
         public int TalkKey=119;              // F8
         public int TalkModifiers;
@@ -121,8 +123,20 @@ namespace Bella {
         public Task<Reply> GerarImagem(string prompt) {
             return Request<Reply>(HttpMethod.Post,"/api/bella/imagem",new {pedido_id=Guid.NewGuid().ToString(),prompt=prompt},135);
         }
-        public Task<Reply> Conversar(string text) {
-            return Request<Reply>(HttpMethod.Post,"/api/bella/conversa",new {texto=text,modo="safada",voz_separada=true},25);
+        public Task<Reply> Conversar(string text,string imagem=null) {
+            var body=new Dictionary<string,object> {{"texto",text},{"modo","safada"},{"voz_separada",true}};
+            int segundos=25;
+            // Referência de roupa para o prompt: "data:image/jpeg;base64,...". O servidor valida tipo e tamanho.
+            const string marca=";base64,";
+            if(imagem!=null && imagem.StartsWith("data:image/") && imagem.Length<8000000) {
+                int i=imagem.IndexOf(marca,StringComparison.Ordinal);
+                if(i>11) {
+                    body["imagem_mime"]=imagem.Substring(5,i-5);
+                    body["imagem_base64"]=imagem.Substring(i+marca.Length);
+                    segundos=75;
+                }
+            }
+            return Request<Reply>(HttpMethod.Post,"/api/bella/conversa",body,segundos);
         }
         public Task<GreetingSet> Greetings() { return Request<GreetingSet>(HttpMethod.Get,"/api/bella/saudacoes",null,8); }
         public Task<GreetingReply> Greeting(int id) {
@@ -131,7 +145,7 @@ namespace Bella {
         async Task<T> Request<T>(HttpMethod method,string path,object body,int seconds,CancellationToken cancellation=default(CancellationToken)) {
             var request=new HttpRequestMessage(method,server+path);
             request.Headers.Add("X-Bella-Chave",key);
-            if(body!=null) request.Content=new StringContent(new JavaScriptSerializer().Serialize(body),Encoding.UTF8,"application/json");
+            if(body!=null) request.Content=new StringContent(new JavaScriptSerializer { MaxJsonLength=16*1024*1024 }.Serialize(body),Encoding.UTF8,"application/json");
             try {
                 using(var timeout=CancellationTokenSource.CreateLinkedTokenSource(cancellation))
                 using(request) {

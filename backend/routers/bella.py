@@ -334,20 +334,26 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
     chave = f"bella:{conta.id}"
     pedida = prompts_bella.solicitacao(p.texto, chave)
     pedido, categoria = (pedida[1], pedida[0]) if pedida else (None, "realismo")
-    if p.imagem_base64:
+    referencia_anexa = None
+    if p.imagem_base64 is not None:
         import base64
         try:
             conteudo = base64.b64decode(p.imagem_base64, validate=True)
         except ValueError:
             raise HTTPException(422, "A imagem de referência veio corrompida.") from None
-        erro = prompts_bella.guardar_referencia(chave, p.imagem_mime or "", conteudo)
+        erro = prompts_bella.validar_referencia(p.imagem_mime or "", conteudo)
         if erro:
             raise HTTPException(422, erro)
+        mime = (p.imagem_mime or "").split(";")[0].strip().lower()
+        referencia_anexa = ("image/jpeg" if mime == "image/jpg" else mime, p.imagem_base64)
         if pedido is None:
             pedido = p.texto.strip()          # com imagem anexa, o texto é o pedido do prompt
     if pedido is not None:
         try:
-            texto = prompts_bella.criar(pedido, chave, categoria)
+            if referencia_anexa:
+                texto = prompts_bella.criar(pedido, chave, categoria, referencia_anexa=referencia_anexa)
+            else:
+                texto = prompts_bella.criar(pedido, chave, categoria)
         except prompts_bella.Recusa as erro:
             raise HTTPException(422, f"Não criei o prompt: {erro}.") from None
         falar = prompts_bella.FALADO

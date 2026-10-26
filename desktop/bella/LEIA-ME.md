@@ -346,3 +346,36 @@ espera pela voz passa a 145 segundos para acomodar a geração local e a reserva
 Interromper voz cancela também a espera pelo áudio, sem repetir o comando e sem tocar
 uma resposta atrasada. Pausar ou sair também cancela essa espera. Os prazos da
 transcrição, interpretação, conversa, imagens e consulta do catálogo permanecem iguais.
+
+## Avatar animado
+
+Marque Configuracoes > Aparencia > Avatar animado para sincronizar a foto com
+a voz. Por padrao fica desmarcado. A primeira geracao pode demorar cerca de um
+minuto; falas repetidas reutilizam um cache de ate cinco videos. O texto aparece
+antes, com progresso da geracao. Interromper voz cancela a geracao/reproducao.
+Falas acima de 30 segundos ou falhas do motor seguem como audio com aviso.
+
+Necessita SadTalker local, modelos 256, FFmpeg e Python com CUDA, instalado
+num ambiente sadtalker-env ao lado da pasta do motor. A instalacao de teste
+em .cache/sadtalker-test e descoberta automaticamente neste computador;
+Selecione instalacao permite apontar outro caminho. A pasta avatar deve ficar
+ao lado de Bella.exe. Modelos e ambiente Python nao sao incluidos no ZIP.
+Nao inicia Python ou CUDA quando desmarcado, nem mantem motor residente.
+O MP4 toca uma unica trilha; a Mini-Bella mostra uma copia muda.
+
+--avatar-self-test testa padrao desligado, compatibilidade de preferencias,
+cache, limites, cancelamento e argumentos. A compilacao normal tambem inclui
+esses testes. node tests/test_bella_avatar_ui.cjs valida a ponte da interface.
+
+## Imagem de referência no compositor
+
+O clipe, Ctrl+V no campo de mensagem e arrastar para a janela aceitam JPG, PNG e
+WebP de até 25 MiB. A prévia pode ser removida pelo ×. Antes do envio, a imagem
+vira JPEG com lado máximo de 1280 px e qualidade 85%. Sem texto, o aplicativo
+pede um prompt usando a referência. Com anexo, o pedido vai direto para prompts,
+sem executar comandos de arquivos ou aplicativos. O resultado usa a caixa de copiar.
+
+O servidor aceita até 6 MiB e usa o anexo apenas nesse pedido, inclusive em caso
+de falha. A referência avulsa não entra no cache de referências da conversa.
+Essa garantia exige publicar o backend atualizado. --anexo-self-test valida o
+roteamento, serialização acima de 2 MB, descarte e falha de rede sem usar provedores.

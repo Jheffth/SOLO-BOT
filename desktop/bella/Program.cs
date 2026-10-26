@@ -14,6 +14,14 @@ namespace Bella {
 
         [STAThread] static int Main(string[] args) {
             ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;
+            if(args.Contains("--anexo-self-test")) {
+                try { AnexoTestes.Run(); File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"anexo-self-test.txt"),"OK"); return 0; }
+                catch(Exception e) { File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"anexo-self-test.txt"),e.ToString()); return 1; }
+            }
+            if(args.Contains("--avatar-self-test")) {
+                try { AvatarTestes.Run(Path.GetTempPath()); File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"avatar-self-test.txt"),"OK"); return 0; }
+                catch(Exception e) { File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"avatar-self-test.txt"),e.ToString()); return 1; }
+            }
             if(args.Contains("--voice-self-test")) {
                 try { VozRedeTestes.Run(); PastasTestes.Run(AppDomain.CurrentDomain.BaseDirectory); ProgramasTestes.Run(); ImagensTestes.Run(AppDomain.CurrentDomain.BaseDirectory); ArquivosTestes.Run(AppDomain.CurrentDomain.BaseDirectory); NavegadorTestes.Run(); File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"voice-self-test.txt"),"OK"); return 0; }
                 catch(Exception e) { File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"voice-self-test.txt"),e.ToString()); return 1; }
@@ -62,6 +70,7 @@ namespace Bella {
         sealed class Wake : IWake { public bool Trigger; public bool Hear(byte[] b) { return Trigger; } public void Reset() { Trigger=false; } public void Dispose() {} }
         static void Check(bool condition,string name) { if(!condition) throw new Exception(name); }
         public static void Run() {
+            AnexoTestes.Run();
             PastasTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
             ImagensTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
             ProgramasTestes.Run();
@@ -88,6 +97,7 @@ namespace Bella {
             Check(requests==2 && result.Length<=30*32000+44,"gravacao termina antes de 30 segundos");
             c.Listen(); c.Begin(); c.Pause(); c.RecordAfterGreeting();
             Check(c.State==Capture.Mode.Paused,"pausar durante saudacao nao reabre microfone");
+            AvatarTestes.Run(Path.GetTempPath());
             ApertarParaFalarTestes.Run();
             ChamadasTestes.Run();
             var cacheDirectory=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"self-test-saudacoes");

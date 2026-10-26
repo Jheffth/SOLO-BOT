@@ -59,12 +59,14 @@ if (Test-Path -LiteralPath $uiSaida) {
 }
 Copy-Item -LiteralPath (Join-Path $raizBella 'ui') -Destination $uiSaida -Recurse -Force
 
+Copy-Item -LiteralPath (Join-Path $raizBella 'avatar') -Destination $saidaBella -Recurse -Force
+
 $compiladorBella = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiladorBella)) { throw 'A Bella precisa de Windows 64 bits com .NET Framework 4.8.' }
 $fontesBella = (Get-ChildItem -LiteralPath $raizBella -Filter '*.cs').FullName
-$falaBella = [Reflection.Assembly]::LoadWithPartialName('System.Speech')
+$falaBella = Get-ChildItem -LiteralPath (Join-Path $env:WINDIR 'Microsoft.NET\assembly\GAC_MSIL\System.Speech') -Recurse -Filter System.Speech.dll | Select-Object -First 1
 if ($null -eq $falaBella) { throw 'O componente de voz do .NET Framework não está disponível.' }
-& $compiladorBella /nologo /target:winexe /platform:x64 /optimize+ /codepage:65001 /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Net.Http.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:Microsoft.CSharp.dll /r:Microsoft.VisualBasic.dll "/r:$($falaBella.Location)" "/r:$coreWebView2" "/r:$formsWebView2" "/out:$saidaBella\Bella.exe" $fontesBella
+& $compiladorBella /nologo /target:winexe /platform:x64 /optimize+ /codepage:65001 /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Net.Http.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:Microsoft.CSharp.dll /r:Microsoft.VisualBasic.dll "/r:$($falaBella.FullName)" "/r:$coreWebView2" "/r:$formsWebView2" "/out:$saidaBella\Bella.exe" $fontesBella
 if ($LASTEXITCODE -ne 0) { throw 'Erro ao compilar a Bella.' }
 Copy-Item -LiteralPath (Join-Path $raizBella 'LEIA-ME.md'), (Join-Path $raizBella 'TERCEIROS.md') -Destination $saidaBella -Force
 $licencasBella = Join-Path $saidaBella 'licencas'

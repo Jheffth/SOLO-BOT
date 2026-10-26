@@ -49,6 +49,8 @@ namespace Bella {
         public event Action<double> Nivel;
         public event Action<int?> BuscaMudou;
         public event Action<Reply> ImagemRecebida;
+        public event Action<string> AvatarEstado;
+        public Func<string,CancellationToken,Task> ReproduzirAvatar;
         public event Action<bool,string> GerandoImagem;
         public void CancelarBusca() { arquivos.CancelarBusca(); }
 
@@ -92,7 +94,7 @@ namespace Bella {
 
         /// <summary>Preferências que mudam na hora (sem botão Salvar). Nulo = não mexe.</summary>
         public async Task Preferencias(bool? iniciar,bool? mini,int? sensibilidade,string aparencia,
-            bool? apertar=null,int? tecla=null,int? modificadores=null,int? segundos=null,bool? rapida=null,bool? safada=null) {
+            bool? apertar=null,int? tecla=null,int? modificadores=null,int? segundos=null,bool? rapida=null,bool? safada=null,bool? avatar=null,string motorAvatar=null) {
             var novo=Copia();
             bool mudarFala=apertar.HasValue || tecla.HasValue || modificadores.HasValue || segundos.HasValue;
             if(mudarFala && (busy || starting)) throw new InvalidOperationException("Espere o pedido atual terminar antes de trocar o modo de fala.");
@@ -101,6 +103,16 @@ namespace Bella {
             if(safada.HasValue) {
                 if(busy || starting) throw new InvalidOperationException("Espere o pedido atual terminar antes de trocar o modo de conversa.");
                 novo.ModoSafada=safada.Value;
+            }
+            if(avatar.HasValue || motorAvatar!=null) {
+                if((avatar==true || motorAvatar!=null) && (busy || starting)) throw new InvalidOperationException("Espere a resposta terminar antes de ativar ou trocar o avatar.");
+                if(motorAvatar!=null) novo.AvatarMotor=AvatarAnimado.Validar(motorAvatar);
+                if(avatar==true) {
+                    AvatarAnimado.Validar(novo.AvatarMotor);
+                    if(Foto.Original()==null && Foto.Recorte()==null) throw new InvalidOperationException("Escolha uma foto da Bella antes de ativar o avatar.");
+                }
+                if(avatar.HasValue) novo.AvatarAnimado=avatar.Value;
+                if(avatar==false) PararVoz();
             }
             if(tecla.HasValue) novo.TalkKey=tecla.Value;
             if(modificadores.HasValue) novo.TalkModifiers=modificadores.Value;
@@ -125,7 +137,7 @@ namespace Bella {
                                   MiniBella=Config.MiniBella, Aparencia=Config.Aparencia, PastasArquivos=(string[])Config.PastasArquivos.Clone(),
                                   PushToTalk=Config.PushToTalk, TalkKey=Config.TalkKey, TalkModifiers=Config.TalkModifiers, TalkSeconds=Config.TalkSeconds,
                                   WakePhrases=(string[])Config.WakePhrases.Clone(),
-                                  FastWake=Config.FastWake, ModoSafada=Config.ModoSafada,
+                                  FastWake=Config.FastWake, ModoSafada=Config.ModoSafada, AvatarAnimado=Config.AvatarAnimado, AvatarMotor=Config.AvatarMotor,
                                   ComandosPastas=(ComandoPasta[])Config.ComandosPastas.Clone() };
         }
 
@@ -277,7 +289,7 @@ namespace Bella {
                         voiceToken.ThrowIfCancellationRequested();
                         if(!listening || quitting || capture.State!=Capture.Mode.Greeting) return;
                         Falou("bella",reply.texto,"voz",null);
-                        await player.Say(reply);
+                        await Dizer(reply,voiceToken);
                         WarmGreetings(value);
                     }
                 }
@@ -298,8 +310,10 @@ namespace Bella {
         }
 
         // ── Pedidos ──────────────────────────────────────────────────
-        public async Task SendText(string text,string exibir=null) {
-            text=(text ?? "").Trim(); if(text.Length==0 || busy) return;
+        public async Task SendText(string text,string exibir=null,string imagem=null) {
+            text=(text ?? "").Trim(); if(text.Length==0 && !String.IsNullOrEmpty(imagem)) text="crie um prompt com essa referência";
+            if(text.Length==0 || busy) return;
+            pedidos.ImagemRef=String.IsNullOrEmpty(imagem) ? null : imagem;
             await Send(text,null,exibir);
         }
         async Task Send(string text,byte[] audio,string exibir=null) {
@@ -325,7 +339,7 @@ namespace Bella {
                 if(!quitting) {
                     if(capture!=null) capture.Speaking();
                     Mudou();
-                    await player.Say(reply);
+                    await Dizer(reply,voiceToken);
                 }
             } catch(OperationCanceledException) { }
             catch(UnauthorizedAccessException e) { if(!quitting) Note(e.Message,true); }
@@ -337,6 +351,27 @@ namespace Bella {
                 if(!quitting && capture!=null) { if(listening) capture.Listen(); else capture.Pause(); }
                 if(!quitting) Mudou();
             }
+        }
+        async Task Dizer(Reply reply,CancellationToken token) {
+            if(Config.AvatarAnimado && ReproduzirAvatar!=null) {
+                var tempo=Stopwatch.StartNew();
+                try {
+                    EsperandoVoz=true; Mudou();
+                    if(AvatarEstado!=null) AvatarEstado("preparando");
+                    var progresso=new Progress<string>(etapa=> { if(!quitting && EsperandoVoz && Config.AvatarAnimado && AvatarEstado!=null) AvatarEstado(etapa); });
+                    string video=await AvatarAnimado.Preparar(Config,reply,token,etapa=>((IProgress<string>)progresso).Report(etapa));
+                    token.ThrowIfCancellationRequested();
+                    Tempos["Avatar animado"]=tempo.ElapsedMilliseconds;
+                    EsperandoVoz=false; Mudou();
+                    if(AvatarEstado!=null) AvatarEstado("reproduzindo");
+                    await ReproduzirAvatar(video,token);
+                    return;
+                } catch(OperationCanceledException) { throw; }
+                catch(Exception e) { if(!quitting) Note("Avatar animado: "+e.Message+" A voz configurada continua disponivel.",true); }
+                finally { EsperandoVoz=false; if(!quitting) { if(AvatarEstado!=null) AvatarEstado(null); Mudou(); } }
+            }
+            token.ThrowIfCancellationRequested();
+            await player.Say(reply);
         }
 
         public void Encerrar() { quitting=true; indicePastas.Dispose(); arquivos.Cancelar(); pedidos.Cancelar(); Pause(); }
