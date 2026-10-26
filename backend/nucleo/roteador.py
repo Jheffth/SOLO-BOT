@@ -572,7 +572,9 @@ def _prompt_responder(db, conta: Conta, canal: str, pedido: str, categoria: str 
     except prompts_bella.Recusa as erro:
         return Resposta().diz(f"🖼️ Não criei o prompt: {erro}.")
     if not texto:
-        return Resposta().diz("😶 Não consegui criar o prompt agora. Tente de novo em instantes.")
+        from nucleo import grok as _grok
+        motivo = _grok.motivo()
+        return Resposta().diz("😶 Não consegui criar o prompt agora" + (f": {motivo}." if motivo else ".") + " Tente de novo em instantes.")
     _registrar(db, conta, canal, None, "bella", "prompt")
     r = Resposta().diz(texto)
     r.mensagens[-1]["falado"] = prompts_bella.FALADO

@@ -361,7 +361,9 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
         texto = bella_conversa.responder(p.texto, conta.id)
         falar = texto
     if not texto:
-        raise HTTPException(503, "O Grok não respondeu. Confira a chave e o modelo de texto no servidor.")
+        from nucleo import grok
+        motivo = grok.motivo()
+        raise HTTPException(503, "O Grok não respondeu" + (f": {motivo}." if motivo else ". Confira a chave e o modelo de texto no servidor."))
     mensagens = [{"texto": texto, "falado": falar}]
     if pedido is not None:
         texto = prompts_bella.MARCA_PROMPT + "\n" + texto       # a tela abre a caixa de copiar

@@ -553,7 +553,7 @@ def test_modelo_extrair_tudo_da_referencia(monkeypatch):
     assert pb.criar("extrair tudo da imagem de referência", "c", "modelo", referencia_anexa=ref)
     instr, entrada, kw = vistos[0]
     assert "MODO EXTRAÇÃO TOTAL" in instr and "TATUAGENS" in instr and "PIERCINGS" in instr
-    assert "extraia TUDO" in entrada and "[[" not in entrada and kw["imagens"] == [ref] and kw["max_tokens"] == 3072
+    assert "extraia TUDO" in entrada and "[[" not in entrada and kw["imagens"] == [ref] and kw["max_tokens"] == 8000
     assert pb.criar("mas com cabelo loiro, extrair tudo", "c", "modelo", referencia_anexa=ref)
     assert vistos[1][1].startswith("Pedido: mas com cabelo loiro\n") and "MODO EXTRAÇÃO TOTAL" in vistos[1][0]
     assert pb.criar("[[extrair-tudo]]", "c", "modelo", referencia_anexa=ref) and "MODO EXTRAÇÃO TOTAL" in vistos[2][0]
@@ -561,4 +561,36 @@ def test_modelo_extrair_tudo_da_referencia(monkeypatch):
     assert pb.criar("extrair tudo, ruiva", "c", "modelo")
     assert "MODO EXTRAÇÃO TOTAL" not in vistos[3][0] and vistos[3][1] == "Pedido: ruiva"
     assert pb.criar("ruiva", "c", "modelo", referencia_anexa=ref)
-    assert "MODO EXTRAÇÃO TOTAL" not in vistos[4][0] and vistos[4][2]["max_tokens"] == 2048
+    assert "MODO EXTRAÇÃO TOTAL" not in vistos[4][0] and vistos[4][2]["max_tokens"] == 4096
+
+
+def _cliente_grok(monkeypatch, resposta):
+    class Cliente:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def post(self, url, **kwargs): return resposta(url)
+    monkeypatch.setattr(grok.httpx, "Client", Cliente)
+
+
+def test_prompt_longo_demais_tenta_de_novo_e_motivo_aparece(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    chamadas = []
+    def gerar(instr, texto, **kw):
+        chamadas.append((texto, kw))
+        return "x" * 4200 if len(chamadas) == 1 else _prompt_valido()
+    monkeypatch.setattr(grok, "gerar", gerar)
+    assert pb.criar("ruiva", "c", "modelo")
+    assert len(chamadas) == 2 and "ATENÇÃO" in chamadas[1][0] and "longo demais" in chamadas[1][0]
+    chamadas.clear()
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: chamadas.append(1) or "curto")
+    assert pb.criar("ruiva", "c", "modelo") is None and len(chamadas) == 2
+    assert "curto demais" in grok.motivo()
+
+def test_grok_registra_motivo_de_resposta_incompleta(monkeypatch):
+    monkeypatch.setattr(config, "GROK_API_KEY", "k")
+    _cliente_grok(monkeypatch, lambda url: httpx.Response(200, request=httpx.Request("POST", url), json={
+        "status": "incomplete", "incomplete_details": {"reason": "max_output_tokens"}, "output": []}))
+    assert grok.gerar("r", "p") is None and "max_output_tokens" in grok.motivo()
+    _cliente_grok(monkeypatch, lambda url: httpx.Response(402, request=httpx.Request("POST", url), json={"error": "no credits"}))
+    assert grok.gerar("r", "p") is None and "HTTP 402" in grok.motivo()

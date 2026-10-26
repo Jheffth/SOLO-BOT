@@ -1,16 +1,29 @@
 """Geração de texto xAI, sem ferramentas, sem histórico e sem registrar segredos."""
 import logging
+import threading
 import time
 import httpx
 import config
 
 log = logging.getLogger("solobot.grok")
 API = "https://api.x.ai/v1/responses"
+_ULTIMO = threading.local()
+
+
+def registrar_motivo(texto):
+    _ULTIMO.motivo = texto
+
+
+def motivo():
+    """Por que a última chamada desta thread não deu resposta (sem segredos), ou "" se não houve falha."""
+    return getattr(_ULTIMO, "motivo", "") or ""
 
 
 def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, timeout=18, historico=None,
           imagens=None, modelo=None):
+    _ULTIMO.motivo = ""
     if not config.GROK_API_KEY:
+        _ULTIMO.motivo = "a chave GROK_API_KEY não está definida no servidor"
         return None
     regra = instrucao + ("\nResponda somente um objeto JSON válido, sem cercas Markdown." if json_saida else "")
     modelo = modelo or config.GROK_TEXT_MODEL
@@ -28,16 +41,29 @@ def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, t
     try:
         with httpx.Client(timeout=timeout, follow_redirects=False) as cliente:
             r = cliente.post(API, headers={"Authorization": "Bearer " + config.GROK_API_KEY}, json=corpo)
+        if r.status_code >= 400:
+            try:
+                detalhe = str(r.json().get("error") or r.json().get("message") or "")[:140]
+            except Exception:
+                detalhe = ""
+            _ULTIMO.motivo = f"a xAI recusou a chamada (HTTP {r.status_code}){': ' + detalhe if detalhe else ''}"
         r.raise_for_status()
         dados = r.json()
         if dados.get("status") != "completed":
+            razao = (dados.get("incomplete_details") or {}).get("reason") or dados.get("status")
+            _ULTIMO.motivo = f"a resposta do Grok veio incompleta ({razao}); o limite de tokens pode ter acabado"
             return None
         saida = "".join(p.get("text", "") for item in dados.get("output", [])
                         if item.get("type") == "message" and item.get("role") == "assistant"
                         for p in item.get("content", []) if p.get("type") == "output_text").strip()
+        if not saida:
+            _ULTIMO.motivo = "o Grok devolveu uma resposta vazia"
         return saida or None
     except Exception as erro:
         log.warning("Grok texto indisponível: %s", type(erro).__name__)
+        if not _ULTIMO.motivo:
+            _ULTIMO.motivo = ("o Grok demorou demais para responder (tempo esgotado)" if "Timeout" in type(erro).__name__
+                              else f"falha ao falar com o Grok ({type(erro).__name__})")
         return None
 
 

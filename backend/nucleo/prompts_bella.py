@@ -5,6 +5,8 @@ não muda; só mudam o cenário, o gesto, a expressão, a roupa, a luz e o fundo
 imagens, e só entrega o prompt a quem pediu.
 """
 import base64
+import logging
+import time
 import re
 import threading
 import time
@@ -20,6 +22,9 @@ _REFERENCIA_MIN = 15
 _REFERENCIAS = {}                       # chave -> (quando, mime, base64): só na RAM, some em 15 min
 MIMES_IMAGEM = ("image/jpeg", "image/png", "image/webp")
 MAX_IMAGEM = 6 * 1024 * 1024
+
+
+log = logging.getLogger("solobot.prompts")
 
 
 class Recusa(Exception):
@@ -469,32 +474,47 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
         base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "") + (INSTRUCAO_REFERENCIA_MODELO_TOTAL if tudo else "")
     else:
         base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "")
-    saida = grok.gerar(base, entrada, max_tokens=3072 if tudo else 2048, temperatura=1.0 if criativo else .9,
-                       timeout=70 if tudo else 60 if ref else 40, imagens=[ref] if ref else None,
-                       modelo=(config.GROK_VISION_MODEL or None) if ref else None)
-    if not saida:
-        return None
-    saida = re.sub(r"^```[a-z]*\s*|\s*```$", "", saida.strip()).strip()
-    saida = re.sub(r"\s*Ela se exibe sem falar nada.*$", "", saida, flags=re.S | re.I).rstrip()
-    if saida.upper().startswith("RECUSA"):
-        raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
-    if roupa or pose:   # troca de roupa/pose em imagem externa: sem 9:16 e sem a tag de movimento
-        inicios = ("vista a pessoa", "dress the person") if roupa else ("recrie a pessoa", "recreate the person")
-        if (len(saida) < 600 or len(saida) > MAX_PROMPT or not saida.lower().startswith(inicios)
-                or any(ord(c) < 32 and c not in "\n\r\t" for c in saida)):
-            return None
-        if chave is not None:
-            _lembrar(chave, categoria)
-        return saida
-    if (len(saida) < 800 or len(saida) + len(TAG_FINAL) + 1 > MAX_PROMPT or "9:16" not in saida
-            or any(ord(c) < 32 and c not in "\n\r\t" for c in saida)):
-        return None
-    saida = saida + "\n" + TAG_FINAL
-    if categoria in ("realismo", "criativo"):
-        biblioteca_prompts.registrar(saida, categoria, ambiente, roupa_base)
-    if chave is not None:
-        _lembrar(chave, categoria)
-    return saida
-
+    orcamento = 70 if tudo else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
+    inicio = time.monotonic()
+    tokens = 8000 if tudo else 4096 if ref else 2048      # o raciocínio do modelo também conta nesse limite
+    aviso = ""
+    for tentativa in (1, 2):
+        restante = orcamento - (time.monotonic() - inicio)
+        if tentativa == 2 and restante < 15:
+            break
+        saida = grok.gerar(base, entrada + aviso, max_tokens=tokens, temperatura=1.0 if criativo else .9,
+                           timeout=max(10, restante), imagens=[ref] if ref else None,
+                           modelo=(config.GROK_VISION_MODEL or None) if ref else None)
+        if not saida:
+            return None          # grok.motivo() diz o que aconteceu (chave, saldo, tempo, resposta incompleta…)
+        saida = re.sub(r"^```[a-z]*\s*|\s*```$", "", saida.strip()).strip()
+        saida = re.sub(r"\s*Ela se exibe sem falar nada.*$", "", saida, flags=re.S | re.I).rstrip()
+        if saida.upper().startswith("RECUSA"):
+            raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
+        if roupa or pose:   # troca de roupa/pose em imagem externa: sem 9:16 e sem a tag de movimento
+            inicios = ("vista a pessoa", "dress the person") if roupa else ("recrie a pessoa", "recreate the person")
+            motivo = ("curto demais" if len(saida) < 600 else "longo demais" if len(saida) > MAX_PROMPT
+                      else "não começa pelo texto fixo do modelo" if not saida.lower().startswith(inicios)
+                      else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")
+            if not motivo:
+                if chave is not None:
+                    _lembrar(chave, categoria)
+                return saida
+        else:
+            motivo = ("curto demais" if len(saida) < 800 else "longo demais" if len(saida) + len(TAG_FINAL) + 1 > MAX_PROMPT
+                      else "sem a proporção 9:16 do modelo" if "9:16" not in saida
+                      else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")
+            if not motivo:
+                saida = saida + "\n" + TAG_FINAL
+                if categoria in ("realismo", "criativo"):
+                    biblioteca_prompts.registrar(saida, categoria, ambiente, roupa_base)
+                if chave is not None:
+                    _lembrar(chave, categoria)
+                return saida
+        grok.registrar_motivo(f"o prompt veio {motivo} ({len(saida)} caracteres)")
+        log.warning("Prompt %s rejeitado na tentativa %d: %s (%d caracteres)", categoria, tentativa, motivo, len(saida))
+        aviso = ("\nATENÇÃO: sua resposta anterior foi rejeitada porque veio " + motivo + ". Entregue o prompt completo seguindo o "
+                 "MODELO, com todo o texto fixo (incluindo 9:16), em texto simples e com no máximo 3400 caracteres.")
+    return None
 
 FALADO = "Pronto, o prompt está na tela. Quer outro? Diga próximo aleatório."
