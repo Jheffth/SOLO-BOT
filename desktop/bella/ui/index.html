@@ -62,6 +62,9 @@
     <button class="enviar" id="btn-anexo" type="button" title="Anexar imagem de referência (ou cole com Ctrl + V)" aria-label="Anexar imagem de referência">
       <svg viewBox="0 0 24 24"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15 7"/></svg>
     </button>
+    <button class="enviar" id="btn-video" type="button" title="Extrair frames de um vídeo" aria-label="Extrair frames de um vídeo">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z"/></svg>
+    </button>
     <span class="tecla">Ctrl Alt B</span>
     <button class="enviar" id="btn-enviar" type="submit" title="Enviar">
       <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
@@ -95,6 +98,73 @@
       <input type="file" id="ref-arquivo" accept="image/png,image/jpeg,image/webp" hidden>
       <label class="marcar"><input type="checkbox" id="extrair-tudo"> Extrair tudo da imagem (no /promptmodelo)</label>
       <small class="montar-dica">Com a caixa marcada, o /promptmodelo copia da imagem o penteado, a cor e o formato do cabelo, olhos, rosto, boca, pele, corpo, tatuagens, piercings, anéis e joias, roupas, expressão, pose, cenário e luz.</small>
+    </section>
+    <section class="ferramenta" id="ferr-frames">
+      <h3>Frames de vídeo</h3>
+      <p>Abra um vídeo e escolha exatamente o quadro que quiser: o primeiro, o último, um instante ou vários de uma vez. Tudo é feito aqui no computador, o vídeo não sai dele.</p>
+      <div class="ref-area" id="fr-area">
+        <video id="fr-video" controls playsinline preload="auto" hidden></video>
+        <span class="vazio" id="fr-vazio">Nenhum vídeo aberto (ou arraste um para cá)</span>
+      </div>
+      <div class="montar-acoes">
+        <button class="btn" id="fr-anexar" type="button">Abrir vídeo</button>
+        <button class="btn" id="fr-tirar" type="button" hidden>Fechar vídeo</button>
+      </div>
+      <input type="file" id="fr-arquivo" accept="video/*,.mkv,.avi,.mov" hidden>
+      <div id="fr-controles" hidden>
+        <input type="range" id="fr-pos" min="0" max="10000" value="0" aria-label="Posição no vídeo">
+        <div class="fr-info"><b id="fr-tempo">00:00.000</b><small id="fr-num"></small></div>
+        <div class="fr-linha">
+          <button class="btn mini" id="fr-primeiro" type="button" title="Ir ao primeiro quadro">⏮ Primeiro</button>
+          <button class="btn mini" id="fr-m10" type="button" title="Voltar 10 segundos">−10s</button>
+          <button class="btn mini" id="fr-m1" type="button" title="Voltar 1 segundo">−1s</button>
+          <button class="btn mini" id="fr-q-1" type="button" title="Quadro anterior">◀ quadro</button>
+          <button class="btn mini" id="fr-q1" type="button" title="Próximo quadro">quadro ▶</button>
+          <button class="btn mini" id="fr-p1" type="button" title="Avançar 1 segundo">+1s</button>
+          <button class="btn mini" id="fr-p10" type="button" title="Avançar 10 segundos">+10s</button>
+          <button class="btn mini" id="fr-ultimo" type="button" title="Ir ao último quadro">Último ⏭</button>
+          <button class="btn mini" id="fr-play" type="button">▶ Tocar</button>
+        </div>
+        <div class="fr-linha">
+          <input id="fr-tempo-in" placeholder="Ir para: 12.5 · 1:02.5 · 120q" aria-label="Ir para um instante ou quadro" autocomplete="off">
+          <button class="btn mini" id="fr-ir" type="button">Ir</button>
+        </div>
+        <div class="fr-linha">
+          <button class="btn pri" id="fr-pegar" type="button">Pegar este quadro</button>
+          <button class="btn" id="fr-pegar-ultimo" type="button">Pegar o último</button>
+          <button class="btn" id="fr-pegar-primeiro" type="button">Pegar o primeiro</button>
+        </div>
+        <div class="fr-linha">
+          <button class="btn mini" id="fr-marcar-ini" type="button">Marcar início</button>
+          <button class="btn mini" id="fr-marcar-fim" type="button">Marcar fim</button>
+          <button class="btn mini" id="fr-limpar-marcas" type="button">Limpar marcas</button>
+        </div>
+        <small class="montar-dica" id="fr-marcas"></small>
+        <div class="fr-linha">
+          <select id="fr-modo" aria-label="Modo de extração em lote">
+            <option value="intervalo">Quantidade + intervalo</option>
+            <option value="uniforme">Distribuídos no vídeo todo</option>
+            <option value="marcas">Entre início e fim marcados</option>
+          </select>
+          <select id="fr-formato" aria-label="Formato da imagem">
+            <option value="png">PNG (sem perda)</option>
+            <option value="jpg">JPG (menor)</option>
+          </select>
+        </div>
+        <div class="fr-linha">
+          <label class="fr-campo">Quadros <input type="number" id="fr-qtd" min="1" max="80" value="10"></label>
+          <label class="fr-campo" id="fr-ms-linha">A cada (ms) <input type="number" id="fr-ms" min="1" value="100"></label>
+          <button class="btn pri" id="fr-extrair" type="button">Extrair</button>
+          <button class="btn" id="fr-parar" type="button" hidden>Parar</button>
+        </div>
+        <small class="montar-dica" id="fr-dica-modo"></small>
+      </div>
+      <small class="montar-dica" id="fr-n" aria-live="polite"></small>
+      <div class="fr-galeria" id="fr-galeria"></div>
+      <div class="fr-linha" id="fr-galeria-acoes" hidden>
+        <button class="btn mini" id="fr-salvar-todos" type="button">Salvar todos</button>
+        <button class="btn mini" id="fr-limpar-galeria" type="button">Limpar galeria</button>
+      </div>
     </section>
     <section class="ferramenta" id="ferr-criativo">
       <h3>Criativo</h3>
@@ -335,5 +405,6 @@
 <script src="bella.js"></script>
 <script src="ferramentas-dados.js"></script>
 <script src="ferramentas.js"></script>
+<script src="frames.js"></script>
 </body>
 </html>

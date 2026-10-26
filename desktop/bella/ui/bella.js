@@ -487,6 +487,7 @@
       ocupada: () => estado.ocupada,
       aviso: t => toast(t, true),
       temAnexo: () => !!anexo,
+      anexar: url => { anexo = url; mostrarAnexo(url); toast("Quadro anexado como referência."); },
       fechar: () => lateral(false),
       enviar: t => { $("entrada").value = t; $("compositor").dispatchEvent(new Event("submit", { cancelable: true })); },
       inserir: t => { $("entrada").value = t; $("entrada").focus(); }
@@ -495,6 +496,7 @@
     try { if (localStorage.getItem("bella.lateral") === "1") lateral(true); } catch (e) { }
     // Referência de roupa para o prompt: botão, Ctrl+V ou arrastar a imagem para a janela
     $("btn-anexo").onclick = () => $("anexo-arquivo").click();
+    $("btn-video").onclick = () => { lateral(true); setTimeout(() => { const s = $("ferr-frames"); if (s) s.scrollIntoView({ block: "start", behavior: "smooth" }); }, 80); };
     $("anexo-arquivo").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) anexar(f); };
     $("anexo-x").onclick = () => { tirarAnexo(); $("entrada").focus(); };
     // Ctrl + V com imagem funciona em qualquer lugar da tela (campo de texto, painel de ferramentas…)
