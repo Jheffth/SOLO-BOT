@@ -333,9 +333,7 @@
       const linha = document.createElement("div"); linha.className = "fala-ela";
       const av = document.createElement("div"); av.className = "rosto av"; av.setAttribute("data-avatar", "pequeno");
       const bolha = document.createElement("div"); bolha.className = "ela";
-      const sep = separarNota(m.texto);
-      if (ehPrompt(sep.texto)) montarPrompt(bolha, sep.texto); else montarResposta(bolha, sep.texto || "", m.opcoes || []);
-      if (sep.nota) { const nota = document.createElement("small"); nota.className = "nota-teste"; nota.textContent = sep.nota; bolha.appendChild(nota); }
+      if (ehPrompt(m.texto)) montarPrompt(bolha, m.texto); else montarResposta(bolha, m.texto || "", m.opcoes || []);
       linha.appendChild(av); linha.appendChild(bolha); c.appendChild(linha);
       aplicarAvatar();
     }
@@ -345,14 +343,6 @@
   // ── Prompt de imagem: caixa com rolagem e um clique para copiar ──
   const RE_PROMPT = /^\s*(?:Use a imagem da nova modelo como refer[êe]ncia|Crie uma modelo original com as seguintes|Vista a pessoa da imagem de refer[êe]ncia|Recrie a pessoa da imagem de refer[êe]ncia)/i;
   const MARCA_PROMPT = "[[prompt]]";
-  // "Usar API Grok de Testes": o servidor lê a marca no fim do pedido, usa a chave de testes e devolve uma linha [[nota]]
-  const MARCA_TESTE = "[[grok-teste]]", MARCA_NOTA = "[[nota]]";
-  const testeLigado = () => { const c = $("grok-teste"); return !!(c && c.checked); };
-  const comTeste = texto => (testeLigado() && /^\/(prompt|posehot)/i.test(texto)) ? texto + " " + MARCA_TESTE : texto;
-  function separarNota(texto) {
-    const t = String(texto || ""), i = t.lastIndexOf(MARCA_NOTA);
-    return i < 0 ? { texto: t, nota: "" } : { texto: t.slice(0, i).trimEnd(), nota: t.slice(i + MARCA_NOTA.length).trim() };
-  }
   function ehPrompt(texto) {
     // o servidor marca todo prompt (de qualquer categoria, inclusive as futuras) com [[prompt]] no começo
     if (typeof texto === "string" && texto.trimStart().startsWith(MARCA_PROMPT)) return true;
@@ -472,9 +462,9 @@
         // com referência anexa, o texto é o pedido do prompt (vazio = prompt aleatório com as roupas da imagem)
         const img = anexo; if (!t) t = "crie um prompt com essa referência";
         $("entrada").value = ""; tirarAnexo();
-        return enviar("enviar", { texto: comTeste(t), exibir: "🖼️ " + t, imagem: img });
+        return enviar("enviar", { texto: t, exibir: "🖼️ " + t, imagem: img });
       }
-      $("entrada").value = ""; enviar("enviar", { texto: comTeste(t) });
+      $("entrada").value = ""; enviar("enviar", { texto: t });
     };
     // Ferramentas laterais: recolhível; a primeira é o "Criativo" (prompt fora da biblioteca)
     const lateral = (abrir) => {
@@ -489,11 +479,17 @@
       if (estado.ocupada) return toast("Espere eu terminar o pedido anterior.");
       const tema = $("criativo-tema").value.trim(); $("criativo-tema").value = "";
       lateral(false);
-      enviar("enviar", { texto: comTeste("/promptcriativo" + (tema ? " " + tema : "")), exibir: "✨ Prompt criativo" + (tema ? ": " + tema : "") });
+      enviar("enviar", { texto: "/promptcriativo" + (tema ? " " + tema : ""), exibir: "✨ Prompt criativo" + (tema ? ": " + tema : "") });
     };
     $("criativo-ir").onclick = criarCriativo;
-    try { $("grok-teste").checked = localStorage.getItem("bella.grokTeste") === "1"; } catch (e) { }
-    $("grok-teste").onchange = e => { try { localStorage.setItem("bella.grokTeste", e.target.checked ? "1" : "0"); } catch (x) { } };
+    // ponte para o painel de ferramentas (ferramentas.js): enviar ao chat reaproveita o envio normal do campo de texto
+    window.bellaApi = {
+      ocupada: () => estado.ocupada,
+      aviso: t => toast(t, true),
+      fechar: () => lateral(false),
+      enviar: t => { $("entrada").value = t; $("compositor").dispatchEvent(new Event("submit", { cancelable: true })); },
+      inserir: t => { $("entrada").value = t; $("entrada").focus(); }
+    };
     $("criativo-tema").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); criarCriativo(); } });
     try { if (localStorage.getItem("bella.lateral") === "1") lateral(true); } catch (e) { }
     // Referência de roupa para o prompt: botão, Ctrl+V ou arrastar a imagem para a janela

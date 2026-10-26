@@ -1,5 +1,4 @@
 """Geração de texto xAI, sem ferramentas, sem histórico e sem registrar segredos."""
-import contextvars
 import logging
 import time
 import httpx
@@ -8,54 +7,10 @@ import config
 log = logging.getLogger("solobot.grok")
 API = "https://api.x.ai/v1/responses"
 
-# Modo de testes: por pedido (nunca global). Quando ligado, usa GROK_API_KEY_TESTE e anota o resultado da chamada
-# (tokens, custo se a xAI informar, ou o motivo da recusa) para a Bella mostrar. Nunca guarda a chave.
-_TESTE = contextvars.ContextVar("grok_teste", default=None)
-
-
-def iniciar_teste():
-    """Liga o modo de testes no pedido atual. Devolve o dicionário que acumula o resultado."""
-    estado = {"chamadas": 0, "tokens_in": 0, "tokens_out": 0, "custo_usd": None, "erro": None}
-    _TESTE.set(estado)
-    return estado
-
-
-def encerrar_teste():
-    _TESTE.set(None)
-
-
-def nota_teste(estado):
-    """Uma linha para a tela: o que a API de testes respondeu. Só texto, sem segredos."""
-    if estado["erro"]:
-        return "🧪 API Grok de Testes: " + estado["erro"]
-    if not estado["chamadas"]:
-        return "🧪 API Grok de Testes ligada, mas este pedido não chamou o Grok."
-    custo = f", custo informado US$ {estado['custo_usd']:.4f}" if estado["custo_usd"] is not None else ", a xAI não informou custo"
-    return (f"🧪 API Grok de Testes: ok ({estado['chamadas']} chamada(s), {estado['tokens_in']} tokens de entrada, "
-            f"{estado['tokens_out']} de saída{custo}).")
-
-
-def _motivo(r):
-    try:
-        corpo = r.json()
-        detalhe = corpo.get("error") or corpo.get("message") or ""
-        if isinstance(detalhe, dict):
-            detalhe = detalhe.get("message", "")
-        detalhe = str(detalhe)[:160]
-    except Exception:
-        detalhe = ""
-    dica = {401: "chave recusada", 403: "sem permissão ou sem créditos/saldo nessa chave",
-            402: "sem créditos/saldo", 429: "limite de uso atingido"}.get(r.status_code, "")
-    return f"recusada (HTTP {r.status_code}{', ' + dica if dica else ''}){': ' + detalhe if detalhe else ''}"
-
 
 def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, timeout=18, historico=None,
           imagens=None, modelo=None):
-    teste = _TESTE.get()
-    chave = config.GROK_API_KEY_TESTE if teste is not None else config.GROK_API_KEY
-    if not chave:
-        if teste is not None:
-            teste["erro"] = "defina GROK_API_KEY_TESTE no .env do servidor."
+    if not config.GROK_API_KEY:
         return None
     regra = instrucao + ("\nResponda somente um objeto JSON válido, sem cercas Markdown." if json_saida else "")
     modelo = modelo or config.GROK_TEXT_MODEL
@@ -72,19 +27,9 @@ def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, t
         corpo["reasoning"] = {"effort": "low"}
     try:
         with httpx.Client(timeout=timeout, follow_redirects=False) as cliente:
-            r = cliente.post(API, headers={"Authorization": "Bearer " + chave}, json=corpo)
-        if teste is not None and r.status_code >= 400:
-            teste["erro"] = _motivo(r)
+            r = cliente.post(API, headers={"Authorization": "Bearer " + config.GROK_API_KEY}, json=corpo)
         r.raise_for_status()
         dados = r.json()
-        if teste is not None:
-            teste["chamadas"] += 1
-            uso = dados.get("usage") or {}
-            teste["tokens_in"] += int(uso.get("input_tokens") or 0)
-            teste["tokens_out"] += int(uso.get("output_tokens") or 0)
-            ticks = uso.get("cost_in_usd_ticks")
-            if isinstance(ticks, (int, float)):
-                teste["custo_usd"] = (teste["custo_usd"] or 0) + ticks / 1e10
         if dados.get("status") != "completed":
             return None
         saida = "".join(p.get("text", "") for item in dados.get("output", [])
@@ -93,8 +38,6 @@ def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, t
         return saida or None
     except Exception as erro:
         log.warning("Grok texto indisponível: %s", type(erro).__name__)
-        if teste is not None and not teste["erro"]:
-            teste["erro"] = f"falhou sem resposta da xAI ({type(erro).__name__})."
         return None
 
 

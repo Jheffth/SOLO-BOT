@@ -85,10 +85,27 @@
       <input id="criativo-tema" maxlength="300" placeholder="Tema (opcional): praia, cosplay, festa…" aria-label="Tema do prompt criativo" autocomplete="off">
       <button class="btn criativo-ir" id="criativo-ir" type="button">Criar prompt criativo</button>
     </section>
-    <section class="ferramenta" id="ferr-teste">
-      <h3>API do Grok</h3>
-      <label class="marcar"><input type="checkbox" id="grok-teste"> Usar API Grok de Testes</label>
-      <p>Os prompts (/prompt, /promptmodelo, /promptroupa, /posehot e o Criativo) passam a usar a chave de testes do servidor, e a Bella mostra embaixo se a API aceitou, quantos tokens usou e, se der erro, o motivo (por exemplo, falta de créditos).</p>
+    <section class="ferramenta" id="ferr-atalhos">
+      <h3>Enviar ao chat</h3>
+      <p>Um toque envia o comando na hora (prompt aleatório). Se houver imagem anexada, ela vai junto.</p>
+      <div class="atalhos" id="atalhos"></div>
+    </section>
+    <section class="ferramenta" id="ferr-montar">
+      <h3>Montar pedido</h3>
+      <p>Escolha o comando, toque nas opções (cabelo, maquiagem, tatuagem que cobre uma parte do corpo, roupa, cenário…) e envie. Tudo entra no pedido do prompt.</p>
+      <div class="seg" id="montar-cmd" role="group" aria-label="Comando"></div>
+      <small class="montar-dica" id="montar-dica"></small>
+      <div class="itens" id="montar-itens" aria-live="polite"></div>
+      <textarea id="montar-extra" rows="2" maxlength="400" placeholder="Mais detalhes (opcional): escreva o que quiser…" aria-label="Mais detalhes do pedido"></textarea>
+      <small class="montar-conta" id="montar-conta"></small>
+      <div class="montar-acoes">
+        <button class="btn pri" id="montar-enviar" type="button">Enviar ao chat</button>
+        <button class="btn" id="montar-campo" type="button" title="Põe o texto no campo de mensagem para você editar">Pôr no campo</button>
+        <button class="btn" id="montar-sorte" type="button" title="Escolhe várias opções ao acaso">🎲 Surpreenda-me</button>
+        <button class="btn" id="montar-limpar" type="button">Limpar</button>
+      </div>
+      <input id="montar-busca" type="search" placeholder="Buscar opção (ex.: tatuagem, ruivo, praia)…" aria-label="Buscar opção" autocomplete="off">
+      <div class="grupos" id="montar-grupos"></div>
     </section>
   </aside>
   <p class="rodape"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>A escuta de espera fica no seu computador</p>
@@ -296,5 +313,7 @@
 <div class="toasts" id="toasts"></div>
 <script src="avatar.js"></script>
 <script src="bella.js"></script>
+<script src="ferramentas-dados.js"></script>
+<script src="ferramentas.js"></script>
 </body>
 </html>
