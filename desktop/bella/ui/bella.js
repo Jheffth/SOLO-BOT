@@ -342,7 +342,11 @@
 
   // ── Prompt de imagem: caixa com rolagem e um clique para copiar ──
   const RE_PROMPT = /^\s*(?:Use a imagem da nova modelo como refer[êe]ncia|Crie uma modelo original com as seguintes)/i;
-  function ehPrompt(texto) { return typeof texto === "string" && texto.length > 600 && RE_PROMPT.test(texto); }
+  function ehPrompt(texto) {
+    // pelo começo fixo do modelo, ou pelo conteúdo (o Grok às vezes muda a primeira linha)
+    return typeof texto === "string" && texto.length > 600 &&
+      (RE_PROMPT.test(texto) || (/9:16/.test(texto) && /n[ãa]o cruzar as pernas/i.test(texto)));
+  }
   function copiarTexto(caixa, texto) {
     const manual = () => { caixa.focus(); caixa.select(); try { return document.execCommand("copy"); } catch (e) { return false; } };
     if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(texto).then(() => true, () => manual());

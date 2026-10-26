@@ -17,6 +17,8 @@ vm.runInContext(fonte.slice(fonte.indexOf('  const RE_PROMPT'), fonte.indexOf(' 
 const prompt = 'Use a imagem da nova modelo como referência principal. ' + 'x'.repeat(700);
 assert.equal(contexto.ehPrompt(prompt), true);
 assert.equal(contexto.ehPrompt('Oi, tudo bem?'), false);
+assert.equal(contexto.ehPrompt('Crie uma modelo nova. Proporção vertical 9:16. ' + 'x'.repeat(700) + ' não cruzar as pernas.'), true);   // primeira linha diferente
+assert.equal(contexto.ehPrompt('Falei de 9:16 e ' + 'x'.repeat(700)), false);
 assert.equal(contexto.ehPrompt('Crie uma modelo original com as seguintes características: ' + 'x'.repeat(700)), true);
 assert.equal(contexto.ehPrompt('Use a imagem da nova modelo como referência'), false);   // curto demais: conversa comum
 const bolha = new Elemento('div');
