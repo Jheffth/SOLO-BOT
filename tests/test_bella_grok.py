@@ -578,7 +578,7 @@ def test_prompt_longo_demais_tenta_de_novo_e_motivo_aparece(monkeypatch):
     chamadas = []
     def gerar(instr, texto, **kw):
         chamadas.append((texto, kw))
-        return "x" * 4200 if len(chamadas) == 1 else _prompt_valido()
+        return "x" * 8200 if len(chamadas) == 1 else _prompt_valido()
     monkeypatch.setattr(grok, "gerar", gerar)
     assert pb.criar("ruiva", "c", "modelo")
     assert len(chamadas) == 2 and "ATENÇÃO" in chamadas[1][0] and "longo demais" in chamadas[1][0]
@@ -594,3 +594,16 @@ def test_grok_registra_motivo_de_resposta_incompleta(monkeypatch):
     assert grok.gerar("r", "p") is None and "max_output_tokens" in grok.motivo()
     _cliente_grok(monkeypatch, lambda url: httpx.Response(402, request=httpx.Request("POST", url), json={"error": "no credits"}))
     assert grok.gerar("r", "p") is None and "HTTP 402" in grok.motivo()
+
+
+def test_prompt_longo_e_dividido_nos_canais(monkeypatch):
+    from canais import partes, telegram
+    texto = "\n\n".join(("Parágrafo %d. " % i) + "palavra " * 120 for i in range(9))
+    assert len(texto) > 7000
+    p = partes.dividir(texto)
+    assert len(p) >= 2 and all(len(x) <= 3800 for x in p) and "".join(p).replace("\n", "").replace(" ", "") == texto.replace("\n", "").replace(" ", "")
+    assert partes.dividir("curto") == ["curto"]
+    enviados = []
+    monkeypatch.setattr(telegram, "_chamar", lambda metodo, corpo: enviados.append(corpo) or {"ok": True})
+    telegram.enviar("1", texto, teclado={"k": 1})
+    assert len(enviados) == len(p) and "reply_markup" in enviados[-1] and "reply_markup" not in enviados[0]

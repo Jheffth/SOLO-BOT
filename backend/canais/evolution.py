@@ -31,9 +31,12 @@ def _req(metodo: str, caminho: str, corpo: dict = None) -> dict:
 
 
 def enviar(jid: str, texto: str) -> dict:
+    from canais.partes import dividir
     numero = jid.split("@")[0]
-    return _req("POST", f"/message/sendText/{config.EVOLUTION_INSTANCE}",
-                {"number": numero, "text": texto[:4000]})
+    r = {}
+    for parte in dividir(texto):        # texto longo (prompt) vai em várias mensagens, nunca cortado
+        r = _req("POST", f"/message/sendText/{config.EVOLUTION_INSTANCE}", {"number": numero, "text": parte})
+    return r
 
 
 def enviar_audio(jid: str, audio_b64: str) -> dict:

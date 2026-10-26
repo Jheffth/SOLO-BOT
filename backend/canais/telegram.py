@@ -26,15 +26,21 @@ def _chamar(metodo: str, corpo: dict) -> dict:
 
 
 def enviar(chat_id: str, texto: str, teclado=None) -> dict:
-    corpo = {"chat_id": chat_id, "text": texto[:4000], "parse_mode": "Markdown",
-             "disable_web_page_preview": True}
-    if teclado:
-        corpo["reply_markup"] = teclado
-    r = _chamar("sendMessage", corpo)
-    if not r.get("ok") and "parse" in str(r.get("description", "")).lower():
-        # Markdown quebrado (um "_" solto num nome) não pode calar o bot.
-        corpo.pop("parse_mode")
+    from canais.partes import dividir
+    partes = dividir(texto)             # texto longo (prompt) vai em várias mensagens, nunca cortado
+    r = {}
+    for i, parte in enumerate(partes):
+        corpo = {"chat_id": chat_id, "text": parte, "parse_mode": "Markdown",
+                 "disable_web_page_preview": True}
+        if teclado and i == len(partes) - 1:
+            corpo["reply_markup"] = teclado
         r = _chamar("sendMessage", corpo)
+        if not r.get("ok") and "parse" in str(r.get("description", "")).lower():
+            # Markdown quebrado (um "_" solto num nome) não pode calar o bot.
+            corpo.pop("parse_mode")
+            r = _chamar("sendMessage", corpo)
+        if not r.get("ok"):
+            break
     return r
 
 

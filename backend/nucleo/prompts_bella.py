@@ -14,7 +14,7 @@ import time
 import config
 from nucleo import biblioteca_prompts, grok
 
-MAX_PROMPT = 3900            # cabe numa mensagem do Telegram (4096)
+MAX_PROMPT = 8000            # Telegram e WhatsApp dividem em várias mensagens (canais/partes.py); o Bella.exe mostra inteiro
 _CONTEXTO_MIN = 30
 _ULTIMA = {}
 _TRAVA = threading.Lock()
@@ -95,7 +95,7 @@ Regras do trabalho:
 - Termine o prompt em "não cruzar as pernas." O sistema acrescenta sozinho a tag final (movimento e Spicy mode):
   não escreva essa tag nem nada depois do fim do modelo.
 - Saída: apenas o prompt, em texto simples, sem título, sem explicações, sem Markdown, sem comentários
-  antes ou depois e com no máximo 3500 caracteres.
+  antes ou depois e com no máximo 7000 caracteres.
 
 MODELO:
 """ + MODELO_REALISMO
@@ -143,7 +143,7 @@ referência anteriores, exceto as de idade, recusa e anonimato:
   cor da cena (aqui o cenário DA IMAGEM é usado, em vez de sortear um novo).
 - Coloque cada informação no campo certo entre colchetes e AMPLIE os campos quanto for preciso para caber tudo
   (frases curtas e específicas), sem apagar o texto fixo do modelo. Se o espaço apertar, mantenha todo o texto fixo e
-  priorize rosto, cabelo, pele, tatuagens, piercings, joias, roupa e cenário. Respeite o limite de 3500 caracteres.
+  priorize rosto, cabelo, pele, tatuagens, piercings, joias, roupa e cenário. Respeite o limite de 7000 caracteres.
 - Só descreva o que se vê; o que não estiver visível, escolha de forma coerente ou omita. Nunca invente tatuagens
   ou piercings que não existam. Continue sem dizer quem é a pessoa e sem usar nome.
 - Um pedido escrito junto continua mandando sobre a imagem (por exemplo "mas com cabelo loiro")."""
@@ -195,7 +195,7 @@ Regras do trabalho:
   e o motivo curto, sem prompt.
 - Termine o prompt em "não cruzar as pernas." O sistema acrescenta sozinho a tag final: não escreva essa tag.
 - Saída: apenas o prompt, em texto simples, sem título, sem explicações, sem Markdown, sem comentários antes ou
-  depois e com no máximo 3500 caracteres.
+  depois e com no máximo 7000 caracteres.
 
 MODELO:
 """ + MODELO_NOVA
@@ -514,7 +514,7 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
         grok.registrar_motivo(f"o prompt veio {motivo} ({len(saida)} caracteres)")
         log.warning("Prompt %s rejeitado na tentativa %d: %s (%d caracteres)", categoria, tentativa, motivo, len(saida))
         aviso = ("\nATENÇÃO: sua resposta anterior foi rejeitada porque veio " + motivo + ". Entregue o prompt completo seguindo o "
-                 "MODELO, com todo o texto fixo (incluindo 9:16), em texto simples e com no máximo 3400 caracteres.")
+                 "MODELO, com todo o texto fixo (incluindo 9:16), em texto simples e com no máximo 6500 caracteres.")
     return None
 
 FALADO = "Pronto, o prompt está na tela. Quer outro? Diga próximo aleatório."
