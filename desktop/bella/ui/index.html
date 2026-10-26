@@ -80,6 +80,22 @@
       <button class="icobtn" id="lateral-fechar" type="button" title="Recolher" aria-label="Recolher as ferramentas"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
     </header>
     <div class="lateral-corpo" id="lateral-corpo">
+    <section class="ferramenta" id="ferr-ref">
+      <h3>Imagem de referência</h3>
+      <p>Anexe, cole (Ctrl + V) ou arraste uma imagem para a janela. Ela vale para /promptmodelo, /promptroupa e /posehot, e continua aparecendo no chat, onde também dá para anexar.</p>
+      <div class="ref-area" id="ref-area">
+        <img id="ref-img" alt="Referência anexada" hidden>
+        <span class="vazio" id="ref-vazio">Nenhuma imagem anexada</span>
+      </div>
+      <div class="montar-acoes">
+        <button class="btn" id="ref-anexar" type="button">Anexar imagem</button>
+        <button class="btn" id="ref-colar" type="button" title="Cola a imagem copiada (ou use Ctrl + V)">Colar</button>
+        <button class="btn" id="ref-tirar" type="button" hidden>Tirar</button>
+      </div>
+      <input type="file" id="ref-arquivo" accept="image/png,image/jpeg,image/webp" hidden>
+      <label class="marcar"><input type="checkbox" id="extrair-tudo"> Extrair tudo da imagem (no /promptmodelo)</label>
+      <small class="montar-dica">Com a caixa marcada, o /promptmodelo copia da imagem o penteado, a cor e o formato do cabelo, olhos, rosto, boca, pele, corpo, tatuagens, piercings, anéis e joias, roupas, expressão, pose, cenário e luz.</small>
+    </section>
     <section class="ferramenta" id="ferr-criativo">
       <h3>Criativo</h3>
       <p>A Bella inventa um prompt novo, fora da biblioteca, sem repetir os que já saíram.</p>

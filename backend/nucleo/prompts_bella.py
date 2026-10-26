@@ -121,6 +121,28 @@ REFERÊNCIA ANEXADA: junto do pedido há uma imagem. Ela é o guia da modelo nov
 - Se a pessoa da imagem parecer menor de idade, ou for uma pessoa famosa que você reconheça, ou a imagem não
   mostrar uma pessoa utilizável, responda somente com uma linha começando por "RECUSA:" e o motivo curto, sem prompt."""
 
+INSTRUCAO_REFERENCIA_MODELO_TOTAL = """
+
+MODO EXTRAÇÃO TOTAL (o dono pediu para extrair TUDO da imagem de referência). Isto vale acima das regras da
+referência anteriores, exceto as de idade, recusa e anonimato:
+- Observe a imagem com atenção e descreva, de forma concreta e fiel, TUDO o que é visível: tom de pele e subtom;
+  formato do rosto (oval, redondo, quadrado, coração, alongado), testa, maçãs, queixo e mandíbula; sobrancelhas
+  (formato, espessura, cor); olhos (cor exata, formato, distância, cílios); nariz; boca e lábios (volume, formato,
+  cor); dentes, se aparecerem; pescoço; cabelo (cor exata com reflexos, comprimento, textura, volume, corte, franja,
+  repartição, penteado e estado: solto, preso, molhado, bagunçado); corpo (altura aparente, porte, ombros, busto,
+  cintura, quadris, braços, pernas, abdômen); sardas, pintas, cicatrizes, marcas de sol e de biquíni; TATUAGENS (desenho,
+  tamanho, cor, lado e local exato no corpo); PIERCINGS (tipo, material e local); anéis, colares, brincos, pulseiras,
+  relógio e outras joias; unhas (formato e cor); maquiagem (olhos, batom, blush, contorno); roupa peça por peça (cor,
+  tecido, corte, decote, caimento, costuras), calçados e acessórios.
+- Também use da imagem a expressão e a direção do olhar, a pose e a posição das mãos, o cenário, o fundo, a luz e a
+  cor da cena (aqui o cenário DA IMAGEM é usado, em vez de sortear um novo).
+- Coloque cada informação no campo certo entre colchetes e AMPLIE os campos quanto for preciso para caber tudo
+  (frases curtas e específicas), sem apagar o texto fixo do modelo. Se o espaço apertar, mantenha todo o texto fixo e
+  priorize rosto, cabelo, pele, tatuagens, piercings, joias, roupa e cenário. Respeite o limite de 3500 caracteres.
+- Só descreva o que se vê; o que não estiver visível, escolha de forma coerente ou omita. Nunca invente tatuagens
+  ou piercings que não existam. Continue sem dizer quem é a pessoa e sem usar nome.
+- Um pedido escrito junto continua mandando sobre a imagem (por exemplo "mas com cabelo loiro")."""
+
 MODELO_NOVA = """Crie uma modelo original com as seguintes características: [SEXO E IDADE: mulher de 19 anos], [TOM DE PELE E ETNIA], [CABELO: cor, comprimento, textura e estilo], [OLHOS: cor e formato], [ROSTO: traços marcantes], [CORPO: altura e porte naturais e proporcionais], [DETALHES: sardas, pintas, piercing discreto ou tatuagem pequena, se houver]. Aparência de pessoa real, natural, com identidade facial consistente em toda a imagem.
 
 Recrie a cena em estilo realista de foto casual tirada com câmera frontal de smartphone.
@@ -295,6 +317,8 @@ _PEDIDO_POSE = re.compile(
     r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
     r"prompt\s+(?:de\s+|da\s+|para\s+)(?:poses?)\b)"
     r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+# "extrair tudo da imagem" (checkbox das Ferramentas, ou escrito no pedido de /promptmodelo)
+_EXTRAIR_TUDO = re.compile(r"\bextra(?:ir|ia|a|i)\s+tudo(?:\s+d[aeo]s?\s+(?:imagem|refer[eê]ncia|foto|fotos))?(?:\s+de\s+refer[eê]ncia)?|\[\[extrair-tudo\]\]", re.I)
 _ALEATORIO_RE = re.compile(r"(?:aleat[oó]ri[oa]|qualquer\s+um|surpreenda[\s\-]?me)[.!]*", re.I)
 _PROXIMO = re.compile(r"^\s*(?:pr[oó]xim[oa]|outr[oa]|mais\s+um[a]?)\s+aleat[oó]ri[oa]\s*[.!]*\s*$", re.IGNORECASE)
 
@@ -403,6 +427,9 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
             limpar_referencia(chave)
         pedido = sem.group(1).strip()
     modelo_novo = categoria == "modelo"
+    tudo = bool(_EXTRAIR_TUDO.search(pedido))
+    if tudo:
+        pedido = re.sub(r"\s{2,}", " ", _EXTRAIR_TUDO.sub("", pedido)).strip(" ,.;:-–")
     roupa = categoria == "roupa"
     pose = categoria == "pose"
     ref = (referencia_anexa or (referencia(chave) if chave is not None else None)) if not sem else None
@@ -421,7 +448,12 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
                        + jaque)
     if modelo_novo and not pedido:
         entrada = "Pedido: tudo aleatório. Sorteie uma modelo nova (pele, cabelo, rosto, corpo), roupa e cenário diferentes dos últimos."
-    if ref and modelo_novo and not pedido:
+    tudo = tudo and modelo_novo and bool(ref)
+    if tudo:
+        entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
+            "Modo extração total: extraia TUDO da imagem de referência (rosto, cabelo, pele, corpo, tatuagens, piercings, joias, "
+            "roupa, expressão, pose, cenário, fundo e luz) e descreva a modelo e a cena com o máximo de fidelidade.")
+    elif ref and modelo_novo and not pedido:
         entrada = "Pedido: crie a modelo a partir das características da imagem de referência; cenário à sua escolha."
     elif ref and not pedido:
         entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
@@ -434,11 +466,11 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None):
         if ref and not pedido:
             entrada = "Pedido: copie fielmente toda a roupa da imagem de referência."
     elif modelo_novo:
-        base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "")
+        base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "") + (INSTRUCAO_REFERENCIA_MODELO_TOTAL if tudo else "")
     else:
         base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "")
-    saida = grok.gerar(base, entrada, max_tokens=2048, temperatura=1.0 if criativo else .9,
-                       timeout=60 if ref else 40, imagens=[ref] if ref else None,
+    saida = grok.gerar(base, entrada, max_tokens=3072 if tudo else 2048, temperatura=1.0 if criativo else .9,
+                       timeout=70 if tudo else 60 if ref else 40, imagens=[ref] if ref else None,
                        modelo=(config.GROK_VISION_MODEL or None) if ref else None)
     if not saida:
         return None

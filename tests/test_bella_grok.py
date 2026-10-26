@@ -542,3 +542,23 @@ def test_biblioteca_tem_dezenas_de_prompts_e_o_evitar_varia(monkeypatch, tmp_pat
     assert "hinata" not in textos and "emília" not in textos          # personagens de aparência infantil ficam de fora
     amostras = {tuple(bib.evitar(12)) for _ in range(8)}
     assert len(amostras) > 1                                          # não mostra sempre as mesmas primeiras entradas
+
+
+def test_modelo_extrair_tudo_da_referencia(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or _prompt_valido())
+    ref = ("image/jpeg", "abc")
+    assert pb.criar("extrair tudo da imagem de referência", "c", "modelo", referencia_anexa=ref)
+    instr, entrada, kw = vistos[0]
+    assert "MODO EXTRAÇÃO TOTAL" in instr and "TATUAGENS" in instr and "PIERCINGS" in instr
+    assert "extraia TUDO" in entrada and "[[" not in entrada and kw["imagens"] == [ref] and kw["max_tokens"] == 3072
+    assert pb.criar("mas com cabelo loiro, extrair tudo", "c", "modelo", referencia_anexa=ref)
+    assert vistos[1][1].startswith("Pedido: mas com cabelo loiro\n") and "MODO EXTRAÇÃO TOTAL" in vistos[1][0]
+    assert pb.criar("[[extrair-tudo]]", "c", "modelo", referencia_anexa=ref) and "MODO EXTRAÇÃO TOTAL" in vistos[2][0]
+    # sem imagem, ou em outra categoria, o pedido vira normal e o modo não liga
+    assert pb.criar("extrair tudo, ruiva", "c", "modelo")
+    assert "MODO EXTRAÇÃO TOTAL" not in vistos[3][0] and vistos[3][1] == "Pedido: ruiva"
+    assert pb.criar("ruiva", "c", "modelo", referencia_anexa=ref)
+    assert "MODO EXTRAÇÃO TOTAL" not in vistos[4][0] and vistos[4][2]["max_tokens"] == 2048

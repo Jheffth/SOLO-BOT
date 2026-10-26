@@ -486,6 +486,7 @@
     window.bellaApi = {
       ocupada: () => estado.ocupada,
       aviso: t => toast(t, true),
+      temAnexo: () => !!anexo,
       fechar: () => lateral(false),
       enviar: t => { $("entrada").value = t; $("compositor").dispatchEvent(new Event("submit", { cancelable: true })); },
       inserir: t => { $("entrada").value = t; $("entrada").focus(); }
@@ -496,10 +497,23 @@
     $("btn-anexo").onclick = () => $("anexo-arquivo").click();
     $("anexo-arquivo").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) anexar(f); };
     $("anexo-x").onclick = () => { tirarAnexo(); $("entrada").focus(); };
-    $("entrada").addEventListener("paste", e => {
+    // Ctrl + V com imagem funciona em qualquer lugar da tela (campo de texto, painel de ferramentas…)
+    document.addEventListener("paste", e => {
       const itens = (e.clipboardData && e.clipboardData.items) || [];
       for (const it of itens) if (it.kind === "file" && /^image\//.test(it.type)) { e.preventDefault(); const f = it.getAsFile(); if (f) anexar(f); return; }
     });
+    // painel de ferramentas: anexar, colar, tirar e soltar a imagem
+    $("ref-anexar").onclick = () => $("ref-arquivo").click();
+    $("ref-arquivo").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) anexar(f); };
+    $("ref-tirar").onclick = () => tirarAnexo();
+    $("ref-colar").onclick = async () => {
+      try {
+        const itens = await navigator.clipboard.read();
+        for (const it of itens) { const tipo = it.types.find(t => /^image\/(png|jpeg|webp)$/.test(t)); if (tipo) { const blob = await it.getType(tipo); return anexar(new File([blob], "colada", { type: tipo })); } }
+        toast("Não há imagem copiada na área de transferência.", true);
+      } catch (e) { toast("Não consegui ler a área de transferência. Use Ctrl + V.", true); }
+    };
+    ["dragover", "dragleave", "drop"].forEach(n => $("ref-area").addEventListener(n, e => { e.preventDefault(); $("ref-area").classList.toggle("sobre", n === "dragover"); }));
     document.addEventListener("drop", e => {
       if (e.target.closest && e.target.closest("#soltar")) return;
       if (!$("gaveta") || $("gaveta").classList.contains("aberta")) return;
@@ -632,14 +646,22 @@
 
   // ── Foto: ler, reduzir e recortar ──────────────────────────
   let anexo = null;
-  function tirarAnexo() { anexo = null; $("anexo").hidden = true; $("anexo-img").removeAttribute("src"); }
+  // a mesma referência aparece no chat (#anexo) e no painel de ferramentas (#ref-img)
+  function mostrarAnexo(url) {
+    const tem = !!url;
+    if (tem) { $("anexo-img").src = url; if ($("ref-img")) $("ref-img").src = url; }
+    else { $("anexo-img").removeAttribute("src"); if ($("ref-img")) $("ref-img").removeAttribute("src"); }
+    $("anexo").hidden = !tem;
+    if ($("ref-img")) { $("ref-img").hidden = !tem; $("ref-vazio").hidden = tem; $("ref-tirar").hidden = !tem; }
+  }
+  function tirarAnexo() { anexo = null; mostrarAnexo(null); }
   function anexar(f) {
     if (!/^image\/(png|jpeg|webp)$/.test(f.type)) return toast("Use uma imagem JPG, PNG ou WEBP.", true);
     if (f.size > 25 * 1024 * 1024) return toast("Essa imagem é grande demais (máximo 25 MB).", true);
     const leitor = new FileReader();
     leitor.onload = () => reduzir(leitor.result, 1280, .85).then(url => {
-      anexo = url; $("anexo-img").src = url; $("anexo").hidden = false;
-      toast("Referência anexada. Peça o prompt (ou só envie) para eu usar as roupas dela.");
+      anexo = url; mostrarAnexo(url);
+      toast("Referência anexada. Peça o prompt (ou só envie) para eu usar a imagem.");
       $("entrada").focus();
     }).catch(() => toast("Não consegui abrir essa imagem.", true));
     leitor.readAsDataURL(f);

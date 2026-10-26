@@ -136,7 +136,9 @@
   function enviar(cmd, corpo) {
     const api = window.bellaApi; if (!api) return;
     if (api.ocupada()) return aviso("Espere eu terminar o pedido anterior.");
-    const t = (cmd + (corpo ? " " + corpo : "")).trim();
+    const tudo = $("extrair-tudo") && $("extrair-tudo").checked && cmd === "/promptmodelo";
+    if (tudo && !api.temAnexo()) return aviso("Anexe a imagem de referência para extrair tudo dela.");
+    const t = (cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "")).trim();
     if (t.length > LIMITE + 40) return aviso("O pedido ficou muito grande. Tire alguns itens.");
     api.fechar(); api.enviar(t);
   }
