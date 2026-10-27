@@ -65,6 +65,8 @@ def listar_vozes(forcar=False) -> list:
         for v in bruto if isinstance(bruto, list) else []:
             if isinstance(v, str):
                 v = {"id": v}
+            if v.get("type") == "openai_alias":
+                continue                       # alloy, nova…: apelidos da API, não são vozes de verdade
             ident = str(v.get("voice_id") or v.get("id") or v.get("name") or "").strip()
             if not ident or ident in vistos:
                 continue

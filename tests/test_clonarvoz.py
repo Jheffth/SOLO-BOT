@@ -6,6 +6,9 @@ from test_audio import _voz_tg
 from test_fluxos import _ligar_telegram, _tg
 
 
+VOZES = [{"voice_id": "a1", "nome": "Bella Original"}, {"voice_id": "b2", "nome": "Jefferson"}]
+
+
 def _admin(cliente):
     r = cliente.post("/api/auth/cadastro", json={"nome": "Arq", "usuario": "arq", "email": "arquiteto@solo.dev",
                                                   "senha": "12345678"})
@@ -23,6 +26,7 @@ def _preparar(monkeypatch, resultado=None):
         criados.append((nome, conteudo, mime))
         return resultado or {"ok": True, "id": "ab12cd34", "nome": nome}
     monkeypatch.setattr(voicestudio, "criar_perfil", criar)
+    monkeypatch.setattr(voicestudio, "listar_vozes", lambda forcar=False: list(VOZES))
     return criados
 
 
@@ -57,7 +61,7 @@ def test_falha_do_voicestudio_e_explicada(cliente, caixa, monkeypatch):
     _ligar_telegram(c)
     _tg(c, "/clonarvoz Teste")
     _voz_tg(c, duracao=15)
-    assert "computador desligado" in caixa[-1][2] and "/clonarvoz Teste" in caixa[-1][2]
+    assert "computador desligado" in caixa[-1][2] and "/clonarvoz repetir" in caixa[-1][2]
 
 
 def test_conta_comum_nao_clona(logado, caixa, monkeypatch):
@@ -100,3 +104,90 @@ def test_criacao_usa_tempo_proprio_maior_que_o_da_fala(monkeypatch):
     monkeypatch.setattr(voicestudio.httpx, "Client", Cli)
     assert voicestudio.criar_perfil("A", b"a", "audio/ogg")["ok"]
     assert visto["timeout"].read == 240
+
+
+def _gravada(cliente):
+    import database
+    with database.SessionLocal() as db:
+        return database.ler_config(voicestudio.CHAVE_VOZ)
+
+
+def test_vozes_lista_numerada_e_marca_a_que_esta_em_uso(cliente, caixa, monkeypatch):
+    c = _admin(cliente)
+    _preparar(monkeypatch)
+    monkeypatch.setattr(voicestudio, "voz_id", lambda: "b2")
+    _ligar_telegram(c)
+    _tg(c, "/vozes")
+    t = caixa[-1][2]
+    assert "1. Bella Original" in t and "2. Jefferson" in t and "em uso" in t.split("2. Jefferson")[1].splitlines()[0]
+    assert "motor de voz" in t                                  # o motor padrão não é VoiceStudio
+
+
+def test_usarvoz_por_numero_nome_e_ambiguidade(cliente, caixa, monkeypatch):
+    c = _admin(cliente)
+    _preparar(monkeypatch)
+    _ligar_telegram(c)
+    _tg(c, "/usarvoz 2")
+    assert "Jefferson" in caixa[-1][2] and _gravada(c) == "b2"
+    _tg(c, "/usarvoz bella")                                    # sem acento/maiúscula, por trecho
+    assert _gravada(c) == "a1"
+    _tg(c, "/usarvoz inexistente")
+    assert "Não achei" in caixa[-1][2] and _gravada(c) == "a1"
+    VOZES.append({"voice_id": "c3", "nome": "Bella Segunda"})
+    try:
+        _tg(c, "/usarvoz bella")
+        assert "Mais de uma" in caixa[-1][2] and _gravada(c) == "a1"
+    finally:
+        VOZES.pop()
+
+
+def test_testarvoz_manda_texto_e_audio(cliente, caixa, monkeypatch):
+    c = _admin(cliente)
+    _preparar(monkeypatch)
+    monkeypatch.setattr(voicestudio, "voz_id", lambda: "a1")
+    monkeypatch.setattr(voicestudio, "disponivel", lambda: True)
+    pedidos = []
+    monkeypatch.setattr(voicestudio, "sintetizar", lambda t, canal, **k: pedidos.append((t, canal)) or {"base64": "QUJD", "mime": "audio/ogg"})
+    _ligar_telegram(c)
+    _tg(c, "/testarvoz oi gente")
+    assert pedidos == [("oi gente", "telegram")]
+    assert caixa[-2][2].startswith("🎙️ Voz *Bella Original*") and caixa[-1][0] == "voz-telegram"
+    monkeypatch.setattr(voicestudio, "sintetizar", lambda *a, **k: None)
+    _tg(c, "/testarvoz")
+    assert "não gerou" in caixa[-1][2]
+
+
+def test_conta_comum_nao_mexe_nas_vozes(logado, caixa, monkeypatch):
+    _preparar(monkeypatch)
+    _ligar_telegram(logado)
+    for cmd in ("/vozes", "/usarvoz 1", "/testarvoz"):
+        _tg(logado, cmd)
+        assert "administradora" in caixa[-1][2]
+
+
+def test_repetir_usa_a_amostra_guardada_depois_de_falha(cliente, caixa, monkeypatch):
+    from nucleo import roteador
+    c = _admin(cliente)
+    roteador._AMOSTRAS.clear()
+    respostas = [{"ok": False, "erro": "o VoiceStudio demorou demais"}, {"ok": True, "id": "n1", "nome": "Nova"}]
+    criados = []
+    _preparar(monkeypatch)
+    monkeypatch.setattr(voicestudio, "criar_perfil", lambda n, b, m: criados.append((n, b)) or respostas.pop(0))
+    _ligar_telegram(c)
+    _tg(c, "/clonarvoz Nova")
+    _voz_tg(c, duracao=20)
+    assert "/clonarvoz repetir" in caixa[-1][2]
+    _tg(c, "/clonarvoz repetir")                                # sem reenviar o áudio
+    assert criados == [("Nova", b"AMOSTRA"), ("Nova", b"AMOSTRA")]
+    assert "criada" in caixa[-1][2]
+    _tg(c, "/clonarvoz repetir")
+    assert "Não tenho nenhuma amostra" in caixa[-1][2]
+
+
+def test_nao_duplica_voz_com_o_mesmo_nome(cliente, caixa, monkeypatch):
+    c = _admin(cliente)
+    criados = _preparar(monkeypatch)
+    _ligar_telegram(c)
+    _tg(c, "/clonarvoz jefferson")                              # já existe "Jefferson"
+    _voz_tg(c, duracao=20)
+    assert criados == [] and "Já existe" in caixa[-1][2] and "/usarvoz Jefferson" in caixa[-1][2]

@@ -109,3 +109,13 @@ Exige o computador com o VoiceStudio ligado e alcançável pela VPS (mesma conex
 e `VOICESTUDIO_API_KEY` com permissão de administrador. Clone apenas vozes suas ou com autorização.
 Falhas (computador desligado, chave recusada, amostra sem fala) voltam explicadas no chat.
 O pedido pendente fica só na memória do servidor: reiniciar o container o cancela.
+
+### Outros comandos de voz (só a conta administradora)
+
+- `/vozes`: lista as vozes do VoiceStudio (os apelidos da API, como alloy, não entram) e marca a que está em uso.
+- `/usarvoz Nome` ou `/usarvoz 2`: escolhe a voz (por nome, sem acento ou maiúscula, ou pelo número de `/vozes`).
+  Só troca a voz: o motor continua o escolhido no painel, e o aviso diz quando não for o VoiceStudio.
+- `/testarvoz [frase]`: gera a frase (padrão: uma saudação) com a voz atual e manda o áudio, com o tempo da geração.
+- `/clonarvoz repetir`: se a criação falhou ou estourou o tempo, o bot guarda a amostra por 30 minutos (só na memória)
+  e tenta de novo sem reenviar o áudio. Antes de criar, ele confere se já existe voz com aquele nome
+  e avisa em vez de duplicar. A criação tem tempo próprio (`VOICESTUDIO_CLONE_TIMEOUT`, 240 s).

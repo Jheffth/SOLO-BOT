@@ -267,7 +267,8 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/sair` — volta ao hub",
         "▸ `/conta` — canais e sistemas ligados",
         "▸ `/bella` — conversar com a Bella (modo adulto, `/esquecer` limpa a memória)",
-        "▸ `/clonarvoz Nome` — (administrador) cria uma voz clonada no VoiceStudio com o próximo áudio que você mandar",
+        "▸ `/clonarvoz Nome` — (administrador) cria uma voz clonada no VoiceStudio com o próximo áudio; `/clonarvoz repetir` tenta de novo",
+        "▸ `/vozes` · `/usarvoz Nome` · `/testarvoz` — (administrador) lista, escolhe e testa as vozes do VoiceStudio",
         "▸ `/prompt` — a Bella cria um prompt de imagem (realismo sensual): `/prompt cozinha, cosplay de odalisca`",
         "▸ `/promptmodelo` — cria uma modelo nova do zero (19 anos, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`",
         "▸ `/promptroupa` — descreve uma roupa (da foto que você mandar ou do pedido) para vestir em outra imagem, sem mexer no resto: `/promptroupa lingerie preta de renda`",
@@ -479,6 +480,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _bella_entrar(canal, conta, resto.strip())
     if cmd == "/clonarvoz":
         return _cmd_clonarvoz(conta, canal, origem, resto.strip())
+    if cmd in ("/vozes", "/usarvoz", "/testarvoz"):
+        return _cmd_vozes(db, conta, cmd, resto.strip(), canal)
     if cmd == "/esquecer":
         from nucleo import bella_conversa
         bella_conversa.esquecer(_chave_bella(canal, conta))
@@ -705,6 +708,12 @@ def _cmd_clonarvoz(conta: Conta, canal: str, origem: str, nome: str) -> Resposta
         return Resposta().diz("Tudo bem, cancelei a clonagem de voz.")
     if not voicestudio.disponivel_servidor():
         return Resposta().diz("🎙️ O VoiceStudio não está configurado no servidor (VOICESTUDIO_URL).")
+    if nome.lower() in ("repetir", "tentar de novo"):
+        guardada = _AMOSTRAS.get(chave)
+        if not guardada or guardada[0] < time.monotonic():
+            _AMOSTRAS.pop(chave, None)
+            return Resposta().diz("🎙️ Não tenho nenhuma amostra guardada para repetir. Use `/clonarvoz Nome` e mande o áudio.")
+        return _criar_voz(canal, origem, guardada[1], guardada[2], guardada[3])
     if not nome:
         return Resposta().diz("🎙️ Diga o nome da voz: `/clonarvoz Bella Casa`. Depois mande um áudio de 10 a 60 segundos.")
     _CLONAR[chave] = (time.monotonic() + CLONAR_ESPERA, nome[:60])
@@ -737,16 +746,95 @@ def _receber_amostra_de_voz(conta: Conta, canal: str, origem: str, conteudo: byt
     if 0 < segundos < CLONAR_MIN_SEGUNDOS:
         return Resposta().diz("🎙️ Esse áudio ficou curto. Mande um de pelo menos 10 segundos, falando normalmente.")
     _CLONAR.pop(chave, None)
+    return _criar_voz(canal, origem, pedido[1], conteudo, mime)
+
+
+_AMOSTRAS = {}                   # (canal, origem) -> (validade, nome, bytes, mime): só se a criação falhou
+AMOSTRA_GUARDADA = 30 * 60
+
+
+def _chave_nome(nome: str) -> str:
+    return re.sub(r"\s+", " ", _sem_acento(nome or "").lower()).strip()
+
+
+def _voz_existente(nome: str):
+    from nucleo import voicestudio
+    alvo = _chave_nome(nome)
+    return next((v for v in voicestudio.listar_vozes(forcar=True) if _chave_nome(v["nome"]) == alvo), None)
+
+
+def _criar_voz(canal: str, origem: str, nome: str, conteudo: bytes, mime: str) -> Resposta:
+    """Cria a voz clonada. Não duplica nome; se falhar, guarda a amostra para `/clonarvoz repetir`."""
+    import time
+    from nucleo import voicestudio
+    existe = _voz_existente(nome)
+    if existe:
+        return Resposta().diz(f"🎙️ Já existe uma voz chamada *{existe['nome']}*. Para usá-la: `/usarvoz {existe['nome']}`. "
+                              "Para criar outra, escolha outro nome em `/clonarvoz`.")
     try:        # a criação leva de segundos a minutos (o VoiceStudio transcreve a amostra): avisa que chegou
-        entrega_aviso(canal, origem, f"🎙️ Recebi a amostra. Criando a voz *{pedido[1]}*… pode levar 1 ou 2 minutos.")
+        entrega_aviso(canal, origem, f"🎙️ Recebi a amostra. Criando a voz *{nome}*… pode levar 1 ou 2 minutos.")
     except Exception:  # noqa: BLE001
         pass
-    r = voicestudio.criar_perfil(pedido[1], conteudo, mime)
+    r = voicestudio.criar_perfil(nome, conteudo, mime)
     if not r["ok"]:
-        return Resposta().diz(f"🎙️ Não consegui criar a voz: {r['erro']}. Mande `/clonarvoz {pedido[1]}` para tentar de novo.")
-    return Resposta().diz(
-        f"✅ Voz *{r['nome']}* criada no VoiceStudio. Para usar, abra Administração → Voz do bot → Motor de voz "
-        "e escolha o perfil na lista.")
+        _AMOSTRAS[(canal, str(origem))] = (time.monotonic() + AMOSTRA_GUARDADA, nome, conteudo, mime)
+        return Resposta().diz(f"🎙️ Não consegui criar a voz: {r['erro']}. Guardei a amostra por 30 minutos: "
+                              "mande `/clonarvoz repetir` para tentar de novo sem reenviar o áudio.")
+    _AMOSTRAS.pop((canal, str(origem)), None)
+    return Resposta().diz(f"✅ Voz *{r['nome']}* criada. Para usar: `/usarvoz {r['nome']}` (e `/testarvoz` para ouvir).")
+
+
+def _cmd_vozes(db: Session, conta: Conta, cmd: str, resto: str, canal: str) -> Resposta:
+    import time
+    from database import gravar_config
+    from nucleo import fala, voicestudio
+    if not conta.admin:
+        return Resposta().diz("🔒 Só a conta administradora pode mexer nas vozes.")
+    if not voicestudio.disponivel_servidor():
+        return Resposta().diz("🎙️ O VoiceStudio não está configurado no servidor (VOICESTUDIO_URL).")
+    vozes = voicestudio.listar_vozes(forcar=True)
+    if not vozes:
+        return Resposta().diz("🎙️ Não achei nenhuma voz no VoiceStudio (computador desligado ou sem conexão?). "
+                              "`/clonarvoz Nome` cria uma.")
+    atual = voicestudio.voz_id()
+    motor = fala.motor_escolhido()
+    if cmd == "/vozes":
+        linhas = [f"{i}. {v['nome']}{'  ✅ em uso' if v['voice_id'] == atual else ''}" for i, v in enumerate(vozes, 1)]
+        nota = "" if motor == "voicestudio" else f"\n_O motor de voz está em *{motor}*: o VoiceStudio só fala quando o motor for VoiceStudio (ou a ElevenLabs falhar)._"
+        return Resposta().diz("🎙️ *Vozes do VoiceStudio*\n" + "\n".join(linhas) + "\n\n`/usarvoz Nome` escolhe · `/testarvoz` ouve" + nota)
+    if cmd == "/usarvoz":
+        if not resto:
+            return Resposta().diz("🎙️ Diga qual: `/usarvoz Nome` ou `/usarvoz 2` (veja `/vozes`).")
+        achada = None
+        if resto.isdigit() and 1 <= int(resto) <= len(vozes):
+            achada = vozes[int(resto) - 1]
+        else:
+            alvo = _chave_nome(resto)
+            exatas = [v for v in vozes if _chave_nome(v["nome"]) == alvo]
+            parecidas = exatas or [v for v in vozes if alvo and alvo in _chave_nome(v["nome"])]
+            if len(parecidas) > 1:
+                return Resposta().diz("🎙️ Mais de uma voz combina: " + ", ".join(f"*{v['nome']}*" for v in parecidas[:6])
+                                      + ". Escreva o nome completo ou use o número de `/vozes`.")
+            achada = parecidas[0] if parecidas else None
+        if not achada:
+            return Resposta().diz(f"🎙️ Não achei a voz “{resto[:40]}”. Veja `/vozes`.")
+        gravar_config(db, voicestudio.CHAVE_VOZ, achada["voice_id"])
+        nota = "" if motor == "voicestudio" else f" Atenção: o motor está em *{motor}*; ela só fala quando o motor for VoiceStudio."
+        return Resposta().diz(f"✅ Voz *{achada['nome']}* escolhida.{nota} `/testarvoz` para ouvir.")
+    # /testarvoz
+    frase = (resto or "Oi, aqui é a Bella. Se você está me ouvindo, a minha voz está funcionando.")[:200]
+    nome = next((v["nome"] for v in vozes if v["voice_id"] == atual), None)
+    if not voicestudio.disponivel():
+        return Resposta().diz("🎙️ Escolha primeiro uma voz do VoiceStudio: `/usarvoz Nome`.")
+    inicio = time.monotonic()
+    audio = voicestudio.sintetizar(frase, "telegram" if canal == "telegram" else "whatsapp")
+    segundos = time.monotonic() - inicio
+    if not audio:
+        return Resposta().diz("🎙️ O VoiceStudio não gerou o áudio agora (computador desligado, ocupado ou voz com problema). "
+                              "Tente de novo em instantes.")
+    r = Resposta().diz(f"🎙️ Voz *{nome or atual}* · gerada em {segundos:.1f} s")
+    r.mensagens[-1]["audio"] = {"base64": audio["base64"], "mime": audio["mime"]}
+    return r
 
 
 def atender_audio(db: Session, canal: str, origem: str, conteudo: bytes, mime: str,
