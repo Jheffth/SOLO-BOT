@@ -250,35 +250,59 @@ def menu(db: Session, conta: Conta, prefixo: str = "") -> Resposta:
 
 
 def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
+    """A lista de comandos em blocos, cada um com o seu título, para achar o que se quer de relance."""
+    from nucleo import manifestos
     ligados = _sistemas_da_conta(db, conta)
-    linhas = ["🧭 *Solo Bot — comandos*", ""]
+    linhas = ["🧭 *Solo Bot — comandos*"]
+
+    def bloco(titulo: str, itens: List[str]):
+        linhas.extend(["", f"━━ {titulo} ━━", *itens])
+
     for m in ligados:
-        linhas.append(f"▸ `/{m.chave}` — falar com o {m.emoji} {m.nome}")
+        itens = [f"▸ `/{m.chave}` — entra no {m.nome} (as mensagens seguintes vão para ele)"]
         # O que o sistema declarou no manifesto dele: a ajuda do hub não
         # precisa ser reescrita a cada comando novo lá.
-        from nucleo import manifestos
         cmds = [c for c in manifestos.comandos_visiveis(db, m.chave) if c["comando"] != "/ajuda"]
         for c in cmds[:8]:
-            linhas.append(f"    `/{m.chave} {c['comando'].lstrip('/')}` — {c['descricao']}")
+            itens.append(f"    `/{m.chave} {c['comando'].lstrip('/')}` — {c['descricao']}")
         if len(cmds) > 8:
-            linhas.append(f"    _…e mais {len(cmds) - 8}: `/{m.chave} ajuda`_")
-    linhas += [
+            itens.append(f"    _…e mais {len(cmds) - 8}: `/{m.chave} ajuda`_")
+        bloco(f"{m.emoji} {m.nome.upper()}", itens)
+
+    bloco("💋 BELLA · MODO SAFADA", [
+        "▸ `/bella` (ou `/safada`) — conversa com a Bella: flerte, humor e, se estiver liberado, conteúdo adulto. "
+        "Fica nesse modo até você mandar `/sair`",
+        "▸ `/esquecer` — apaga a memória da conversa com a Bella",
+    ])
+    bloco("🖼️ BELLA · PROMPTS DE IMAGEM", [
+        "▸ `/prompt` — realismo sensual: `/prompt cozinha, cosplay de odalisca`",
+        "▸ `/promptmodelo` — modelo nova do zero (19 anos, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`. "
+        "Com uma foto junto, escreva *extrair tudo da imagem* para copiar penteado, rosto, tatuagens, joias e roupas",
+        "▸ `/promptroupa` — descreve uma roupa (da foto ou do pedido) para vestir em outra imagem: `/promptroupa lingerie preta de renda`",
+        "▸ `/posehot` — pose sensual de uma pessoa para aplicar em outra imagem: `/posehot de bruços olhando para trás`",
+        "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",
+        "    _Mande a foto junto para usar de referência. A opção *Sem sensualização* (prompts neutros) fica no painel do Solo Bot._",
+    ])
+    bloco("🔊 VOZ DAS RESPOSTAS", [
+        "▸ `/voz` — mostra como respondo; `/voz audio` (falo quando você manda áudio), `/voz sempre` ou `/voz nunca`",
+    ])
+    if conta.admin:
+        bloco("🎙️ CLONAGEM E VOZES (administrador)", [
+            "▸ `/clonarvoz Nome` — cria uma voz clonada no VoiceStudio com o próximo áudio que você mandar (10 a 15 s é o ideal)",
+            "▸ `/clonarvoz repetir` — tenta de novo com a amostra guardada (30 min), sem reenviar o áudio",
+            "▸ `/clonarvoz cancelar` — desiste da clonagem em andamento",
+            "▸ `/vozes` — lista as vozes do VoiceStudio e mostra a que está em uso",
+            "▸ `/usarvoz Nome` (ou o número) — escolhe a voz do bot",
+            "▸ `/testarvoz [frase]` — gera uma frase com a voz atual e manda o áudio",
+            "▸ `/apagarvoz` — lista as vozes; o número que você responder é apagado do VoiceStudio",
+        ])
+    bloco("🧭 NAVEGAÇÃO", [
         "▸ `/menu` — o cartão inicial",
-        "▸ `/sair` — volta ao hub",
         "▸ `/conta` — canais e sistemas ligados",
-        "▸ `/bella` — conversar com a Bella (modo adulto, `/esquecer` limpa a memória)",
-        "▸ `/clonarvoz Nome` — (administrador) cria uma voz clonada no VoiceStudio com o próximo áudio; `/clonarvoz repetir` tenta de novo",
-        "▸ `/vozes` · `/usarvoz Nome` · `/testarvoz` · `/apagarvoz` — (administrador) lista, escolhe, testa e apaga vozes do VoiceStudio",
-        "▸ `/prompt` — a Bella cria um prompt de imagem (realismo sensual): `/prompt cozinha, cosplay de odalisca`",
-        "▸ `/promptmodelo` — cria uma modelo nova do zero (19 anos, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`",
-        "▸ `/promptroupa` — descreve uma roupa (da foto que você mandar ou do pedido) para vestir em outra imagem, sem mexer no resto: `/promptroupa lingerie preta de renda`",
-        "▸ `/posehot` — prompt de pose sensual (uma pessoa, sozinha) para aplicar em outra imagem, da foto que você mandar ou do pedido: `/posehot de bruços olhando para trás`",
-        "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca, sem repetir os que já saíram: `/promptcriativo praia`",
-        "▸ `/voz` — responder falando (áudio, sempre ou nunca)",
-        "",
-        "_Dentro de um sistema, `/ajuda` mostra os comandos dele. "
-        f"O modo dura {config.MODO_MINUTOS} min sem mensagem._",
-    ]
+        "▸ `/sair` — volta ao hub",
+        "▸ `/ajuda` — esta lista (dentro de um sistema, mostra os comandos dele)",
+    ])
+    linhas += ["", f"_O modo dura {config.MODO_MINUTOS} min sem mensagem._"]
     return Resposta().diz("\n".join(linhas))
 
 

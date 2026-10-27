@@ -525,3 +525,10 @@ incluir conteúdo das mensagens, números, áudio ou credenciais nesses registro
 de tempo. Os tempos de síntese ElevenLabs e VoiceStudio já existentes continuam.
 Isso permite separar lentidão do provedor, do sistema conectado e do transporte.
 Não há medição de tempo real da VPS nos testes locais.
+
+## A lista de comandos (`/ajuda`)
+
+`_ajuda_hub` em `nucleo/roteador.py` monta a lista em blocos com título: um bloco por sistema conectado
+(comandos vindos do manifesto), Bella · Modo Safada, Bella · Prompts de imagem, Voz das respostas,
+Clonagem e vozes (só administrador) e Navegação. Comando novo do hub entra no bloco do seu assunto;
+a lista precisa caber numa mensagem do Telegram (o teste `test_ajuda_em_blocos_e_clonagem_so_para_admin` confere).

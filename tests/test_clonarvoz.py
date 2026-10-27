@@ -290,3 +290,27 @@ def test_apagar_perfil_http(monkeypatch):
     r = voicestudio.apagar_perfil("a1")
     assert not r["ok"] and "segredo" not in r["erro"]
     assert not voicestudio.apagar_perfil("../x")["ok"]
+
+
+def test_ajuda_em_blocos_e_clonagem_so_para_admin(cliente, caixa):
+    c = _admin(cliente)
+    _ligar_telegram(c)
+    _tg(c, "/ajuda")
+    t = caixa[-1][2]
+    for titulo in ("━━ 💋 BELLA · MODO SAFADA ━━", "━━ 🖼️ BELLA · PROMPTS DE IMAGEM ━━", "━━ 🔊 VOZ DAS RESPOSTAS ━━",
+                   "━━ 🎙️ CLONAGEM E VOZES (administrador) ━━", "━━ 🧭 NAVEGAÇÃO ━━"):
+        assert titulo in t
+    for cmd in ("/bella", "/safada", "/esquecer", "/prompt`", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo",
+                "/voz`", "/clonarvoz Nome", "/clonarvoz repetir", "/vozes", "/usarvoz", "/testarvoz", "/apagarvoz",
+                "/menu", "/conta", "/sair", "/ajuda"):
+        assert cmd in t, cmd
+    assert t.index("MODO SAFADA") < t.index("PROMPTS DE IMAGEM") < t.index("CLONAGEM") < t.index("NAVEGAÇÃO")
+    assert len(t) < 4096                                          # cabe numa mensagem do Telegram
+
+
+def test_ajuda_da_conta_comum_nao_mostra_clonagem(logado, caixa):
+    _ligar_telegram(logado)
+    _tg(logado, "/ajuda")
+    t = caixa[-1][2]
+    assert "CLONAGEM" not in t and "/apagarvoz" not in t and "/clonarvoz" not in t
+    assert "MODO SAFADA" in t and "NAVEGAÇÃO" in t
