@@ -34,6 +34,7 @@ def test_admin_clona_a_voz_com_o_proximo_audio(cliente, caixa, monkeypatch):
     assert "Bella Casa" in caixa[-1][2] and "10 a 60 segundos" in caixa[-1][2]
     _voz_tg(c, duracao=20)
     assert criados == [("Bella Casa", b"AMOSTRA", "audio/ogg")]
+    assert "Criando a voz" in caixa[-2][2]                      # aviso imediato, antes da espera
     assert "criada" in caixa[-1][2] and "Bella Casa" in caixa[-1][2]
     _voz_tg(c, duracao=20)                         # só vale UM áudio: o seguinte volta ao fluxo normal
     assert len(criados) == 1
@@ -82,3 +83,20 @@ def test_sem_nome_cancelar_e_sem_voicestudio(cliente, caixa, monkeypatch):
     monkeypatch.setattr(config, "VOICESTUDIO_URL", "")
     _tg(c, "/clonarvoz Outro")
     assert "não está configurado" in caixa[-1][2]
+
+
+def test_criacao_usa_tempo_proprio_maior_que_o_da_fala(monkeypatch):
+    import httpx
+    monkeypatch.setattr(config, "VOICESTUDIO_URL", "https://voice.internal")
+    monkeypatch.setattr(config, "VOICESTUDIO_TIMEOUT", 35)
+    monkeypatch.setattr(config, "VOICESTUDIO_CLONE_TIMEOUT", 240)
+    visto = {}
+
+    class Cli:
+        def __init__(self, *a, **k): visto.update(k)
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def post(self, *a, **k): return httpx.Response(200, json={"id": "x1"})
+    monkeypatch.setattr(voicestudio.httpx, "Client", Cli)
+    assert voicestudio.criar_perfil("A", b"a", "audio/ogg")["ok"]
+    assert visto["timeout"].read == 240

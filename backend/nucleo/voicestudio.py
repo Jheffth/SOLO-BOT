@@ -179,13 +179,13 @@ def criar_perfil(nome: str, conteudo: bytes, mime: str) -> dict:
     mime = (mime or "audio/ogg").split(";")[0].strip().lower() or "audio/ogg"
     headers = {"Authorization": "Bearer " + config.VOICESTUDIO_API_KEY} if config.VOICESTUDIO_API_KEY else {}
     try:
-        with httpx.Client(timeout=httpx.Timeout(config.VOICESTUDIO_TIMEOUT, connect=8.0),
+        with httpx.Client(timeout=httpx.Timeout(config.VOICESTUDIO_CLONE_TIMEOUT, connect=8.0),
                           follow_redirects=False) as cliente:
             r = cliente.post(raiz + "/profiles", headers=headers,
                              data={"name": nome, "kind": "clone", "language": "Auto"},
                              files={"ref_audio": ("amostra" + _EXTENSOES.get(mime, ".ogg"), conteudo, mime)})
     except httpx.TimeoutException:
-        return {"ok": False, "erro": "o VoiceStudio demorou demais (o computador pode estar ocupado)"}
+        return {"ok": False, "erro": "o VoiceStudio demorou demais (o computador pode estar ocupado). A voz ainda pode aparecer na lista em alguns minutos"}
     except Exception:  # noqa: BLE001
         log.warning("Nao consegui falar com o VoiceStudio para criar a voz.")
         return {"ok": False, "erro": "não consegui falar com o VoiceStudio (computador desligado ou sem conexão?)"}

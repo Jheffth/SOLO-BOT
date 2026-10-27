@@ -714,6 +714,14 @@ def _cmd_clonarvoz(conta: Conta, canal: str, origem: str, nome: str) -> Resposta
         "O computador com o VoiceStudio precisa estar ligado. `/clonarvoz cancelar` desiste.")
 
 
+def entrega_aviso(canal: str, origem: str, texto: str):
+    from canais import evolution, telegram
+    if canal == "telegram":
+        telegram.enviar(str(origem), texto)
+    elif canal == "whatsapp":
+        evolution.enviar(str(origem), render.para_whatsapp(texto))
+
+
 def _receber_amostra_de_voz(conta: Conta, canal: str, origem: str, conteudo: bytes, mime: str,
                             segundos: int) -> Optional[Resposta]:
     """Resposta se este áudio era a amostra pedida; None se não havia pedido (segue o fluxo normal)."""
@@ -729,6 +737,10 @@ def _receber_amostra_de_voz(conta: Conta, canal: str, origem: str, conteudo: byt
     if 0 < segundos < CLONAR_MIN_SEGUNDOS:
         return Resposta().diz("🎙️ Esse áudio ficou curto. Mande um de pelo menos 10 segundos, falando normalmente.")
     _CLONAR.pop(chave, None)
+    try:        # a criação leva de segundos a minutos (o VoiceStudio transcreve a amostra): avisa que chegou
+        entrega_aviso(canal, origem, f"🎙️ Recebi a amostra. Criando a voz *{pedido[1]}*… pode levar 1 ou 2 minutos.")
+    except Exception:  # noqa: BLE001
+        pass
     r = voicestudio.criar_perfil(pedido[1], conteudo, mime)
     if not r["ok"]:
         return Resposta().diz(f"🎙️ Não consegui criar a voz: {r['erro']}. Mande `/clonarvoz {pedido[1]}` para tentar de novo.")

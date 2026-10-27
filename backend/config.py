@@ -148,3 +148,5 @@ VOICESTUDIO_MODEL = _env("VOICESTUDIO_MODEL", "omnivoice")
 VOICESTUDIO_TIMEOUT = _inteiro("VOICESTUDIO_TIMEOUT", 35, 5, 300)
 # Mesmo padrao interativo do VoiceStudio; 32 prioriza qualidade sobre latencia.
 VOICESTUDIO_STEPS = _inteiro("VOICESTUDIO_STEPS", 5, 1, 128)
+# Criar uma voz clonada é mais lento que falar: o VoiceStudio transcreve a amostra antes de gravar o perfil.
+VOICESTUDIO_CLONE_TIMEOUT = _inteiro("VOICESTUDIO_CLONE_TIMEOUT", 240, 30, 900)
