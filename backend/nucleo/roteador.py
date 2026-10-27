@@ -268,7 +268,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/conta` — canais e sistemas ligados",
         "▸ `/bella` — conversar com a Bella (modo adulto, `/esquecer` limpa a memória)",
         "▸ `/clonarvoz Nome` — (administrador) cria uma voz clonada no VoiceStudio com o próximo áudio; `/clonarvoz repetir` tenta de novo",
-        "▸ `/vozes` · `/usarvoz Nome` · `/testarvoz` — (administrador) lista, escolhe e testa as vozes do VoiceStudio",
+        "▸ `/vozes` · `/usarvoz Nome` · `/testarvoz` · `/apagarvoz` — (administrador) lista, escolhe, testa e apaga vozes do VoiceStudio",
         "▸ `/prompt` — a Bella cria um prompt de imagem (realismo sensual): `/prompt cozinha, cosplay de odalisca`",
         "▸ `/promptmodelo` — cria uma modelo nova do zero (19 anos, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`",
         "▸ `/promptroupa` — descreve uma roupa (da foto que você mandar ou do pedido) para vestir em outra imagem, sem mexer no resto: `/promptroupa lingerie preta de renda`",
@@ -449,6 +449,10 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
                               "Envie somente o seu comando ou lançamento, sem os exemplos da resposta, "
                               "para evitar registros indevidos.")
 
+    pendente = _apagar_pendente(db, conta, canal, origem, txt)
+    if pendente is not None:
+        return pendente
+
     # WhatsApp: um número responde à última lista
     if canal in ("whatsapp", "siri", "bella") and txt.isdigit() and s.escolhas:
         escolhido = _resgatar_escolha(db, s, int(txt))
@@ -480,6 +484,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _bella_entrar(canal, conta, resto.strip())
     if cmd == "/clonarvoz":
         return _cmd_clonarvoz(conta, canal, origem, resto.strip())
+    if cmd == "/apagarvoz":
+        return _cmd_apagarvoz(db, conta, canal, origem, resto.strip())
     if cmd in ("/vozes", "/usarvoz", "/testarvoz"):
         return _cmd_vozes(db, conta, cmd, resto.strip(), canal)
     if cmd == "/esquecer":
@@ -782,6 +788,67 @@ def _criar_voz(canal: str, origem: str, nome: str, conteudo: bytes, mime: str) -
                               "mande `/clonarvoz repetir` para tentar de novo sem reenviar o áudio.")
     _AMOSTRAS.pop((canal, str(origem)), None)
     return Resposta().diz(f"✅ Voz *{r['nome']}* criada. Para usar: `/usarvoz {r['nome']}` (e `/testarvoz` para ouvir).")
+
+
+_APAGAR = {}                     # (canal, origem) -> (validade, [vozes mostradas]); só na RAM
+APAGAR_ESPERA = 3 * 60
+
+
+def _cmd_apagarvoz(db: Session, conta: Conta, canal: str, origem: str, resto: str) -> Resposta:
+    import time
+    from nucleo import voicestudio
+    chave = (canal, str(origem))
+    if not conta.admin:
+        return Resposta().diz("🔒 Só a conta administradora pode apagar vozes.")
+    if resto.lower() in ("cancelar", "cancela", "sair"):
+        _APAGAR.pop(chave, None)
+        return Resposta().diz("Tudo bem, não apaguei nada.")
+    if not voicestudio.disponivel_servidor():
+        return Resposta().diz("🎙️ O VoiceStudio não está configurado no servidor (VOICESTUDIO_URL).")
+    vozes = voicestudio.listar_vozes(forcar=True)
+    if not vozes:
+        return Resposta().diz("🎙️ Não achei nenhuma voz no VoiceStudio (computador desligado ou sem conexão?).")
+    _APAGAR[chave] = (time.monotonic() + APAGAR_ESPERA, list(vozes))
+    atual = voicestudio.voz_id()
+    linhas = [f"{i}. {v['nome']}{'  (em uso)' if v['voice_id'] == atual else ''}" for i, v in enumerate(vozes, 1)]
+    return Resposta().diz("🗑️ *Apagar voz do VoiceStudio*\n" + "\n".join(linhas)
+                          + "\n\nResponda com o *número* da voz que quer apagar. Não tem volta. "
+                          "Vale por 3 minutos; `/apagarvoz cancelar` desiste.")
+
+
+def _apagar_pendente(db: Session, conta: Conta, canal: str, origem: str, txt: str) -> Optional[Resposta]:
+    """Se há uma lista de `/apagarvoz` esperando, um número apaga; qualquer outra mensagem cancela."""
+    import time
+    from database import gravar_config
+    from nucleo import voicestudio
+    chave = (canal, str(origem))
+    pedido = _APAGAR.get(chave)
+    if not pedido:
+        return None
+    if pedido[0] < time.monotonic() or not conta.admin:
+        _APAGAR.pop(chave, None)
+        return None
+    if not txt.isdigit():
+        if txt.lower().split(" ")[0].split("@")[0] != "/apagarvoz":
+            _APAGAR.pop(chave, None)            # falou de outra coisa: a lista perde a validade
+        return None
+    _APAGAR.pop(chave, None)
+    n = int(txt)
+    vozes = pedido[1]
+    if not 1 <= n <= len(vozes):
+        _APAGAR[chave] = pedido                  # número fora da lista: pode tentar de novo
+        return Resposta().diz(f"🗑️ Escolha um número de 1 a {len(vozes)}, ou `/apagarvoz cancelar`.")
+    voz = vozes[n - 1]
+    r = voicestudio.apagar_perfil(voz["voice_id"])
+    if not r["ok"]:
+        return Resposta().diz(f"🗑️ Não consegui apagar *{voz['nome']}*: {r['erro']}.")
+    extra = ""
+    if voicestudio.voz_id() == voz["voice_id"]:
+        gravar_config(db, voicestudio.CHAVE_VOZ, "")
+        extra = " Era a voz em uso: escolha outra com `/usarvoz`."
+    if r.get("aviso"):
+        extra += f" Atenção: {r['aviso']}."
+    return Resposta().diz(f"✅ Voz *{voz['nome']}* apagada do VoiceStudio.{extra}")
 
 
 def _cmd_vozes(db: Session, conta: Conta, cmd: str, resto: str, canal: str) -> Resposta:

@@ -191,3 +191,102 @@ def test_nao_duplica_voz_com_o_mesmo_nome(cliente, caixa, monkeypatch):
     _tg(c, "/clonarvoz jefferson")                              # já existe "Jefferson"
     _voz_tg(c, duracao=20)
     assert criados == [] and "Já existe" in caixa[-1][2] and "/usarvoz Jefferson" in caixa[-1][2]
+
+
+def _apagando(monkeypatch):
+    apagadas = []
+    monkeypatch.setattr(voicestudio, "apagar_perfil", lambda vid: apagadas.append(vid) or {"ok": True})
+    monkeypatch.setattr(voicestudio, "voz_id", lambda: "a1")
+    return apagadas
+
+
+def test_apagarvoz_lista_e_o_numero_apaga(cliente, caixa, monkeypatch):
+    c = _admin(cliente)
+    _preparar(monkeypatch)
+    apagadas = _apagando(monkeypatch)
+    _ligar_telegram(c)
+    _tg(c, "/apagarvoz")
+    t = caixa[-1][2]
+    assert "1. Bella Original  (em uso)" in t and "2. Jefferson" in t and "Não tem volta" in t
+    _tg(c, "2")
+    assert apagadas == ["b2"] and "apagada" in caixa[-1][2] and "Jefferson" in caixa[-1][2]
+    _tg(c, "1")                                         # a lista já foi usada: "1" não apaga mais nada
+    assert apagadas == ["b2"]
+
+
+def test_apagar_a_voz_em_uso_limpa_a_escolha(cliente, caixa, monkeypatch):
+    import database
+    c = _admin(cliente)
+    _preparar(monkeypatch)
+    _apagando(monkeypatch)
+    with database.SessionLocal() as db:
+        database.gravar_config(db, voicestudio.CHAVE_VOZ, "a1")
+    _ligar_telegram(c)
+    _tg(c, "/apagarvoz")
+    _tg(c, "1")
+    assert "Era a voz em uso" in caixa[-1][2] and not _gravada(c)
+
+
+def test_apagarvoz_numero_invalido_cancelar_e_outra_mensagem(cliente, caixa, monkeypatch):
+    c = _admin(cliente)
+    _preparar(monkeypatch)
+    apagadas = _apagando(monkeypatch)
+    _ligar_telegram(c)
+    _tg(c, "/apagarvoz")
+    _tg(c, "9")
+    assert "de 1 a 2" in caixa[-1][2] and apagadas == []
+    _tg(c, "/apagarvoz cancelar")
+    _tg(c, "1")
+    assert apagadas == []                               # cancelado
+    _tg(c, "/apagarvoz")
+    _tg(c, "oi tudo bem")                               # falou de outra coisa: a lista some
+    _tg(c, "1")
+    assert apagadas == []
+
+
+def test_apagarvoz_expira_e_conta_comum_nao_apaga(logado, cliente, caixa, monkeypatch):
+    from nucleo import roteador
+    _preparar(monkeypatch)
+    apagadas = _apagando(monkeypatch)
+    _ligar_telegram(logado)
+    _tg(logado, "/apagarvoz")
+    assert "administradora" in caixa[-1][2]
+    roteador._APAGAR[("telegram", "777")] = (0.0, list(VOZES))   # lista vencida
+    _tg(logado, "1")
+    assert apagadas == []
+
+
+def test_apagar_falha_e_explicada(cliente, caixa, monkeypatch):
+    c = _admin(cliente)
+    _preparar(monkeypatch)
+    monkeypatch.setattr(voicestudio, "voz_id", lambda: "zz")
+    monkeypatch.setattr(voicestudio, "apagar_perfil", lambda vid: {"ok": False, "erro": "não consegui falar com o VoiceStudio"})
+    _ligar_telegram(c)
+    _tg(c, "/apagarvoz")
+    _tg(c, "2")
+    assert "Não consegui apagar" in caixa[-1][2] and "VoiceStudio" in caixa[-1][2]
+
+
+def test_apagar_perfil_http(monkeypatch):
+    import httpx
+    monkeypatch.setattr(config, "VOICESTUDIO_URL", "https://voice.internal/v1")
+    monkeypatch.setattr(config, "VOICESTUDIO_API_KEY", "k")
+    vistos, resposta = [], [httpx.Response(200, json={"deleted": "a1"})]
+
+    class Cli:
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def delete(self, url, headers=None):
+            vistos.append((url, headers)); return resposta[0]
+    monkeypatch.setattr(voicestudio.httpx, "Client", Cli)
+    assert voicestudio.apagar_perfil("a1") == {"ok": True}
+    assert vistos[0] == ("https://voice.internal/profiles/a1", {"Authorization": "Bearer k"})
+    resposta[0] = httpx.Response(401, text="segredo")
+    assert "chave" in voicestudio.apagar_perfil("a1")["erro"]
+    resposta[0] = httpx.Response(500, text="The profile record was deleted, but asset cleanup is incomplete")
+    assert voicestudio.apagar_perfil("a1")["ok"] is True
+    resposta[0] = httpx.Response(500, text="falha interna com segredo")
+    r = voicestudio.apagar_perfil("a1")
+    assert not r["ok"] and "segredo" not in r["erro"]
+    assert not voicestudio.apagar_perfil("../x")["ok"]

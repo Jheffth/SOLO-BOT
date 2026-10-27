@@ -119,3 +119,7 @@ O pedido pendente fica só na memória do servidor: reiniciar o container o canc
 - `/clonarvoz repetir`: se a criação falhou ou estourou o tempo, o bot guarda a amostra por 30 minutos (só na memória)
   e tenta de novo sem reenviar o áudio. Antes de criar, ele confere se já existe voz com aquele nome
   e avisa em vez de duplicar. A criação tem tempo próprio (`VOICESTUDIO_CLONE_TIMEOUT`, 240 s).
+- `/apagarvoz`: lista as vozes com número. Responder com o número apaga aquela voz do VoiceStudio
+  (`DELETE /profiles/{id}`, sem volta). A lista vale por 3 minutos; qualquer outra mensagem ou
+  `/apagarvoz cancelar` a descarta, e número fora da lista não apaga nada. Se a voz apagada era a
+  escolhida, a escolha é limpa e o bot pede `/usarvoz`.

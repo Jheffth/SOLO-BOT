@@ -210,3 +210,35 @@ def criar_perfil(nome: str, conteudo: bytes, mime: str, ref_text: str = "") -> d
         return {"ok": False, "erro": "resposta inesperada do VoiceStudio"}
     _VOZES["quando"] = 0.0                 # a lista de vozes do painel passa a incluir a nova
     return {"ok": True, "id": ident, "nome": nome}
+
+
+def apagar_perfil(voice_id: str) -> dict:
+    """Apaga uma voz do VoiceStudio (DELETE /profiles/{id}). {"ok": bool, "erro": motivo curto}. Nunca levanta."""
+    from urllib.parse import quote
+    if not config.VOICESTUDIO_URL:
+        return {"ok": False, "erro": "o VoiceStudio não está configurado no servidor"}
+    raiz = _raiz_servico()
+    if not raiz:
+        return {"ok": False, "erro": "o endereço do VoiceStudio é inválido"}
+    if not voice_id or "/" in voice_id:
+        return {"ok": False, "erro": "voz inválida"}
+    headers = {"Authorization": "Bearer " + config.VOICESTUDIO_API_KEY} if config.VOICESTUDIO_API_KEY else {}
+    try:
+        with httpx.Client(timeout=httpx.Timeout(30.0, connect=8.0), follow_redirects=False) as cliente:
+            r = cliente.delete(raiz + "/profiles/" + quote(voice_id, safe=""), headers=headers)
+    except httpx.TimeoutException:
+        return {"ok": False, "erro": "o VoiceStudio demorou demais para responder"}
+    except Exception:  # noqa: BLE001
+        log.warning("Nao consegui falar com o VoiceStudio para apagar a voz.")
+        return {"ok": False, "erro": "não consegui falar com o VoiceStudio (computador desligado ou sem conexão?)"}
+    _VOZES["quando"] = 0.0
+    if r.status_code in (401, 403):
+        return {"ok": False, "erro": "o VoiceStudio recusou a chave de acesso"}
+    if r.status_code == 404:
+        return {"ok": False, "erro": "essa voz não existe mais"}
+    if r.status_code == 500 and "record was deleted" in r.text:
+        return {"ok": True, "aviso": "o perfil foi apagado, mas restaram arquivos de áudio no computador"}
+    if r.status_code != 200:
+        log.warning("VoiceStudio nao apagou a voz (HTTP %s).", r.status_code)
+        return {"ok": False, "erro": f"o VoiceStudio respondeu HTTP {r.status_code}"}
+    return {"ok": True}
