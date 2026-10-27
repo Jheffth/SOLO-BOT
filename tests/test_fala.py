@@ -178,3 +178,19 @@ def test_painel_guarda_sem_sensualizacao(logado):
     assert logado.get("/api/auth/eu").json()["prompt_suave"] is True
     assert logado.patch("/api/conta", json={"voz": "nunca"}).json()["prompt_suave"] is True      # outro ajuste não apaga
     assert logado.patch("/api/conta", json={"prompt_suave": False}).json()["prompt_suave"] is False
+
+
+def test_conversa_da_bella_e_lida_literalmente_sem_resumo_de_ia(monkeypatch):
+    from nucleo import fala
+    monkeypatch.setattr(fala, "resumir", lambda m: (_ for _ in ()).throw(AssertionError("não pode resumir")))
+    longo = " ".join(f"Frase número {i} da Bella, bem longa e cheia de detalhes." for i in range(30))
+    falado = fala.o_que_falar([{"texto": longo, "opcoes": [], "literal": True}])
+    assert falado and len(falado) <= fala.MAX_CARACTERES
+    assert falado.startswith("Frase número 0 da Bella") and falado.endswith(".")
+    assert falado in longo.replace("  ", " ")
+
+
+def test_conversa_curta_da_bella_sai_inteira(monkeypatch):
+    from nucleo import fala
+    monkeypatch.setattr(fala, "resumir", lambda m: None)
+    assert fala.o_que_falar([{"texto": "Oi amor, vem cá.", "opcoes": [], "literal": True}]) == "Oi amor, vem cá."

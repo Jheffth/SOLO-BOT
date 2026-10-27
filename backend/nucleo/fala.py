@@ -517,6 +517,21 @@ def resumir(mensagens: list) -> Optional[str]:
     return dito[:limite] or None
 
 
+def _trecho_literal(texto: str) -> Optional[str]:
+    """Do início do texto, as frases inteiras que cabem no limite de fala do motor ativo."""
+    limite = 200 if motor_escolhido() == "voicestudio" else MAX_CARACTERES
+    if not texto:
+        return None
+    if len(texto) <= limite:
+        return texto
+    corte = ""
+    for frase in re.findall(r"[^.!?…]+[.!?…]*\s*", texto):
+        if len(corte) + len(frase.strip()) + 1 > limite:
+            break
+        corte = (corte + " " + frase.strip()).strip()
+    return corte or texto[:limite].rsplit(" ", 1)[0] or texto[:limite]
+
+
 def o_que_falar(mensagens: list) -> Optional[str]:
     """
     1. o `falado` que o sistema mandou (o Finances manda);
@@ -530,6 +545,11 @@ def o_que_falar(mensagens: list) -> Optional[str]:
     if any(tom_valido(m.get("tom")) for m in mensagens):      # frase com tom: literal, nunca resumida
         literal = " ".join(t for t in (texto_falavel(m.get("texto") or "", None, limpar_tecnico=False) for m in mensagens) if t)
         return literal[:MAX_CARACTERES] or None
+    if any(m.get("literal") for m in mensagens):
+        # Conversa da Bella: a voz lê a própria fala dela. Resumir por IA trocava as palavras e, no
+        # modo adulto, o resumidor (Gemini) recusava o conteúdo e a resposta ficava sem áudio.
+        return _trecho_literal(" ".join(t for t in (texto_falavel(m.get("texto") or "", None, limpar_tecnico=False)
+                                                    for m in mensagens) if t))
     limpos = [texto_falavel(m.get("texto") or "") for m in mensagens]
     tem_lista = any(m.get("opcoes") for m in mensagens)
     if all(limpos) and not tem_lista:

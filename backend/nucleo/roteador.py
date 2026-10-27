@@ -598,7 +598,9 @@ def _bella_responder(db, conta: Conta, canal: str, txt: str, so_se_responder: bo
         _registrar(db, conta, canal, None, "bella", "conversa")
     if not texto:
         return Resposta().diz("😶 Não consegui responder agora. Tente de novo em instantes.")
-    return Resposta().diz(texto)
+    r = Resposta().diz(texto)
+    r.mensagens[-1]["literal"] = True        # a voz LÊ o que a Bella disse; nunca passa por resumo de IA
+    return r
 
 
 def _entregar_intencao(db, conta, canal, origem, mod, txt, it, via_audio) -> Resposta:
