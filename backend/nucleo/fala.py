@@ -417,12 +417,18 @@ def _em_queda(motor: str) -> bool:
     return _QUEDA.get(motor, 0.0) > time.monotonic()
 
 
+LIMITE_LENTO = 15.0         # mesmo com sucesso, demorar mais de 15s em chat interativo trava a conversa
+
+
 def _registrar(motor: str, deu_certo: bool, segundos: float):
-    if deu_certo:
+    if deu_certo and segundos < LIMITE_LENTO:
         _QUEDA.pop(motor, None)
-    elif segundos >= LENTO_DEMAIS:
+    elif not deu_certo and segundos >= LENTO_DEMAIS:
         _QUEDA[motor] = time.monotonic() + PAUSA_QUEDA[motor]
         log.warning("Voz %s falhou; fica de lado por %ds no modo Automático.", motor, PAUSA_QUEDA[motor])
+    elif deu_certo and segundos >= LIMITE_LENTO:
+        _QUEDA[motor] = time.monotonic() + PAUSA_QUEDA[motor]
+        log.warning("Voz %s lenta demais (%.1fs); fica de lado por %ds no modo Automático.", motor, segundos, PAUSA_QUEDA[motor])
 
 
 def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,

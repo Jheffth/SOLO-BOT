@@ -347,3 +347,19 @@ def test_previa_de_voz_ignora_a_pausa(reserva):
     requests, status = reserva
     status["k1"] = 200
     assert fala.sintetizar("Oi", "whatsapp", id_voz="v-escolhida")["base64"] == "RUxFVkVO"
+
+def test_motor_excessivamente_lento_fica_de_lado_no_automatico(reserva, monkeypatch):
+    requests, status = reserva
+    relogio = {"t": 1000.0}
+    monkeypatch.setattr(fala.time, "monotonic", lambda: relogio["t"])
+    original = fala._sintetizar_elevenlabs
+
+    def muito_lenta(*a, **k):
+        relogio["t"] += 16                      # demorou 16s mas teve sucesso
+        return {"base64": "RUxFVkVO", "mime": "audio/mpeg"}
+
+    monkeypatch.setattr(fala, "_sintetizar_elevenlabs", muito_lenta)
+    fala.sintetizar("Oi", "whatsapp")
+    assert fala._em_queda("elevenlabs")
+    monkeypatch.setattr(fala, "_sintetizar_elevenlabs", original)
+
