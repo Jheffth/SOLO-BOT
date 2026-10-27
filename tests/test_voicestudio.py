@@ -363,3 +363,51 @@ def test_motor_excessivamente_lento_fica_de_lado_no_automatico(reserva, monkeypa
     assert fala._em_queda("elevenlabs")
     monkeypatch.setattr(fala, "_sintetizar_elevenlabs", original)
 
+
+
+# ── /clonarvoz ────────────────────────────────────────────────
+def test_criar_perfil_envia_amostra_para_a_raiz_do_servico(reserva, monkeypatch):
+    from nucleo import voicestudio
+    visto = {}
+
+    class Cli:
+        def __init__(self, *a, **k): visto["opcoes"] = k
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def post(self, url, headers=None, data=None, files=None):
+            visto.update(url=url, headers=headers, data=data, files=files)
+            return httpx.Response(200, json={"id": "ab12cd34", "name": "Bella Casa"})
+    monkeypatch.setattr(voicestudio.httpx, "Client", Cli)
+    r = voicestudio.criar_perfil("Bella Casa", b"OGG", "audio/ogg; codecs=opus")
+    assert r == {"ok": True, "id": "ab12cd34", "nome": "Bella Casa"}
+    assert visto["url"] == "https://voice.internal/profiles"          # sem /v1
+    assert visto["data"]["kind"] == "clone" and visto["files"]["ref_audio"][0] == "amostra.ogg"
+    assert visto["headers"]["Authorization"] == "Bearer private-key"
+    assert visto["opcoes"]["follow_redirects"] is False
+
+
+@pytest.mark.parametrize("status,trecho", [(401, "chave"), (422, "amostra"), (500, "HTTP 500")])
+def test_criar_perfil_explica_a_falha_sem_vazar_nada(reserva, monkeypatch, status, trecho):
+    from nucleo import voicestudio
+
+    class Cli:
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def post(self, *a, **k): return httpx.Response(status, text="segredo-interno")
+    monkeypatch.setattr(voicestudio.httpx, "Client", Cli)
+    r = voicestudio.criar_perfil("X", b"a", "audio/ogg")
+    assert not r["ok"] and trecho in r["erro"] and "segredo" not in r["erro"]
+
+
+def test_criar_perfil_computador_desligado(reserva, monkeypatch):
+    from nucleo import voicestudio
+
+    class Cli:
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def post(self, *a, **k): raise httpx.ConnectError("private-key")
+    monkeypatch.setattr(voicestudio.httpx, "Client", Cli)
+    r = voicestudio.criar_perfil("X", b"a", "audio/ogg")
+    assert not r["ok"] and "computador" in r["erro"] and "private-key" not in r["erro"]

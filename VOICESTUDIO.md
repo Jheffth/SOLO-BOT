@@ -91,3 +91,21 @@ A escolha fica salva no banco e vale para todos os canais, incluindo a Bella e s
 saudações. Motores sem configuração não podem ser selecionados. O botão Ouvir testa
 o motor atual. No VoiceStudio, os ajustes de conta, voz e modelo ElevenLabs ficam
 ocultos; voltam a aparecer ao selecionar ElevenLabs ou Automático.
+
+## Clonar uma voz pelo WhatsApp ou Telegram (`/clonarvoz`)
+
+Só a conta administradora. O comando cria um perfil clonado no VoiceStudio
+(`POST /profiles`, `kind=clone`, na raiz do serviço, sem `/v1`) a partir do próximo áudio.
+
+1. `/clonarvoz Nome da voz`: o bot passa a esperar uma amostra (10 minutos; `/clonarvoz cancelar` desiste).
+2. Mande UM áudio de 10 a 60 segundos, falando normalmente, sem música ou ruído.
+   Áudio com menos de 5 segundos é recusado sem gastar o pedido.
+3. Esse áudio não é transcrito nem entregue a nenhum sistema: vai direto ao VoiceStudio,
+   que transcreve a amostra sozinho e guarda o perfil.
+4. Em Administração → Voz do bot, o perfil aparece na lista de vozes do VoiceStudio. A escolha
+   continua manual.
+
+Exige o computador com o VoiceStudio ligado e alcançável pela VPS (mesma conexão privada do motor),
+e `VOICESTUDIO_API_KEY` com permissão de administrador. Clone apenas vozes suas ou com autorização.
+Falhas (computador desligado, chave recusada, amostra sem fala) voltam explicadas no chat.
+O pedido pendente fica só na memória do servidor: reiniciar o container o cancela.

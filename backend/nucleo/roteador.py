@@ -267,6 +267,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/sair` — volta ao hub",
         "▸ `/conta` — canais e sistemas ligados",
         "▸ `/bella` — conversar com a Bella (modo adulto, `/esquecer` limpa a memória)",
+        "▸ `/clonarvoz Nome` — (administrador) cria uma voz clonada no VoiceStudio com o próximo áudio que você mandar",
         "▸ `/prompt` — a Bella cria um prompt de imagem (realismo sensual): `/prompt cozinha, cosplay de odalisca`",
         "▸ `/promptmodelo` — cria uma modelo nova do zero (19 anos, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`",
         "▸ `/promptroupa` — descreve uma roupa (da foto que você mandar ou do pedido) para vestir em outra imagem, sem mexer no resto: `/promptroupa lingerie preta de renda`",
@@ -476,6 +477,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if cmd in ("/bella", "/safada"):
         _entrar_modo(db, s, MODO_BELLA)
         return _bella_entrar(canal, conta, resto.strip())
+    if cmd == "/clonarvoz":
+        return _cmd_clonarvoz(conta, canal, origem, resto.strip())
     if cmd == "/esquecer":
         from nucleo import bella_conversa
         bella_conversa.esquecer(_chave_bella(canal, conta))
@@ -685,6 +688,55 @@ def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: 
         "`/prompt sem referência ...` descarta a imagem.")
 
 
+# ── /clonarvoz: o próximo áudio da conta administradora vira uma voz clonada no VoiceStudio ──
+_CLONAR = {}                     # (canal, origem) -> (validade monotônica, nome); só na RAM, de propósito
+CLONAR_ESPERA = 10 * 60
+CLONAR_MIN_SEGUNDOS = 5
+
+
+def _cmd_clonarvoz(conta: Conta, canal: str, origem: str, nome: str) -> Resposta:
+    import time
+    from nucleo import voicestudio
+    chave = (canal, str(origem))
+    if not conta.admin:
+        return Resposta().diz("🔒 Só a conta administradora pode criar vozes.")
+    if nome.lower() in ("cancelar", "cancela", "sair"):
+        _CLONAR.pop(chave, None)
+        return Resposta().diz("Tudo bem, cancelei a clonagem de voz.")
+    if not voicestudio.disponivel_servidor():
+        return Resposta().diz("🎙️ O VoiceStudio não está configurado no servidor (VOICESTUDIO_URL).")
+    if not nome:
+        return Resposta().diz("🎙️ Diga o nome da voz: `/clonarvoz Bella Casa`. Depois mande um áudio de 10 a 60 segundos.")
+    _CLONAR[chave] = (time.monotonic() + CLONAR_ESPERA, nome[:60])
+    return Resposta().diz(
+        f"🎙️ Vou criar a voz *{nome[:60]}*. Agora mande UM áudio falando normalmente, de 10 a 60 segundos, "
+        "num lugar silencioso e sem música. Use só uma voz que é sua ou que você tem permissão para clonar. "
+        "O computador com o VoiceStudio precisa estar ligado. `/clonarvoz cancelar` desiste.")
+
+
+def _receber_amostra_de_voz(conta: Conta, canal: str, origem: str, conteudo: bytes, mime: str,
+                            segundos: int) -> Optional[Resposta]:
+    """Resposta se este áudio era a amostra pedida; None se não havia pedido (segue o fluxo normal)."""
+    import time
+    from nucleo import voicestudio
+    chave = (canal, str(origem))
+    pedido = _CLONAR.get(chave)
+    if not pedido:
+        return None
+    if pedido[0] < time.monotonic() or not conta.admin:
+        _CLONAR.pop(chave, None)
+        return None
+    if 0 < segundos < CLONAR_MIN_SEGUNDOS:
+        return Resposta().diz("🎙️ Esse áudio ficou curto. Mande um de pelo menos 10 segundos, falando normalmente.")
+    _CLONAR.pop(chave, None)
+    r = voicestudio.criar_perfil(pedido[1], conteudo, mime)
+    if not r["ok"]:
+        return Resposta().diz(f"🎙️ Não consegui criar a voz: {r['erro']}. Mande `/clonarvoz {pedido[1]}` para tentar de novo.")
+    return Resposta().diz(
+        f"✅ Voz *{r['nome']}* criada no VoiceStudio. Para usar, abra Administração → Voz do bot → Motor de voz "
+        "e escolha o perfil na lista.")
+
+
 def atender_audio(db: Session, canal: str, origem: str, conteudo: bytes, mime: str,
                   rotulo: Optional[str] = None, segundos: int = 0) -> Resposta:
     """
@@ -701,6 +753,10 @@ def atender_audio(db: Session, canal: str, origem: str, conteudo: bytes, mime: s
         return Resposta().diz(f"🎤 Áudio longo demais. Mande até {voz.MAX_SEGUNDOS} segundos.")
     if not conteudo:
         return Resposta().diz("🎤 Não consegui baixar o áudio. Tente de novo, ou mande por escrito.")
+
+    amostra = _receber_amostra_de_voz(conta, canal, origem, conteudo, mime, segundos)
+    if amostra is not None:
+        return amostra
 
     s = sessao_de(db, canal, origem)
     modo = _modo_valido(s)

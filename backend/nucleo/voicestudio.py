@@ -144,3 +144,64 @@ def sintetizar(texto: str, canal: str, tom=None, guardar=False, id_voz=None):
         # Sem URL, chave, texto, corpo de resposta ou excecao bruta nos registros.
         log.warning("VoiceStudio indisponivel; a resposta em texto continua disponivel.")
         return None
+
+
+def _raiz_servico():
+    """A URL base do servico sem o /v1 (as rotas de perfil ficam na raiz). None se invalida."""
+    base = config.VOICESTUDIO_URL.rstrip("/")
+    destino = urlsplit(base)
+    if (destino.scheme not in ("http", "https") or not destino.hostname
+            or destino.username or destino.password or destino.query or destino.fragment
+            or destino.path not in ("", "/v1")):
+        return None
+    return base[:-3] if destino.path == "/v1" else base
+
+
+_EXTENSOES = {"audio/ogg": ".ogg", "audio/opus": ".ogg", "audio/mpeg": ".mp3", "audio/mp3": ".mp3",
+              "audio/mp4": ".m4a", "audio/aac": ".aac", "audio/wav": ".wav", "audio/x-wav": ".wav",
+              "audio/webm": ".webm"}
+
+
+def criar_perfil(nome: str, conteudo: bytes, mime: str) -> dict:
+    """
+    Cria no VoiceStudio uma voz clonada a partir de uma amostra (POST /profiles, kind=clone).
+    {"ok": True, "id", "nome"} ou {"ok": False, "erro": "motivo curto e sem segredos"}.
+    O servidor transcreve a amostra sozinho. Nunca levanta.
+    """
+    if not config.VOICESTUDIO_URL:
+        return {"ok": False, "erro": "o VoiceStudio não está configurado no servidor"}
+    raiz = _raiz_servico()
+    if not raiz:
+        return {"ok": False, "erro": "o endereço do VoiceStudio é inválido"}
+    nome = (nome or "").strip()[:60]
+    if not nome or not conteudo:
+        return {"ok": False, "erro": "faltou o nome ou o áudio"}
+    mime = (mime or "audio/ogg").split(";")[0].strip().lower() or "audio/ogg"
+    headers = {"Authorization": "Bearer " + config.VOICESTUDIO_API_KEY} if config.VOICESTUDIO_API_KEY else {}
+    try:
+        with httpx.Client(timeout=httpx.Timeout(config.VOICESTUDIO_TIMEOUT, connect=8.0),
+                          follow_redirects=False) as cliente:
+            r = cliente.post(raiz + "/profiles", headers=headers,
+                             data={"name": nome, "kind": "clone", "language": "Auto"},
+                             files={"ref_audio": ("amostra" + _EXTENSOES.get(mime, ".ogg"), conteudo, mime)})
+    except httpx.TimeoutException:
+        return {"ok": False, "erro": "o VoiceStudio demorou demais (o computador pode estar ocupado)"}
+    except Exception:  # noqa: BLE001
+        log.warning("Nao consegui falar com o VoiceStudio para criar a voz.")
+        return {"ok": False, "erro": "não consegui falar com o VoiceStudio (computador desligado ou sem conexão?)"}
+    if r.status_code in (401, 403):
+        return {"ok": False, "erro": "o VoiceStudio recusou a chave de acesso"}
+    if r.status_code in (415, 422):
+        return {"ok": False, "erro": "o VoiceStudio não aceitou essa amostra (sem fala ou formato inválido)"}
+    if r.status_code != 200:
+        log.warning("VoiceStudio nao criou a voz (HTTP %s).", r.status_code)
+        return {"ok": False, "erro": f"o VoiceStudio respondeu HTTP {r.status_code}"}
+    try:
+        dados = r.json()
+        ident = str(dados.get("id") or dados.get("voice_id") or "").strip()
+    except Exception:  # noqa: BLE001
+        ident = ""
+    if not ident:
+        return {"ok": False, "erro": "resposta inesperada do VoiceStudio"}
+    _VOZES["quando"] = 0.0                 # a lista de vozes do painel passa a incluir a nova
+    return {"ok": True, "id": ident, "nome": nome}
