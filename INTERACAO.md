@@ -505,3 +505,23 @@ O servidor aceita até 6 MiB e usa o anexo apenas nesse pedido, inclusive em cas
 de falha. A referência avulsa não entra no cache de referências da conversa.
 Essa garantia exige publicar o backend atualizado. --anexo-self-test valida o
 roteamento, serialização acima de 2 MB, descarte e falha de rede sem usar provedores.
+
+## Latência dos comandos no WhatsApp
+
+A entrega de texto e listas do WhatsApp acontece antes do resumo e da síntese
+opcional de voz. As escolhas numéricas são registradas antes da síntese, permitindo
+responder à lista enquanto o áudio é preparado. Mensagens com formato exclusivo
+de áudio continuam sem texto quando a voz é entregue; falhas preservam o texto
+de reserva. O comando do sistema nunca é repetido por falha na voz.
+
+No hub com um único sistema conectado, a interpretação já calculada é reutilizada,
+inclusive quando a IA não responde. Pedidos de texto que não exigem voz não
+consultam a configuração dos motores de síntese.
+
+Os logs INFO registram duração em segundos para fila do webhook, download de
+áudio/imagem, roteamento, envio de texto, preparação da voz e processamento total.
+Chamadas à Evolution e tentativas do Gemini também registram sua duração, sem
+incluir conteúdo das mensagens, números, áudio ou credenciais nesses registros
+de tempo. Os tempos de síntese ElevenLabs e VoiceStudio já existentes continuam.
+Isso permite separar lentidão do provedor, do sistema conectado e do transporte.
+Não há medição de tempo real da VPS nos testes locais.

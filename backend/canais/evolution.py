@@ -1,6 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 """Transporte do WhatsApp via Evolution API v2. Só HTTP."""
 import logging
+import time
 from urllib.parse import quote
 
 import httpx
@@ -18,6 +19,7 @@ def _req(metodo: str, caminho: str, corpo: dict = None) -> dict:
     if not disponivel():
         return {"erro": "EVOLUTION_API_KEY ausente"}
     url = f"{config.EVOLUTION_API_URL}{caminho}"
+    inicio = time.monotonic()
     try:
         with httpx.Client(timeout=20) as c:
             r = c.request(metodo, url, json=corpo, headers={"apikey": config.EVOLUTION_API_KEY})
@@ -28,6 +30,8 @@ def _req(metodo: str, caminho: str, corpo: dict = None) -> dict:
     except Exception:  # noqa: BLE001
         log.exception("Evolution %s %s falhou", metodo, caminho)
         return {"erro": "falha de rede"}
+    finally:
+        log.info("Evolution transporte segundos=%.3f", time.monotonic() - inicio)
 
 
 def enviar(jid: str, texto: str) -> dict:

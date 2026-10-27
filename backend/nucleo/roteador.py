@@ -535,7 +535,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return menu(db, conta)
     if len(ligados) == 1:
         _entrar_modo(db, s, ligados[0].chave)
-        return _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, ligados[0])
+        return _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, ligados[0], intencao_previa=it)
 
     # Entender pelo que foi dito, antes de perguntar.
     alvo = modulos.por_chave(it.app) if it.app else None
@@ -610,7 +610,7 @@ def _entregar_intencao(db, conta, canal, origem, mod, txt, it, via_audio) -> Res
     return r
 
 
-def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod) -> Resposta:
+def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod, intencao_previa=None) -> Resposta:
     """
     Texto livre com um sistema já definido (modo ativo, ou único conectado).
 
@@ -633,7 +633,11 @@ def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod) -> Res
         pontos = intencao.por_palavras(db, txt, [mod] + outros)
         if not any(pontos.get(m.chave) for m in outros):
             return para_sistema(db, conta, canal, origem, mod, texto=txt, via_audio=via_audio)
-    it = literal if literal.app else intencao.interpretar(db, txt, ligados or [mod], modo=mod.chave)
+    # No hub com um único sistema, essa mesma mensagem já foi interpretada.
+    # Reutiliza também o resultado vazio: uma falha não justifica repetir a IA.
+    it = literal if literal.app else intencao_previa
+    if it is None:
+        it = intencao.interpretar(db, txt, ligados or [mod], modo=mod.chave)
     if it.app and it.app != mod.chave and it.confianca >= intencao.CONFIANCA_TROCA and it.mensagem:
         outro = modulos.por_chave(it.app)
         if outro and _vinculo(conta, outro.chave):

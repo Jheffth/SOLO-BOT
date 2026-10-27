@@ -7,6 +7,8 @@ levar alguns segundos, e o Telegram/Evolution reentregam o que demora.
 A idempotência cuida das reentregas que escaparem.
 """
 import logging
+import time
+from contextlib import contextmanager
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
@@ -124,7 +126,19 @@ def _bytes_do_audio(data: dict, mensagem: dict, audio: dict) -> tuple:
         return b"", mime
 
 
-def _processar_whatsapp(evento: dict):
+@contextmanager
+def _tempo_whatsapp(etapa):
+    inicio = time.monotonic()
+    try:
+        yield
+    finally:
+        log.info("WhatsApp etapa=%s segundos=%.3f", etapa, time.monotonic() - inicio)
+
+
+def _processar_whatsapp(evento: dict, recebido_em=None):
+    inicio = time.monotonic()
+    if recebido_em is not None:
+        log.info("WhatsApp etapa=fila segundos=%.3f", inicio - recebido_em)
     db = SessionLocal()
     try:
         data = evento.get("data") or {}
@@ -138,10 +152,13 @@ def _processar_whatsapp(evento: dict):
                 return
             if not roteador.conta_de(db, "whatsapp", jid) and not config.RESPONDER_DESCONHECIDOS:
                 return                       # estranho: nem baixa o áudio, nem responde
-            conteudo, mime = _bytes_do_audio(data, mensagem, audio)
-            r = roteador.atender_audio(db, "whatsapp", jid, conteudo, mime, data.get("pushName"),
-                                       int(audio.get("seconds") or 0))
-            entrega.entregar(db, "whatsapp", jid, r, entrada_audio=True)
+            with _tempo_whatsapp("baixar_audio"):
+                conteudo, mime = _bytes_do_audio(data, mensagem, audio)
+            with _tempo_whatsapp("rotear_audio"):
+                r = roteador.atender_audio(db, "whatsapp", jid, conteudo, mime, data.get("pushName"),
+                                           int(audio.get("seconds") or 0))
+            with _tempo_whatsapp("entrega"):
+                entrega.entregar(db, "whatsapp", jid, r, entrada_audio=True)
             return
         imagem = mensagem.get("imageMessage")
         if jid and imagem and not chave.get("fromMe"):
@@ -149,9 +166,12 @@ def _processar_whatsapp(evento: dict):
                 return
             if not roteador.conta_de(db, "whatsapp", jid) and not config.RESPONDER_DESCONHECIDOS:
                 return
-            conteudo, mime = _bytes_do_audio(data, mensagem, {**imagem, "mimetype": imagem.get("mimetype") or "image/jpeg"})
-            r = roteador.atender_imagem(db, "whatsapp", jid, conteudo, mime, imagem.get("caption") or "", data.get("pushName"))
-            entrega.entregar(db, "whatsapp", jid, r)
+            with _tempo_whatsapp("baixar_imagem"):
+                conteudo, mime = _bytes_do_audio(data, mensagem, {**imagem, "mimetype": imagem.get("mimetype") or "image/jpeg"})
+            with _tempo_whatsapp("rotear_imagem"):
+                r = roteador.atender_imagem(db, "whatsapp", jid, conteudo, mime, imagem.get("caption") or "", data.get("pushName"))
+            with _tempo_whatsapp("entrega"):
+                entrega.entregar(db, "whatsapp", jid, r)
             return
         if not jid or not texto:
             return
@@ -170,13 +190,16 @@ def _processar_whatsapp(evento: dict):
                 return
         if roteador.ja_processada(db, "whatsapp", chave.get("id")):
             return
-        r = roteador.atender_texto(db, "whatsapp", jid, texto, data.get("pushName"))
-        entrega.entregar(db, "whatsapp", jid, r)
+        with _tempo_whatsapp("rotear_texto"):
+            r = roteador.atender_texto(db, "whatsapp", jid, texto, data.get("pushName"))
+        with _tempo_whatsapp("entrega"):
+            entrega.entregar(db, "whatsapp", jid, r)
     except Exception:  # noqa: BLE001
         log.exception("Falha ao processar mensagem do WhatsApp")
         db.rollback()
     finally:
         db.close()
+        log.info("WhatsApp etapa=total segundos=%.3f", time.monotonic() - inicio)
 
 
 @router.post("/whatsapp/webhook/{segredo}")
@@ -197,5 +220,5 @@ async def webhook_whatsapp(segredo: str, request: Request, background: Backgroun
         if ULTIMO_QR["estado"] == "open":
             ULTIMO_QR["base64"] = None
     elif tipo == "messages.upsert":
-        background.add_task(_processar_whatsapp, corpo)
+        background.add_task(_processar_whatsapp, corpo, time.monotonic())
     return {"ok": True}

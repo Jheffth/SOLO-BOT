@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Uma chamada de texto à Gemini (chave principal, depois a reserva). Nunca levanta."""
 import logging
+import time
 from typing import Optional
 
 import httpx
@@ -28,6 +29,7 @@ def gerar(instrucao: str, texto: str, json_saida: bool = False, max_tokens: int 
              "generationConfig": geracao}
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent"
     for chave in chaves:
+        inicio = time.monotonic()
         try:
             with httpx.Client(timeout=timeout) as c:
                 r = c.post(url, json=corpo, headers={"x-goog-api-key": chave})
@@ -38,4 +40,6 @@ def gerar(instrucao: str, texto: str, json_saida: bool = False, max_tokens: int 
                 return saida
         except Exception as e:  # noqa: BLE001
             log.warning("Gemini falhou: %s", type(e).__name__)
+        finally:
+            log.info("Gemini texto segundos=%.3f", time.monotonic() - inicio)
     return None
