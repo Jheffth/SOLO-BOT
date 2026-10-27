@@ -8,6 +8,7 @@ from nucleo import fala, voicestudio
 
 @pytest.fixture()
 def reserva(monkeypatch, tmp_path):
+    fala._QUEDA.clear()
     import database
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
@@ -317,3 +318,32 @@ def test_elevenlabs_limita_conexao_sem_encurtar_geracao(reserva):
     timeout = requests[0][3]["timeout"]
     assert timeout.connect == 5 and timeout.read == 40
     assert len(requests) == 1
+
+
+def test_motor_que_demora_para_falhar_fica_de_lado_no_automatico(reserva, monkeypatch):
+    requests, status = reserva
+    relogio = {"t": 1000.0}
+    monkeypatch.setattr(fala.time, "monotonic", lambda: relogio["t"])
+    chamadas = []
+    original = fala._sintetizar_elevenlabs
+
+    def lenta(*a, **k):
+        chamadas.append(1)
+        relogio["t"] += 40                      # a ElevenLabs esgotou o tempo
+        return None
+    monkeypatch.setattr(fala, "_sintetizar_elevenlabs", lenta)
+    assert fala.sintetizar("Oi", "whatsapp")["base64"] == base64.b64encode(b"VOICE").decode()
+    assert len(chamadas) == 1
+    assert fala.sintetizar("Oi de novo", "whatsapp")["base64"] == base64.b64encode(b"VOICE").decode()
+    assert len(chamadas) == 1                   # na pausa: foi direto ao VoiceStudio
+    relogio["t"] += 61                          # a pausa acabou: a ElevenLabs volta a ser tentada
+    fala.sintetizar("Oi", "whatsapp")
+    assert len(chamadas) == 2
+    monkeypatch.setattr(fala, "_sintetizar_elevenlabs", original)
+
+
+def test_previa_de_voz_ignora_a_pausa(reserva):
+    fala._QUEDA["elevenlabs"] = float("inf")
+    requests, status = reserva
+    status["k1"] = 200
+    assert fala.sintetizar("Oi", "whatsapp", id_voz="v-escolhida")["base64"] == "RUxFVkVO"

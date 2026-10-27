@@ -403,20 +403,56 @@ def _sintetizar_elevenlabs(texto: str, canal: str, id_voz: Optional[str] = None,
     return None
 
 
+# Motor que falhou DEMORANDO (tempo esgotado, computador desligado, servidor travado) fica de
+# lado por alguns segundos no modo Automático. Sem isso, CADA mensagem esperava o tempo limite
+# inteiro do motor quebrado (40 s da ElevenLabs, até 120 s do VoiceStudio) antes de tentar o
+# outro. Falha rápida (chave recusada, sem crédito) não entra: custa pouco, e a ElevenLabs
+# continua sendo tentada primeiro no pedido seguinte.
+_QUEDA: dict = {}
+PAUSA_QUEDA = {"elevenlabs": 60, "voicestudio": 120}
+LENTO_DEMAIS = 4.0          # segundos
+
+
+def _em_queda(motor: str) -> bool:
+    return _QUEDA.get(motor, 0.0) > time.monotonic()
+
+
+def _registrar(motor: str, deu_certo: bool, segundos: float):
+    if deu_certo:
+        _QUEDA.pop(motor, None)
+    elif segundos >= LENTO_DEMAIS:
+        _QUEDA[motor] = time.monotonic() + PAUSA_QUEDA[motor]
+        log.warning("Voz %s falhou; fica de lado por %ds no modo Automático.", motor, PAUSA_QUEDA[motor])
+
+
 def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
                tom: Optional[str] = None, guardar: bool = False) -> Optional[dict]:
     """Escolha manual exclusiva; no automático, ElevenLabs e depois VoiceStudio."""
     if not texto:
         return None
-    motor = motor_escolhido()
-    if motor != "voicestudio":
-        audio = _sintetizar_elevenlabs(texto, canal, id_voz=id_voz, tom=tom, guardar=guardar)
-        if audio or motor == "elevenlabs":
-            return audio
     from nucleo import voicestudio
+    motor = motor_escolhido()
+    automatico = motor == "automatico" and not id_voz       # prévia/voz escolhida sempre tenta o motor pedido
+    inicio = time.monotonic()
+    if motor != "voicestudio":
+        pular = (automatico and _em_queda("elevenlabs") and voicestudio.disponivel()
+                 and not _em_queda("voicestudio"))
+        if not pular:
+            audio = _sintetizar_elevenlabs(texto, canal, id_voz=id_voz, tom=tom, guardar=guardar)
+            if automatico:
+                _registrar("elevenlabs", bool(audio), time.monotonic() - inicio)
+            if audio or motor == "elevenlabs":
+                log.info("Voz motor=elevenlabs ok=%s segundos=%.3f", bool(audio), time.monotonic() - inicio)
+                return audio
+    if automatico and _em_queda("voicestudio") and contas():
+        return None                                          # os dois falharam há pouco: não espera de novo
     tom = tom_valido(tom)
+    ini_vs = time.monotonic()
     audio = voicestudio.sintetizar(texto, canal, tom=tom, guardar=guardar or bool(tom),
                                    id_voz=id_voz if motor == "voicestudio" else None)
+    if automatico and voicestudio.disponivel():
+        _registrar("voicestudio", bool(audio), time.monotonic() - ini_vs)
+    log.info("Voz motor=voicestudio ok=%s segundos=%.3f", bool(audio), time.monotonic() - inicio)
     if audio:
         _estado["ultimo_erro"] = None
     elif motor == "voicestudio":
