@@ -513,7 +513,8 @@ def resumir(mensagens: list) -> Optional[str]:
     if not dito:
         return None
     dito = re.sub(r"[*_`#]", "", _EMOJI.sub("", dito)).strip()
-    return dito[:MAX_CARACTERES] or None
+    limite = 200 if motor_escolhido() == "voicestudio" else MAX_CARACTERES
+    return dito[:limite] or None
 
 
 def o_que_falar(mensagens: list) -> Optional[str]:
@@ -533,7 +534,8 @@ def o_que_falar(mensagens: list) -> Optional[str]:
     tem_lista = any(m.get("opcoes") for m in mensagens)
     if all(limpos) and not tem_lista:
         falado = " ".join(limpos)
-        if len(falado) <= MAX_CARACTERES:
+        limite = 200 if motor_escolhido() == "voicestudio" else MAX_CARACTERES
+        if len(falado) <= limite:
             return falado
     return resumir(mensagens)
 

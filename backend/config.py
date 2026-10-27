@@ -147,4 +147,4 @@ VOICESTUDIO_VOICE_ID = _env("VOICESTUDIO_VOICE_ID")
 VOICESTUDIO_MODEL = _env("VOICESTUDIO_MODEL", "omnivoice")
 VOICESTUDIO_TIMEOUT = _inteiro("VOICESTUDIO_TIMEOUT", 35, 5, 300)
 # Mesmo padrao interativo do VoiceStudio; 32 prioriza qualidade sobre latencia.
-VOICESTUDIO_STEPS = _inteiro("VOICESTUDIO_STEPS", 6, 1, 128)
+VOICESTUDIO_STEPS = _inteiro("VOICESTUDIO_STEPS", 5, 1, 128)
