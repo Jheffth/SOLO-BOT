@@ -715,7 +715,7 @@ def _cmd_clonarvoz(conta: Conta, canal: str, origem: str, nome: str) -> Resposta
             return Resposta().diz("🎙️ Não tenho nenhuma amostra guardada para repetir. Use `/clonarvoz Nome` e mande o áudio.")
         return _criar_voz(canal, origem, guardada[1], guardada[2], guardada[3])
     if not nome:
-        return Resposta().diz("🎙️ Diga o nome da voz: `/clonarvoz Bella Casa`. Depois mande um áudio de 10 a 60 segundos.")
+        return Resposta().diz("🎙️ Diga o nome da voz: `/clonarvoz Bella Casa`. Depois mande um áudio de 10 a 60 segundos (o ideal é de 10 a 15s).")
     _CLONAR[chave] = (time.monotonic() + CLONAR_ESPERA, nome[:60])
     return Resposta().diz(
         f"🎙️ Vou criar a voz *{nome[:60]}*. Agora mande UM áudio falando normalmente, de 10 a 60 segundos, "

@@ -164,11 +164,11 @@ _EXTENSOES = {"audio/ogg": ".ogg", "audio/opus": ".ogg", "audio/mpeg": ".mp3", "
               "audio/webm": ".webm"}
 
 
-def criar_perfil(nome: str, conteudo: bytes, mime: str) -> dict:
+def criar_perfil(nome: str, conteudo: bytes, mime: str, ref_text: str = "") -> dict:
     """
     Cria no VoiceStudio uma voz clonada a partir de uma amostra (POST /profiles, kind=clone).
     {"ok": True, "id", "nome"} ou {"ok": False, "erro": "motivo curto e sem segredos"}.
-    O servidor transcreve a amostra sozinho. Nunca levanta.
+    O servidor transcreve a amostra sozinho se ref_text for vazio. Nunca levanta.
     """
     if not config.VOICESTUDIO_URL:
         return {"ok": False, "erro": "o VoiceStudio não está configurado no servidor"}
@@ -180,11 +180,14 @@ def criar_perfil(nome: str, conteudo: bytes, mime: str) -> dict:
         return {"ok": False, "erro": "faltou o nome ou o áudio"}
     mime = (mime or "audio/ogg").split(";")[0].strip().lower() or "audio/ogg"
     headers = {"Authorization": "Bearer " + config.VOICESTUDIO_API_KEY} if config.VOICESTUDIO_API_KEY else {}
+    dados_corpo = {"name": nome, "kind": "clone", "language": "Auto"}
+    if ref_text and ref_text.strip():
+        dados_corpo["ref_text"] = ref_text.strip()
     try:
         with httpx.Client(timeout=httpx.Timeout(config.VOICESTUDIO_CLONE_TIMEOUT, connect=8.0),
                           follow_redirects=False) as cliente:
             r = cliente.post(raiz + "/profiles", headers=headers,
-                             data={"name": nome, "kind": "clone", "language": "Auto"},
+                             data=dados_corpo,
                              files={"ref_audio": ("amostra" + _EXTENSOES.get(mime, ".ogg"), conteudo, mime)})
     except httpx.TimeoutException:
         return {"ok": False, "erro": "o VoiceStudio demorou demais (o computador pode estar ocupado). A voz ainda pode aparecer na lista em alguns minutos"}
