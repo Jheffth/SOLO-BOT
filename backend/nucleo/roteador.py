@@ -296,6 +296,11 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
             "▸ `/testarvoz [frase]` — gera uma frase com a voz atual e manda o áudio",
             "▸ `/apagarvoz` — lista as vozes; o número que você responder é apagado do VoiceStudio",
         ])
+        bloco("📇 CONTATOS DO ENVIO DE ÁUDIO (administrador)", [
+            "▸ `/salvarcontato` — depois mande um contato (📎 → Contato) e ele entra na lista de *Enviar áudio* do painel. "
+            "Pode escolher vários de uma vez",
+            "▸ `/salvarcontato Nome +55 11 99999-9999` — salva direto, sem compartilhar o contato",
+        ])
     bloco("🧭 NAVEGAÇÃO", [
         "▸ `/menu` — o cartão inicial",
         "▸ `/conta` — canais e sistemas ligados",
@@ -510,6 +515,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_clonarvoz(conta, canal, origem, resto.strip())
     if cmd == "/apagarvoz":
         return _cmd_apagarvoz(db, conta, canal, origem, resto.strip())
+    if cmd in ("/salvarcontato", "/salvarcontatos"):
+        return _cmd_salvarcontato(db, conta, canal, origem, resto.strip())
     if cmd in ("/vozes", "/usarvoz", "/testarvoz"):
         return _cmd_vozes(db, conta, cmd, resto.strip(), canal)
     if cmd == "/esquecer":
@@ -873,6 +880,97 @@ def _apagar_pendente(db: Session, conta: Conta, canal: str, origem: str, txt: st
     if r.get("aviso"):
         extra += f" Atenção: {r['aviso']}."
     return Resposta().diz(f"✅ Voz *{voz['nome']}* apagada do VoiceStudio.{extra}")
+
+
+# ── /salvarcontato: o próximo contato compartilhado entra na lista de "Enviar áudio" ──
+_SALVAR_CONTATO = {}             # (canal, origem) -> validade monotônica; só na RAM
+SALVAR_CONTATO_ESPERA = 5 * 60
+SALVAR_CONTATO_MAX = 10          # por mensagem (o WhatsApp deixa compartilhar vários de uma vez)
+RE_CONTATO_DIRETO = re.compile(r"^(?:(.*?)\s+)??(\+?[0-9(][0-9() .-]{6,}[0-9])$")
+
+
+def esperando_contato(canal: str, origem: str) -> bool:
+    import time
+    validade = _SALVAR_CONTATO.get((canal, str(origem)))
+    return bool(validade and validade >= time.monotonic())
+
+
+def _cmd_salvarcontato(db: Session, conta: Conta, canal: str, origem: str, resto: str) -> Resposta:
+    import time
+    chave = (canal, str(origem))
+    if not conta.admin:
+        return Resposta().diz("🔒 Só a conta administradora pode salvar contatos para o envio de áudio.")
+    if resto.lower() in ("cancelar", "cancela", "sair"):
+        _SALVAR_CONTATO.pop(chave, None)
+        return Resposta().diz("Tudo bem, não vou salvar nenhum contato.")
+    if resto:
+        m = RE_CONTATO_DIRETO.match(resto)
+        if not m:
+            return Resposta().diz("📇 Use `/salvarcontato Nome +55 11 99999-9999`, ou só `/salvarcontato` e depois mande o contato.")
+        return _salvar_contatos(db, conta, [(m.group(1) or "", m.group(2))])[0]
+    _SALVAR_CONTATO[chave] = time.monotonic() + SALVAR_CONTATO_ESPERA
+    como = ("toque no clipe (📎) → *Contato* e escolha a pessoa" if canal in ("whatsapp", "telegram")
+            else "compartilhe o contato aqui")
+    return Resposta().diz(
+        f"📇 Me mande o contato: {como}. Pode escolher vários de uma vez. "
+        "Guardo o nome e o número na lista de *Enviar áudio* do painel. "
+        "Vale por 5 minutos; `/salvarcontato cancelar` desiste.")
+
+
+def _salvar_contatos(db: Session, conta: Conta, contatos: list) -> tuple:
+    """(resposta, se algum foi salvo ou já estava na lista)."""
+    from nucleo import contatos_audio
+    linhas, salvos, repetidos = [], 0, 0
+    for nome_cru, numero_cru in contatos[:SALVAR_CONTATO_MAX]:
+        try:
+            numero = contatos_audio.numero_de_contato(numero_cru)
+        except contatos_audio.NumeroInvalido:
+            linhas.append(f"⚠️ *{(nome_cru or 'Contato sem nome').strip()[:80]}*: número inválido "
+                          "(precisa de DDD, e de DDI se não for do Brasil: +55 11 99999-9999).")
+            continue
+        nome = contatos_audio.nome_valido(nome_cru) or f"+{numero}"
+        estado, c = contatos_audio.salvar(db, conta.id, nome, numero)
+        if estado == "salvo":
+            salvos += 1
+            linhas.append(f"✅ *{c.nome}* — +{c.numero}")
+        elif estado == "repetido":
+            repetidos += 1
+            linhas.append(f"ℹ️ +{numero} já estava na lista" + (f" como *{c.nome}*." if c else "."))
+        else:
+            linhas.append(f"⚠️ A lista chegou ao limite de {contatos_audio.LIMITE} contatos. "
+                          "Apague algum no painel para salvar outro.")
+            break
+    if len(contatos) > SALVAR_CONTATO_MAX:
+        linhas.append(f"_Salvo no máximo {SALVAR_CONTATO_MAX} por vez; mande os outros com um novo `/salvarcontato`._")
+    if salvos:
+        titulo = "📇 Contato salvo para o envio de áudio:" if salvos == 1 else f"📇 {salvos} contatos salvos para o envio de áudio:"
+        linhas.insert(0, titulo)
+        linhas.append("\nJá aparece em *Administração → Enviar áudio*.")
+    return Resposta().diz("\n".join(linhas)), bool(salvos or repetidos)
+
+
+def atender_contato(db: Session, canal: str, origem: str, contatos: list,
+                    rotulo: Optional[str] = None) -> Resposta:
+    """Um contato compartilhado (cartão do WhatsApp ou contato do Telegram): [(nome, número), ...]."""
+    import time
+    origem = str(origem)
+    conta = conta_de(db, canal, origem)
+    if not conta:
+        return _boas_vindas()
+    chave = (canal, origem)
+    validade = _SALVAR_CONTATO.pop(chave, None)
+    if not validade or validade < time.monotonic() or not conta.admin:
+        if conta.admin:
+            return Resposta().diz("📇 Para guardar esse contato na lista de *Enviar áudio*, "
+                                  "mande `/salvarcontato` e depois o contato de novo.")
+        return Resposta().diz("Por enquanto eu leio texto, áudio e imagem de referência. 🙂")
+    if not contatos:
+        _SALVAR_CONTATO[chave] = validade
+        return Resposta().diz("📇 Não achei nenhum contato nessa mensagem. Tente de novo, ou `/salvarcontato cancelar`.")
+    r, aproveitou = _salvar_contatos(db, conta, contatos)
+    if not aproveitou:
+        _SALVAR_CONTATO[chave] = validade          # nada aproveitado: pode mandar outro no mesmo prazo
+    return r
 
 
 def _cmd_vozes(db: Session, conta: Conta, cmd: str, resto: str, canal: str) -> Resposta:

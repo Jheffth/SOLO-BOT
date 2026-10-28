@@ -67,6 +67,15 @@ def _processar_telegram(update: dict):
                                             foto.get("mime_type") or "image/jpeg", msg.get("caption") or "", rotulo)
                 entrega.entregar(db, "telegram", str(chat["id"]), r)
                 return
+            contato = msg.get("contact")
+            if contato and not texto:
+                nome = " ".join(p for p in (contato.get("first_name"), contato.get("last_name")) if p)
+                numero = str(contato.get("phone_number") or "").strip()
+                if numero and not numero.startswith("+"):
+                    numero = "+" + numero            # o Telegram manda com DDI, às vezes sem o "+"
+                r = roteador.atender_contato(db, "telegram", str(chat["id"]), [(nome, numero)] if numero else [], rotulo)
+                entrega.entregar(db, "telegram", str(chat["id"]), r)
+                return
             if not texto:
                 telegram.enviar(str(chat["id"]), "Por enquanto eu leio texto, áudio e imagem de referência. 🙂")
                 return
@@ -97,6 +106,23 @@ def _texto(mensagem: dict) -> str:
     return (mensagem.get("conversation")
             or (mensagem.get("extendedTextMessage") or {}).get("text")
             or "").strip()
+
+
+def _contatos(mensagem: dict) -> list:
+    """[(nome, número)] de um cartão de contato (um ou vários) compartilhado no WhatsApp."""
+    from nucleo import contatos_audio
+    cartoes = []
+    if isinstance(mensagem.get("contactMessage"), dict):
+        cartoes.append(mensagem["contactMessage"])
+    varios = mensagem.get("contactsArrayMessage")
+    if isinstance(varios, dict):
+        cartoes += [c for c in (varios.get("contacts") or []) if isinstance(c, dict)]
+    contatos = [contatos_audio.do_vcard(str(c.get("vcard") or ""), str(c.get("displayName") or "")) for c in cartoes]
+    return [c for c in contatos if c[1]]
+
+
+def _eh_contato(mensagem: dict) -> bool:
+    return "contactMessage" in mensagem or "contactsArrayMessage" in mensagem
 
 
 def _remetente(data: dict) -> Optional[str]:
@@ -170,6 +196,19 @@ def _processar_whatsapp(evento: dict, recebido_em=None):
                 conteudo, mime = _bytes_do_audio(data, mensagem, {**imagem, "mimetype": imagem.get("mimetype") or "image/jpeg"})
             with _tempo_whatsapp("rotear_imagem"):
                 r = roteador.atender_imagem(db, "whatsapp", jid, conteudo, mime, imagem.get("caption") or "", data.get("pushName"))
+            with _tempo_whatsapp("entrega"):
+                entrega.entregar(db, "whatsapp", jid, r)
+            return
+        if jid and _eh_contato(mensagem):
+            # Do próprio aparelho, só vale se este chat acabou de pedir com /salvarcontato.
+            if chave.get("fromMe") and not roteador.esperando_contato("whatsapp", jid):
+                return
+            if roteador.ja_processada(db, "whatsapp", chave.get("id")):
+                return
+            if not roteador.conta_de(db, "whatsapp", jid) and not config.RESPONDER_DESCONHECIDOS:
+                return
+            with _tempo_whatsapp("rotear_contato"):
+                r = roteador.atender_contato(db, "whatsapp", jid, _contatos(mensagem), data.get("pushName"))
             with _tempo_whatsapp("entrega"):
                 entrega.entregar(db, "whatsapp", jid, r)
             return

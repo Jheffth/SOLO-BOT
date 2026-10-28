@@ -1,7 +1,6 @@
 """Contatos e envio manual de áudio por administrador, com idempotência persistente."""
 import base64
 import hashlib
-import re
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -12,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from canais import evolution
 from database import Conta, ContatoAudio, EnvioAudio, get_db
-from nucleo import fala
+from nucleo import contatos_audio, fala
 from seguranca import conta_admin
 
 router = APIRouter(prefix="/api/admin/audios", tags=["envio-audio"])
@@ -32,12 +31,10 @@ class PedidoEnvio(BaseModel):
 
 
 def numero_valido(numero):
-    if not re.fullmatch(r"[+0-9() .-]+", numero):
-        raise HTTPException(422, "Informe somente o número com DDI e DDD, sem links ou grupos.")
-    numero = re.sub(r"[+() .-]", "", numero)
-    if not re.fullmatch(r"[1-9][0-9]{7,14}", numero):
-        raise HTTPException(422, "Informe um número internacional com DDI e DDD, por exemplo +55 11 99999-9999.")
-    return numero
+    try:
+        return contatos_audio.normalizar(numero)
+    except contatos_audio.NumeroInvalido as e:
+        raise HTTPException(422, str(e)) from None
 
 
 def _contato(c):
@@ -62,8 +59,8 @@ def adicionar(p: Contato, conta: Conta = Depends(conta_admin), db: Session = Dep
     nome = p.nome.strip()
     if not nome or any(ord(c) < 32 for c in nome):
         raise HTTPException(422, "Informe um nome para o contato.")
-    if db.query(ContatoAudio).filter_by(conta_id=conta.id).count() >= 200:
-        raise HTTPException(422, "O limite é de 200 contatos salvos.")
+    if db.query(ContatoAudio).filter_by(conta_id=conta.id).count() >= contatos_audio.LIMITE:
+        raise HTTPException(422, f"O limite é de {contatos_audio.LIMITE} contatos salvos.")
     c = ContatoAudio(conta_id=conta.id, nome=nome, numero=numero_valido(p.numero))
     db.add(c)
     try:
