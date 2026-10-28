@@ -150,7 +150,7 @@ def atalho(p: Pedido, x_solo_chave: str = Header(""), db: Session = Depends(get_
 
     saida = {"falar": falar, "texto": _sem_marcacao("\n\n".join(blocos)) or falar}
     if p.voz and fala.disponivel():
-        audio = fala.sintetizar(falar, "whatsapp")          # mp3: o "Reproduzir Som" do iPhone toca
+        audio = fala.sintetizar_longo(falar, "whatsapp")          # mp3: o "Reproduzir Som" do iPhone toca
         if audio:
             saida["audio_base64"], saida["mime"] = audio["base64"], audio["mime"]
     return saida

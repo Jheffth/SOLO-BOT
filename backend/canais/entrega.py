@@ -84,7 +84,10 @@ def _voz(canal: str, origem: str, audio):
     try:
         if canal == "telegram":
             import base64
-            return bool(telegram.enviar_voz(origem, base64.b64decode(audio["base64"]), audio.get("mime") or "audio/ogg"))
+            ok = bool(telegram.enviar_voz(origem, base64.b64decode(audio["base64"]), audio.get("mime") or "audio/ogg"))
+            for extra in audio.get("extras") or []:          # partes seguintes de uma fala longa
+                telegram.enviar_voz(origem, base64.b64decode(extra["base64"]), extra.get("mime") or "audio/ogg")
+            return ok
         else:
             r = evolution.enviar_audio(origem, audio["base64"])
             return bool(isinstance(r, dict) and (r.get("key") or {}).get("id") and not r.get("erro") and not r.get("error"))

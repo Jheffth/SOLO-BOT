@@ -123,3 +123,12 @@ O pedido pendente fica só na memória do servidor: reiniciar o container o canc
   (`DELETE /profiles/{id}`, sem volta). A lista vale por 3 minutos; qualquer outra mensagem ou
   `/apagarvoz cancelar` a descarta, e número fora da lista não apaga nada. Se a voz apagada era a
   escolhida, a escolha é limpa e o bot pede `/usarvoz`.
+
+
+## Conversas longas da Bella
+
+A fala da Bella é lida literalmente e por inteiro. O texto é dividido em partes de frases completas (até 900
+caracteres cada no ElevenLabs, 200 no VoiceStudio) e lido em até 3 partes; o excedente é descartado e registrado no
+log (`Fala: texto longo demais`). As partes saem como um áudio só no WhatsApp, no Bella.exe e no atalho (mp3 emendado) e como
+vários áudios seguidos no Telegram. Ajuste `PARTES_MAX`, `PARTE_ELEVENLABS` e `PARTE_VOICESTUDIO` em `backend/nucleo/fala.py`.
+Mais partes gastam mais créditos do ElevenLabs e, com o VoiceStudio, mais tempo.

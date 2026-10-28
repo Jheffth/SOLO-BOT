@@ -185,12 +185,83 @@ def test_conversa_da_bella_e_lida_literalmente_sem_resumo_de_ia(monkeypatch):
     monkeypatch.setattr(fala, "resumir", lambda m: (_ for _ in ()).throw(AssertionError("não pode resumir")))
     longo = " ".join(f"Frase número {i} da Bella, bem longa e cheia de detalhes." for i in range(30))
     falado = fala.o_que_falar([{"texto": longo, "opcoes": [], "literal": True}])
-    assert falado and len(falado) <= fala.MAX_CARACTERES
-    assert falado.startswith("Frase número 0 da Bella") and falado.endswith(".")
-    assert falado in longo.replace("  ", " ")
+    assert falado == longo                    # o texto todo é falado, não só o primeiro trecho
 
 
 def test_conversa_curta_da_bella_sai_inteira(monkeypatch):
     from nucleo import fala
     monkeypatch.setattr(fala, "resumir", lambda m: None)
     assert fala.o_que_falar([{"texto": "Oi amor, vem cá.", "opcoes": [], "literal": True}]) == "Oi amor, vem cá."
+
+
+def test_partes_literais_cobrem_o_texto_inteiro_em_frases_completas(monkeypatch):
+    from nucleo import fala
+    monkeypatch.setattr(fala, "motor_escolhido", lambda: "elevenlabs")
+    texto = " ".join(f"Frase número {i} da Bella, bem longa e cheia de detalhes." for i in range(40))   # ~2300 caracteres
+    partes = fala.partes_literais(texto)
+    assert 1 < len(partes) <= fala.PARTES_MAX
+    assert all(len(p) <= fala.PARTE_ELEVENLABS and p.endswith(".") for p in partes)
+    assert " ".join(partes) == texto[:len(" ".join(partes))]            # sem pular nem repetir nada
+    assert len(" ".join(partes)) > fala.MAX_CARACTERES * 3
+
+
+def test_partes_literais_voicestudio_usa_partes_curtas(monkeypatch):
+    from nucleo import fala
+    monkeypatch.setattr(fala, "motor_escolhido", lambda: "voicestudio")
+    texto = " ".join(f"Frase número {i} da Bella, bem longa." for i in range(12))
+    partes = fala.partes_literais(texto)
+    assert len(partes) == fala.PARTES_MAX and all(len(p) <= fala.PARTE_VOICESTUDIO for p in partes)
+
+
+def test_partes_literais_quebra_frase_gigante_sem_perder_palavras(monkeypatch):
+    from nucleo import fala
+    monkeypatch.setattr(fala, "motor_escolhido", lambda: "voicestudio")
+    texto = " ".join(["palavra"] * 60)                                  # uma frase sem pontuação, 479 caracteres
+    partes = fala.partes_literais(texto)
+    assert all(len(p) <= fala.PARTE_VOICESTUDIO for p in partes)
+    assert " ".join(partes).split() == texto.split()[:len(" ".join(partes).split())]
+
+
+def test_sintetizar_longo_emenda_mp3_em_um_audio(monkeypatch):
+    import base64
+    from nucleo import fala
+    monkeypatch.setattr(fala, "motor_escolhido", lambda: "elevenlabs")
+    chamadas = []
+
+    def falso(texto, canal, **kw):
+        chamadas.append(texto)
+        return {"base64": base64.b64encode(texto[:3].encode()).decode(), "mime": "audio/mpeg"}
+    monkeypatch.setattr(fala, "sintetizar", falso)
+    texto = " ".join(f"Frase número {i} da Bella, bem longa e cheia de detalhes." for i in range(30))
+    audio = fala.sintetizar_longo(texto, "whatsapp")
+    assert len(chamadas) > 1
+    assert base64.b64decode(audio["base64"]) == b"".join(c[:3].encode() for c in chamadas)   # na ordem do texto
+    assert "extras" not in audio
+
+
+def test_sintetizar_longo_ogg_do_telegram_vai_em_extras(monkeypatch):
+    import base64
+    from nucleo import fala
+    monkeypatch.setattr(fala, "motor_escolhido", lambda: "elevenlabs")
+    monkeypatch.setattr(fala, "sintetizar", lambda t, c, **kw: {"base64": base64.b64encode(t[:2].encode()).decode(), "mime": "audio/ogg"})
+    texto = " ".join(f"Frase número {i} da Bella, bem longa e cheia de detalhes." for i in range(30))
+    audio = fala.sintetizar_longo(texto, "telegram")
+    assert audio["extras"] and all(e["mime"] == "audio/ogg" for e in audio["extras"])
+
+
+def test_sintetizar_longo_texto_curto_chama_uma_vez(monkeypatch):
+    from nucleo import fala
+    chamadas = []
+    monkeypatch.setattr(fala, "sintetizar", lambda t, c, **kw: chamadas.append(t) or {"base64": "QQ==", "mime": "audio/mpeg"})
+    assert fala.sintetizar_longo("Oi amor.", "whatsapp")["base64"] == "QQ=="
+    assert chamadas == ["Oi amor."]
+
+
+def test_entrega_telegram_envia_as_partes_extras(monkeypatch):
+    import base64
+    from canais import entrega
+    enviados = []
+    monkeypatch.setattr(entrega.telegram, "enviar_voz", lambda o, b, m: enviados.append(b) or True)
+    b64 = lambda x: base64.b64encode(x).decode()
+    ok = entrega._voz("telegram", "1", {"base64": b64(b"um"), "mime": "audio/ogg", "extras": [{"base64": b64(b"dois"), "mime": "audio/ogg"}]})
+    assert ok and enviados == [b"um", b"dois"]

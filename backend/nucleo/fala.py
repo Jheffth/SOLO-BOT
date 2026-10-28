@@ -36,6 +36,9 @@ log = logging.getLogger("solobot.fala")
 
 API = "https://api.elevenlabs.io/v1"
 MAX_CARACTERES = 500
+PARTE_ELEVENLABS = 900     # cada parte falada de uma conversa longa (ElevenLabs)
+PARTE_VOICESTUDIO = 200    # o VoiceStudio é lento: partes curtas
+PARTES_MAX = 3             # quantas partes no máximo por resposta
 FORMATOS = {"telegram": ("opus_48000_64", "audio/ogg"), "whatsapp": ("mp3_44100_64", "audio/mpeg")}
 MODELO_RESERVA = "eleven_flash_v2_5"
 PREFERENCIAS = ("audio", "sempre", "nunca")
@@ -466,6 +469,35 @@ def sintetizar(texto: str, canal: str, id_voz: Optional[str] = None,
     return audio
 
 
+def _juntar(audios: list) -> dict:
+    """mp3 (WhatsApp, Bella.exe, atalho) emenda em um só áudio; ogg (Telegram) segue em `extras`."""
+    import base64
+    primeiro = audios[0]
+    if all(a.get("mime") == "audio/mpeg" for a in audios):
+        corpo = b"".join(base64.b64decode(a["base64"]) for a in audios)
+        return {**primeiro, "base64": base64.b64encode(corpo).decode()}
+    return {**primeiro, "extras": [{"base64": a["base64"], "mime": a["mime"]} for a in audios[1:]]}
+
+
+def sintetizar_longo(texto: str, canal: str, **kw) -> Optional[dict]:
+    """Como `sintetizar`, mas fala o texto inteiro: o que passa do limite do motor vira partes."""
+    if not texto:
+        return None
+    partes = partes_literais(texto) if len(texto) > _limite_parte() else [texto]
+    if len(partes) <= 1:
+        return sintetizar(partes[0] if partes else texto, canal, **kw)
+    if motor_escolhido() == "voicestudio":       # um computador só: uma parte por vez
+        audios = [sintetizar(p, canal, **kw) for p in partes]
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(len(partes)) as pool:
+            audios = list(pool.map(lambda p: sintetizar(p, canal, **kw), partes))
+    boas = [a for a in audios if a]
+    if len(boas) < len(partes):
+        log.warning("Fala: %d de %d partes sintetizadas", len(boas), len(partes))
+    return _juntar(boas) if boas else None
+
+
 # ── Decidir e anexar ─────────────────────────────────────────────
 def quer_falar(preferencia: Optional[str], entrada_audio: bool) -> bool:
     p = preferencia if preferencia in PREFERENCIAS else "audio"
@@ -517,19 +549,42 @@ def resumir(mensagens: list) -> Optional[str]:
     return dito[:limite] or None
 
 
-def _trecho_literal(texto: str) -> Optional[str]:
-    """Do início do texto, as frases inteiras que cabem no limite de fala do motor ativo."""
-    limite = 200 if motor_escolhido() == "voicestudio" else MAX_CARACTERES
+def _limite_parte() -> int:
+    return PARTE_VOICESTUDIO if motor_escolhido() == "voicestudio" else PARTE_ELEVENLABS
+
+
+def partes_literais(texto: str) -> list:
+    """O texto inteiro em partes de frases completas, cada uma dentro do limite do motor ativo.
+
+    A conversa da Bella é lida literalmente. Antes só o primeiro trecho (500 ou 200 caracteres) virava
+    voz e o resto era descartado; agora o texto todo é falado, até PARTES_MAX partes.
+    """
+    limite = _limite_parte()
+    texto = (texto or "").strip()
     if not texto:
-        return None
-    if len(texto) <= limite:
-        return texto
-    corte = ""
+        return []
+    partes, atual = [], ""
     for frase in re.findall(r"[^.!?…]+[.!?…]*\s*", texto):
-        if len(corte) + len(frase.strip()) + 1 > limite:
-            break
-        corte = (corte + " " + frase.strip()).strip()
-    return corte or texto[:limite].rsplit(" ", 1)[0] or texto[:limite]
+        frase = frase.strip()
+        while len(frase) > limite:               # frase maior que o limite: quebra nas palavras
+            corte = frase[:limite].rsplit(" ", 1)[0] or frase[:limite]
+            if atual:
+                partes.append(atual)
+                atual = ""
+            partes.append(corte)
+            frase = frase[len(corte):].strip()
+        if not frase:
+            continue
+        if atual and len(atual) + 1 + len(frase) > limite:
+            partes.append(atual)
+            atual = frase
+        else:
+            atual = (atual + " " + frase).strip()
+    if atual:
+        partes.append(atual)
+    if len(partes) > PARTES_MAX:
+        log.warning("Fala: texto longo demais; lendo %d de %d partes", PARTES_MAX, len(partes))
+    return partes[:PARTES_MAX]
 
 
 def o_que_falar(mensagens: list) -> Optional[str]:
@@ -548,8 +603,9 @@ def o_que_falar(mensagens: list) -> Optional[str]:
     if any(m.get("literal") for m in mensagens):
         # Conversa da Bella: a voz lê a própria fala dela. Resumir por IA trocava as palavras e, no
         # modo adulto, o resumidor (Gemini) recusava o conteúdo e a resposta ficava sem áudio.
-        return _trecho_literal(" ".join(t for t in (texto_falavel(m.get("texto") or "", None, limpar_tecnico=False)
-                                                    for m in mensagens) if t))
+        juntas = partes_literais(" ".join(t for t in (texto_falavel(m.get("texto") or "", None, limpar_tecnico=False)
+                                                      for m in mensagens) if t))
+        return " ".join(juntas) or None
     limpos = [texto_falavel(m.get("texto") or "") for m in mensagens]
     tem_lista = any(m.get("opcoes") for m in mensagens)
     if all(limpos) and not tem_lista:
@@ -585,7 +641,7 @@ def falar_resposta(conta, canal: str, resposta, entrada_audio: bool, forcar: boo
         elif tom:
             audio = sintetizar(falado, canal, tom=tom)
         else:
-            audio = sintetizar(falado, canal)
+            audio = sintetizar_longo(falado, canal)
     except Exception:  # noqa: BLE001
         log.exception("Falha ao preparar a fala")
         audio = None
