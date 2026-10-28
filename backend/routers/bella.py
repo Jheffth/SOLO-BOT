@@ -227,6 +227,7 @@ FALAS_ARQUIVOS = {
     "busca": "Encontrei estes resultados. Para abrir um deles, diga o número.",
     "escolha": "Qual destas opções você quer? Diga o número.",
     "imagem_pronta": "A imagem está pronta no painel de imagens.",
+    "captura": "Pode recortar. Arraste na tela o que você quer.",
     "site_aberto": "Abri o site no seu navegador padrão.",
     "pesquisa_aberta": "Abri os resultados da pesquisa no seu navegador padrão.",
     "pedir_assunto": "Qual assunto você quer pesquisar?",

@@ -137,6 +137,7 @@ def test_voz_local_so_sintetiza_frase_fixa_e_reutilizavel(acesso, sistemas, monk
     r = c.post("/api/bella/voz-local", headers=h, json={"codigo": "C:/pasta/arquivo-privado.txt"})
     assert r.status_code == 422 and len(sintetizados) == 1
     assert c.post("/api/bella/voz-local", headers=h, json={"codigo": "criada", "caminho": "arquivo-privado"}).status_code == 422
+    assert c.post("/api/bella/voz-local", headers=h, json={"codigo": "captura"}).json()["falar"].startswith("Pode recortar")
 
 
 def test_transcricao_local_valida_audio_falhas_e_limite(acesso, sistemas, monkeypatch):

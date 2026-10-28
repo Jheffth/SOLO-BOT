@@ -53,11 +53,14 @@ namespace Bella {
         public event Action<string> AvatarEstado;
         public Func<string,CancellationToken,Task> ReproduzirAvatar;
         public event Action<bool,string> GerandoImagem;
+        /// <summary>Pediram o recorte de tela por voz ou texto ("recorta a tela").</summary>
+        public event Action PedirCaptura;
         public void CancelarBusca() { arquivos.CancelarBusca(); }
 
         public Nucleo(Control ui,Settings inicial,Func<IMicrophone> microphoneFactory=null) {
             dono=ui; Config=inicial ?? new Settings();
             pedidos.GerandoImagem+=(ativa,erro)=> {if(!quitting && GerandoImagem!=null) GerandoImagem(ativa,erro);};
+            pedidos.PedirCaptura+=()=> { if(!quitting) Ui(()=> { if(!quitting && PedirCaptura!=null) PedirCaptura(); }); };
             criarMicrofone=microphoneFactory ?? (()=>new Microphone());
             if(Config.PastasArquivos==null) Config.PastasArquivos=Arquivos.PastasPadrao();
             if(Config.ComandosPastas==null) Config.ComandosPastas=new ComandoPasta[0];

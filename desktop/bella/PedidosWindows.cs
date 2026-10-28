@@ -13,6 +13,8 @@ namespace Bella {
         public string ImagemRef;
         public PedidosWindows() {Tempos=new Dictionary<string,long>();}
         public event Action<bool,string> GerandoImagem;
+        /// <summary>"Bella, recorta a tela": quem abre o recorte é a janela (CapturaTela).</summary>
+        public event Action PedirCaptura;
         public static bool PedidoImagem(string text,out string prompt) {
             string pedido=ComandosPastas.Pedido(text);
             var m=Regex.Match(pedido ?? "",@"^(?:/imagem\s+|(?:gere|gerar|crie|criar|desenhe)\s+(?:(?:uma|a)\s+)?(?:imagem|foto|ilustração|ilustracao)\s+(?:(?:de|do|da)\s+)?)(?<prompt>.+)$",RegexOptions.IgnoreCase|RegexOptions.Singleline);
@@ -31,6 +33,14 @@ namespace Bella {
                 if(ouvido!=null) ouvido(text);
             }
             if(continuar!=null && !continuar()) throw new OperationCanceledException();
+            if(imagemRef==null && CapturaTela.Pedido(text)) {
+                arquivos.Cancelar(); tokenSolo=null; ultimoLocal=true;
+                if(PedirCaptura!=null) PedirCaptura();
+                var recorte=new Reply { CodigoVoz="captura", texto="✂️ Arraste na tela o que você quer recortar. Esc cancela.", falar="Pode recortar." };
+                recorte.SomenteLocal=true;
+                if(resultado!=null) resultado(recorte);
+                return await VozLocal(recorte,cliente);
+            }
             string promptImagem;
             if(imagemRef==null && PedidoImagem(text,out promptImagem)) {
                 if(promptImagem.Length>1800) throw new InvalidOperationException("Use até 1800 caracteres para descrever a imagem.");

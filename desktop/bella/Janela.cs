@@ -38,6 +38,9 @@ namespace Bella {
         readonly Stopwatch avatarRelogio=new Stopwatch();
         TaskCompletionSource<bool> avatarInicio,avatarFim;
         bool quitting, medidor, avisouBandeja, atalhoLivre=true;
+        // Recorte de tela (CapturaTela): a imagem em pixels reais fica só na memória até copiar, salvar ou descartar.
+        Bitmap recorte;
+        bool recortando, recorteLivre=true;
 
         public Janela(bool startMinimized) {
             minimized=startMinimized;
@@ -67,6 +70,7 @@ namespace Bella {
                 tela.Postar(m); if(mini!=null) mini.Postar(m);
             };
             bella.GerandoImagem+=(ativa,erro)=>tela.Postar(new {tipo="imagem_estado",gerando=ativa,erro=erro});
+            bella.PedirCaptura+=()=>RecortarTela();
             bella.ImagemRecebida+=async r=> {
                 try {
                     await Task.Run(()=>galeria.Guardar(r));
@@ -86,6 +90,7 @@ namespace Bella {
             menu.Items.Add("Falar agora",null,async(s,e)=>await Seguro(bella.Begin));
             itemEscuta=new ToolStripMenuItem("Pausar escuta",null,async(s,e)=>await Seguro(bella.AlternarEscuta));
             menu.Items.Add(itemEscuta);
+            menu.Items.Add("Recortar tela (Ctrl+Alt+S)",null,(s,e)=>RecortarTela());
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Sair",null,(s,e)=>Sair());
             tray.ContextMenuStrip=menu; tray.DoubleClick+=(s,e)=>Reveal();
@@ -111,11 +116,39 @@ namespace Bella {
             base.OnHandleCreated(e);
             Visual.JanelaEscura(this);
             AtualizarAtalho();
+            UnregisterHotKey(Handle,2);
+            recorteLivre=RegisterHotKey(Handle,2,0x4000|0x0002|0x0001,(uint)Keys.S);   // MOD_NOREPEAT|CTRL|ALT + S
         }
         protected override void WndProc(ref Message m) {
             if(m.Msg==0x0312 && m.WParam.ToInt32()==1) PeloAtalho();
+            if(m.Msg==0x0312 && m.WParam.ToInt32()==2) RecortarTela();
             base.WndProc(ref m);
         }
+
+        // ── Recorte de tela ──────────────────────────────────────────
+        // A Bella some (janela e Mini-Bella), a tela é congelada e recortada (CapturaTela,
+        // numa thread com a escala de cada monitor) e ela volta com a prévia do recorte.
+        async void RecortarTela() {
+            if(recortando || quitting) return;
+            recortando=true;
+            bool estavaVisivel=Visible && WindowState!=FormWindowState.Minimized;
+            try {
+                if(estavaVisivel) Hide();
+                if(mini!=null) mini.Hide();
+                await Task.Delay(250);                      // a animação de sumir do Windows termina antes da foto
+                var imagem=await CapturaTela.Recortar();
+                if(quitting) { if(imagem!=null) imagem.Dispose(); return; }
+                if(imagem==null) { if(estavaVisivel) Reveal(); return; }
+                if(recorte!=null) recorte.Dispose();
+                recorte=imagem;
+                string url=await Task.Run(()=>CapturaTela.ParaEnviar(imagem));
+                Reveal();
+                tela.Postar(new {tipo="captura",url=url,largura=imagem.Width,altura=imagem.Height});
+            } catch(Exception e) {
+                if(!quitting) { if(estavaVisivel) Reveal(); tela.Postar(new {tipo="toast",texto="Não consegui recortar a tela: "+e.Message,erro=true}); }
+            } finally { recortando=false; }
+        }
+        void DescartarRecorte() { if(recorte!=null) { recorte.Dispose(); recorte=null; } }
         async void PeloAtalho() { await Seguro(bella.Begin); }
         void AtualizarAtalho() {
             if(bella==null || !IsHandleCreated) return;
@@ -154,6 +187,7 @@ namespace Bella {
                 Sair(); return;
             }
             if(!atalhoLivre) tela.Postar(new { tipo="aviso", texto="Ctrl + Alt + B está em uso por outro aplicativo. Use o botão do microfone.", erro=false });
+            if(!recorteLivre) tela.Postar(new { tipo="aviso", texto="Ctrl + Alt + S está em uso por outro aplicativo. Para recortar a tela, use o botão ✂️ ou o menu do ícone.", erro=false });
             if(bella.TemChave) await Seguro(bella.StartListening);   // com a chave salva, ela já abre ouvindo
         }
 
@@ -186,6 +220,23 @@ namespace Bella {
                         }
                         break;
                     case "medidor": medidor=Vista.Logico(d,"ligado")==true; break;
+                    case "recortar_tela": RecortarTela(); break;
+                    case "captura_descartar": DescartarRecorte(); break;
+                    case "captura_copiar":
+                        if(recorte==null) throw new InvalidOperationException("Esse recorte não está mais disponível. Faça um novo.");
+                        Clipboard.SetImage(recorte);
+                        tela.Postar(new {tipo="toast",texto="Recorte copiado. Cole com Ctrl + V.",erro=false});
+                        break;
+                    case "captura_salvar":
+                        if(recorte==null) throw new InvalidOperationException("Esse recorte não está mais disponível. Faça um novo.");
+                        using(var salvarRecorte=new SaveFileDialog {Filter="PNG (melhor qualidade)|*.png|JPEG|*.jpg",FileName="Recorte-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+".png",
+                                                                   InitialDirectory=Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),OverwritePrompt=true}) {
+                            if(salvarRecorte.ShowDialog(this)==DialogResult.OK) {
+                                CapturaTela.Salvar(recorte,salvarRecorte.FileName);
+                                tela.Postar(new {tipo="toast",texto="Recorte salvo.",erro=false});
+                            }
+                        }
+                        break;
                     case "abrir_painel": AbrirPainel(Vista.Texto(d,"servidor")); break;
                     case "sair": Sair(); break;
                     case "comando_pasta":
@@ -344,6 +395,7 @@ namespace Bella {
         // ── Mini-Bella: aparece quando a janela está fechada e ela está em ação ──
         void AtualizarMini() {
             if(quitting || ambiente==null) return;
+            if(recortando) { esconderMini.Stop(); if(mini!=null) mini.Hide(); return; }   // a Mini-Bella não aparece no recorte
             bool fora=!Visible || WindowState==FormWindowState.Minimized;
             var modo=bella.Modo;
             bool emAcao=esperaTecla.Contando || modo==Modo.Greeting || modo==Modo.Recording || modo==Modo.Processing || modo==Modo.Speaking;
@@ -381,7 +433,8 @@ namespace Bella {
 
         protected override void Dispose(bool disposing) {
             if(disposing) {
-                if(IsHandleCreated) UnregisterHotKey(Handle,1);
+                if(IsHandleCreated) { UnregisterHotKey(Handle,1); UnregisterHotKey(Handle,2); }
+                DescartarRecorte();
                 teclaFalar.Dispose(); bella.Dispose(); tray.Dispose(); esconderMini.Dispose();
                 if(mini!=null) mini.Dispose();
             }

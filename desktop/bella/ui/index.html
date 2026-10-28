@@ -59,6 +59,9 @@
     <span class="anexo" id="anexo" hidden><img id="anexo-img" alt="Referência anexada"><button type="button" id="anexo-x" title="Tirar a referência" aria-label="Tirar a referência">×</button></span>
     <input id="entrada" maxlength="2000" placeholder="Escreva ou diga “Olá Bella”…" aria-label="Mensagem para a Bella">
     <input type="file" id="anexo-arquivo" accept="image/png,image/jpeg,image/webp" hidden>
+    <button class="enviar" id="btn-recortar-tela" type="button" title="Recortar a tela (Ctrl + Alt + S)" aria-label="Recortar a tela">
+      <svg viewBox="0 0 24 24"><circle cx="6" cy="7" r="2.6"/><circle cx="6" cy="17" r="2.6"/><path d="M8.3 8.5 20 17M8.3 15.5 20 7"/></svg>
+    </button>
     <button class="enviar" id="btn-anexo" type="button" title="Anexar imagem de referência (ou cole com Ctrl + V)" aria-label="Anexar imagem de referência">
       <svg viewBox="0 0 24 24"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15 7"/></svg>
     </button>
@@ -85,12 +88,13 @@
     <div class="lateral-corpo" id="lateral-corpo">
     <section class="ferramenta" id="ferr-ref">
       <h3>Imagem de referência</h3>
-      <p>Anexe, cole (Ctrl + V) ou arraste uma imagem para a janela. Ela vale para /promptmodelo, /promptroupa e /posehot, e continua aparecendo no chat, onde também dá para anexar.</p>
+      <p>Recorte a tela (Ctrl + Alt + S), anexe, cole (Ctrl + V) ou arraste uma imagem para a janela. Ela vale para /promptmodelo, /promptroupa e /posehot, e continua aparecendo no chat, onde também dá para anexar.</p>
       <div class="ref-area" id="ref-area">
         <img id="ref-img" alt="Referência anexada" hidden>
         <span class="vazio" id="ref-vazio">Nenhuma imagem anexada</span>
       </div>
       <div class="montar-acoes">
+        <button class="btn" id="ref-recortar" type="button" title="Ctrl + Alt + S">✂️ Recortar tela</button>
         <button class="btn" id="ref-anexar" type="button">Anexar imagem</button>
         <button class="btn" id="ref-colar" type="button" title="Cola a imagem copiada (ou use Ctrl + V)">Colar</button>
         <button class="btn" id="ref-tirar" type="button" hidden>Tirar</button>
@@ -368,6 +372,29 @@
       </div>
     </div>
   </aside>
+
+  <!-- ─── Recorte da tela (Ctrl + Alt + S): a prévia e o que fazer com ela ─── -->
+  <div class="modal" id="modal-captura" hidden>
+    <div class="modal-caixa captura-caixa" role="dialog" aria-labelledby="captura-titulo">
+      <header class="captura-topo">
+        <div><h2 id="captura-titulo">Recorte da tela</h2><small id="captura-medida"></small></div>
+        <button class="icobtn" id="captura-fechar" type="button" title="Descartar (Esc)" aria-label="Descartar o recorte">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </header>
+      <div class="captura-imagem"><img id="captura-img" alt="Recorte da tela"></div>
+      <label class="campo captura-pedido"><span>O que você quer? <em>(opcional)</em></span>
+        <input id="captura-pedido" maxlength="1800" placeholder="Ex.: prompt realista · só a roupa · estilo anime · em inglês" autocomplete="off"></label>
+      <div class="captura-acoes">
+        <button class="btn pri" id="captura-prompt" type="button">✨ Criar prompt</button>
+        <button class="btn" id="captura-anexar" type="button" title="Leva o recorte para o chat como referência">Anexar ao chat</button>
+        <button class="btn" id="captura-copiar" type="button" title="Copia em tamanho real">Copiar</button>
+        <button class="btn" id="captura-salvar" type="button" title="Salva em tamanho real">Salvar…</button>
+        <button class="btn" id="captura-novo" type="button" title="Ctrl + Alt + S">Novo recorte</button>
+      </div>
+      <p class="ajuda captura-nota">🔒 O recorte fica só neste computador. Ele só vai ao Solo Bot quando você cria o prompt ou envia no chat.</p>
+    </div>
+  </div>
 
   <!-- ─── Recorte da foto ─── -->
   <div class="modal" id="modal-recorte" hidden>

@@ -42,6 +42,7 @@
       case "erro_salvar": erroSalvar(m.texto); break;
       case "comando_caminho": $("comando-caminho").value = m.caminho; break;
       case "comando_salvo": if (!m.removido) limparComando(); toast(m.removido ? "Comando removido." : "Comando salvo. Já pode falar a frase cadastrada."); break;
+      case "captura": if (!MINI) abrirCaptura(m); break;
       case "foto_original": if (m.dataUrl) abrirRecorte(m.dataUrl); else toast("A foto original não está mais aqui. Escolha a foto de novo.", true); break;
     }
   }
@@ -495,6 +496,26 @@
     $("criativo-tema").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); criarCriativo(); } });
     try { if (localStorage.getItem("bella.lateral") === "1") lateral(true); } catch (e) { }
     // Referência de roupa para o prompt: botão, Ctrl+V ou arrastar a imagem para a janela
+    // Recorte de tela: quem recorta é o Windows (CapturaTela.cs); a prévia volta como "captura"
+    $("btn-recortar-tela").onclick = () => enviar("recortar_tela");
+    $("ref-recortar").onclick = () => enviar("recortar_tela");
+    $("captura-fechar").onclick = () => fecharCaptura();
+    $("captura-prompt").onclick = () => {
+      if (!captura) return;
+      if (estado.ocupada) return toast("Espere eu terminar o pedido anterior.", true);
+      const t = $("captura-pedido").value.trim() || "crie um prompt com essa referência";
+      const img = captura; fecharCaptura();
+      enviar("enviar", { texto: t, exibir: "✂️ " + t, imagem: img });
+    };
+    $("captura-pedido").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("captura-prompt").click(); } });
+    $("captura-anexar").onclick = () => {
+      if (!captura) return;
+      anexo = captura; mostrarAnexo(captura); fecharCaptura();
+      toast("Recorte anexado. Escreva o pedido ou só envie para criar o prompt."); $("entrada").focus();
+    };
+    $("captura-copiar").onclick = () => enviar("captura_copiar");
+    $("captura-salvar").onclick = () => enviar("captura_salvar");
+    $("captura-novo").onclick = () => { fecharCaptura(); enviar("recortar_tela"); };
     $("btn-anexo").onclick = () => $("anexo-arquivo").click();
     $("btn-video").onclick = () => { lateral(true); setTimeout(() => { const s = $("ferr-frames"); if (s) s.scrollIntoView({ block: "start", behavior: "smooth" }); }, 80); };
     $("anexo-arquivo").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) anexar(f); };
@@ -547,7 +568,8 @@
     $("btn-trocar-foto").onclick = () => { abrir(); setTimeout(() => $("arquivo").click(), 320); };
     document.addEventListener("keydown", e => {
       if (e.key !== "Escape") return;
-      if (!$("modal-recorte").hidden) fecharRecorte(); else if ($("gaveta").classList.contains("aberta")) fechar();
+      if (!$("modal-captura").hidden) fecharCaptura();
+      else if (!$("modal-recorte").hidden) fecharRecorte(); else if ($("gaveta").classList.contains("aberta")) fechar();
     });
     document.querySelectorAll("[data-aparencia]").forEach(b => b.onclick = () => {
       aplicarConfig({ aparencia: b.dataset.aparencia }); enviar("preferencias", { aparencia: b.dataset.aparencia });
@@ -647,6 +669,21 @@
   }
 
   // ── Foto: ler, reduzir e recortar ──────────────────────────
+  // ── Recorte de tela: a prévia ──
+  // A imagem em tamanho real fica no C# (copiar/salvar); aqui chega a versão de envio (JPEG, até 1280 px).
+  let captura = null;
+  function abrirCaptura(m) {
+    captura = m.url; $("captura-img").src = m.url;
+    $("captura-medida").textContent = m.largura + " × " + m.altura + " px";
+    $("captura-pedido").value = ""; $("modal-captura").hidden = false;
+    setTimeout(() => $("captura-pedido").focus(), 60);
+  }
+  function fecharCaptura() {
+    if ($("modal-captura").hidden) return;
+    $("modal-captura").hidden = true; $("captura-img").removeAttribute("src"); captura = null;
+    enviar("captura_descartar");
+  }
+
   let anexo = null;
   // a mesma referência aparece no chat (#anexo) e no painel de ferramentas (#ref-img)
   function mostrarAnexo(url) {
@@ -748,6 +785,8 @@
       if (m.acao === "falar") demo.pedido("o que eu tenho para hoje", true);
       if (m.acao === "enviar") demo.pedido(m.texto, false);
       if (m.acao === "parar_voz") r({ tipo: "estado", modo: "espera", ocupada: false });
+      if (m.acao === "recortar_tela") r({ tipo: "captura", url: config.foto || new URLSearchParams(location.search).get("foto"), largura: 1840, altura: 1035 });
+      if (m.acao === "captura_copiar") r({ tipo: "toast", texto: "Recorte copiado. Cole com Ctrl + V." });
     },
     escutar(sim) { receber({ tipo: "estado", modo: sim ? "espera" : "pausada", escutando: sim, ocupada: false }); },
     pedido(texto, voz) {
@@ -781,6 +820,7 @@
       if (cena === "config") { $("btn-config").click(); let k = 0; setInterval(() => receber({ tipo: "nivel", v: 180 + 900 * Math.abs(Math.sin(k++ / 4)) }), 80); }
       if (cena === "ouvindo") { receber({ tipo: "msg", de: "bella", texto: "Oi, Jefferson. Pode falar." }); let k = 0; setInterval(() => receber({ tipo: "nivel", v: 300 + 1600 * Math.abs(Math.sin(k++ / 3)) }), 80); }
       if (cena === "recorte" && foto) abrirRecorte(foto);
+      if (cena === "captura" && foto) receber({ tipo: "captura", url: foto, largura: 1840, altura: 1035 });
       if (cena === "erro") aviso("A conexão falhou. Confira no sistema se o pedido foi executado antes de repetir.", true);
     }
   };

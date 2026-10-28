@@ -77,6 +77,7 @@ namespace Bella {
             VozRedeTestes.Run();
             ArquivosTestes.Run(AppDomain.CurrentDomain.BaseDirectory);
             NavegadorTestes.Run();
+            CapturaTestes.Run();
             var wake=new Wake(); var c=new Capture(wake); int requests=0; byte[] result=null;
             c.RequestReady+=b=>{ requests++; result=b; };
             var silence=new byte[3200]; var voice=new byte[3200]; for(int i=1;i<voice.Length;i+=2) voice[i]=10;

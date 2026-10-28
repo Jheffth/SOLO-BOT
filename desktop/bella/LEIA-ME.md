@@ -379,3 +379,28 @@ O servidor aceita até 6 MiB e usa o anexo apenas nesse pedido, inclusive em cas
 de falha. A referência avulsa não entra no cache de referências da conversa.
 Essa garantia exige publicar o backend atualizado. --anexo-self-test valida o
 roteamento, serialização acima de 2 MB, descarte e falha de rede sem usar provedores.
+
+## Recorte de tela (Ctrl + Alt + S)
+
+A “Ferramenta de Captura” da Bella, pensada para virar prompt. Chame por **Ctrl + Alt + S**, pelo
+botão ✂️ no campo de mensagem, por **✂️ Recortar tela** em Ferramentas → Imagem de referência, pelo
+menu do ícone perto do relógio ou pedindo: “Bella, recorta a tela”, “tira um print”.
+
+- A Bella e a Mini-Bella somem, todos os monitores são **congelados** e escurecidos.
+- **Arraste** para recortar (a seleção pode atravessar monitores; o tamanho em pixels acompanha o mouse).
+  **Clique** numa janela para pegar só ela; na área de trabalho, o clique pega o monitor.
+  **Enter** pega o monitor do mouse, **Shift + Enter** todos. **Esc** ou o botão direito cancela.
+- A Bella volta com a prévia: **✨ Criar prompt** (com um pedido opcional, como “só a roupa” ou
+  “estilo anime”), **Anexar ao chat**, **Copiar** e **Salvar…** (em tamanho real, PNG ou JPEG) e **Novo recorte**.
+
+**Monitores com escalas diferentes.** O recorte roda numa linha de execução própria em modo “DPI por
+monitor” (Windows 10 1703 ou mais novo): cada monitor é lido em pixels reais, sem deslocamento nem
+borrão, mesmo com 100%, 125% e 150% lado a lado. O resto do aplicativo não muda de modo.
+
+**Privacidade.** O recorte fica só na memória deste computador. Vai ao Solo Bot apenas quando você toca
+em Criar prompt ou envia o anexo no chat, e então segue o mesmo caminho do anexo (JPEG de até 1280 px).
+Copiar e Salvar usam a imagem em tamanho real e não passam pelo servidor. Fechar a prévia descarta o recorte.
+
+Limites: conteúdo protegido (vídeos com DRM, alguns apps de banco) aparece preto, como na ferramenta
+do Windows. Em monitores HDR as cores podem sair mais claras. Se outro programa já usa Ctrl + Alt + S,
+a Bella avisa e os demais caminhos continuam funcionando.
