@@ -1,9 +1,13 @@
-# Galeria da Bella (fotos/vídeos) — onde está a especificação
+# Galeria de fotos e vídeos — onde está
 
-A especificação completa fica no repositório **Solo Prompts**: `C:\JEFFERSON\PROJETOS\SOLO PROMPTS\ESPECIFICACAO_GALERIA.md`.
+A galeria real (fotos e vídeos das modelos, níveis, jogo do agrado, "forçar" do Arquiteto, usuários comuns e APIs) é do projeto
+futuro **soDeles**. A semente da especificação está em `SODELES_ESPECIFICACAO_GALERIA.md` (neste repositório).
 
-O que muda **no Solo Bot**:
-- `Resposta.diz(..., midia=)` e `_traduzir`: campo `midia` ao lado de `audio`; envio em `canais/evolution.py` (mídia) e `canais/telegram.py` (`sendPhoto`/`sendVideo`/`sendAnimation`, spoiler) e em `canais/entrega.py`.
-- Comandos do hub: `/foto`, `/video`, `/galeria`, `/forcar`, `/jogo`, `/agrado`, `/salvarmidia`, com a decisão de enviar **sempre no código** (nível, agrado, temperatura, `midia_max`, `conta.admin`), nunca pelo modelo.
-- Tabelas: `bella_agrado` (e `jogo_ativo`, `midia_max` por conta) em `database.py`; o termômetro e o carinho já existem em `nucleo/bella_estado.py`.
-- Regra central: só o Arquiteto (`conta.admin`) força; ninguém mais, nem por texto no chat.
+**O que já existe no Solo Bot e serve ao soDeles:**
+- Canal de mídia genérico: campo `midia` nas respostas dos sistemas, validação e entrega em WhatsApp e Telegram
+  (`canais/midia.py`, `canais/entrega.py`; contrato em `INTERACAO.md`).
+- Persona da Bella: memória (`/lembrar`, `/memoria`), sentimentos e termômetro (`nucleo/bella_estado.py`).
+
+**Regra para quando o soDeles existir:** os comandos de mídia (`/foto`, `/galeria`, `/jogo`, `/forcar`…) são do soDeles e
+entram pelo manifesto dele, não no código do hub. A decisão de enviar mídia é sempre do código (nível, agrado, temperatura,
+autorização, papel de administrador), nunca de um modelo de linguagem.
