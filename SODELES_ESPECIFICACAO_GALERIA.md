@@ -128,3 +128,41 @@ Decisão do Arquiteto (J.C. Baracci): a Bella sabe quem ele é e tem sentimentos
 6. **Fica fora da persona dos outros.** O bloco de identidade e sentimentos só entra no prompt da conta admin; para as outras contas o prompt não menciona o Arquiteto.
 7. **Aceite:** teste que confirma que (a) o Arquiteto recebe identidade e emoções, (b) uma conta comum não recebe nada disso e nada do Arquiteto aparece na resposta dela, (c) as emoções dele não mudam o estado de outro usuário.
 
+## 11. Plano de migração: a Bella vira modelo do soDeles e cada modelo tem perfil próprio
+
+Decisão do Arquiteto: o soDeles será integrado ao Solo Bot; a **Bella do WhatsApp passa a ser uma modelo do soDeles**; a **Bella.exe continua no Solo Bot**; **todas as vozes ficam no Solo Bot**.
+
+### 11.1 Quem fica onde
+| Peça | Onde | Observação |
+|---|---|---|
+| Bella.exe (assistente de mesa) | Solo Bot | Mantém a conversa e a voz atuais. |
+| Bella do WhatsApp/Telegram | soDeles (modelo) | Persona, memória, emoções e galeria migram para lá. |
+| Vozes (ElevenLabs, VoiceStudio, clonagem) | Solo Bot | O soDeles pede o áudio ao hub informando a voz da modelo. |
+| Canais (WhatsApp/Telegram), `midia`, comandos do hub | Solo Bot | O soDeles entra como módulo em `SOLO_MODULOS`. |
+| Perfis, galeria, relação usuário×modelo | soDeles | Banco próprio. |
+
+Ponto em aberto: a Bella.exe e a Bella modelo compartilham memória do Arquiteto ou são conversas separadas? Premissa até decidir: separadas, com a identidade do Arquiteto igual nas duas.
+
+### 11.2 Perfil de modelo (cada modelo é um registro)
+- **Identidade:** nome, apelido, idade fictícia adulta (18+), bio curta e bio longa, redes (Instagram, TikTok), idioma, fotos de perfil.
+- **Voz:** `voz_provedor` e `voz_id` (ElevenLabs/VoiceStudio), velocidade, texto de apresentação em áudio. A síntese continua em `nucleo/fala.py` do Solo Bot; o soDeles só envia o texto e o `voz_id`.
+- **Persona:** prompt-base, estilo de fala, gostos, limites, o que a faz aceitar ou recusar.
+- **Sentimentos próprios:** catálogo de emoções em dados (hoje em `bella_emocoes.py`): cada uma com gatilho, duas reações, validade e transições. A Bella tem apego ao Arquiteto; outra modelo pode ser tímida, provocadora ou fria. Cada modelo define o que a faz sentir cada coisa.
+- **Temperatura:** teto e ritmo de subida próprios (a Bella usa o termômetro atual).
+- **Galeria e jogo do agrado:** níveis e limiares por modelo (seção 2 a 4).
+- **Relação Arquiteto:** campo opcional `apego_arquiteto` (só a Bella começa com ele ligado). Quando ligado, vale a seção 10; desligado, o Arquiteto é tratado como qualquer usuário.
+
+### 11.3 Estado por par (usuário × modelo)
+Memórias, carinho, agrado, emoção, temperatura e histórico passam a ser por **(conta, modelo)**, nunca globais. Um homem conversando com duas modelos tem dois relacionamentos separados.
+
+### 11.4 Contrato com o Solo Bot (a detalhar ao criar o projeto)
+- `POST /interno/bot/<rota>` do soDeles recebe a mensagem e devolve `texto`, `audio`, `midia` como os outros módulos.
+- Para voz: o soDeles devolve `falado` (texto) e `voz_id`; o hub sintetiza com `fala.sintetizar_longo` e entrega.
+- As travas fixas (seção 5) continuam no hub, valendo para todas as modelos.
+
+### 11.5 Ordem sugerida
+1. Extrair o núcleo de persona/estado/emoções/memória da Bella para funcionar com um `modelo_id` (no Solo Bot, ainda sem soDeles).
+2. Criar o perfil de modelo (banco e tela) com a Bella como a primeira.
+3. Ligar o soDeles ao hub como módulo e migrar o WhatsApp da Bella.
+4. Segunda modelo, para provar que voz, bio e sentimentos próprios funcionam.
+
