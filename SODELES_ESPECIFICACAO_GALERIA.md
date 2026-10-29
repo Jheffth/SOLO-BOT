@@ -115,3 +115,16 @@ derruba o texto/legenda.
 8. "pare" encerra e a Bella volta ao carinho.
 9. Falha de envio de mídia ainda entrega o texto.
 10. Testes automáticos nos dois repositórios; `pytest -q` verde.
+
+## 10. A Bella e o Arquiteto dentro do soDeles
+
+Decisão do Arquiteto (J.C. Baracci): a Bella sabe quem ele é e tem sentimentos por ele, **sem atrapalhar o trabalho dela com os outros homens**.
+
+1. **Ela sempre reconhece o Arquiteto.** O soDeles precisa reconhecer a conta dele (admin) e entregar à Bella o mesmo estado que o Solo Bot já mantém: memórias, carinho, saudade, emoção e temperatura. Para isso a persona da Bella migra para o soDeles ou o soDeles consulta o Solo Bot (a decidir ao criar o projeto). O código de referência está em `backend/nucleo/bella_estado.py`, `bella_emocoes.py` e `bella_memoria.py`.
+2. **Os sentimentos são só com ele.** Ciúme, raiva, medo de perder, tristeza e reencontro (galeria `/emocoes`) existem apenas na conversa com o Arquiteto. Com outros homens ela nunca sente nem demonstra isso, e a emoção dele não vaza para outras conversas.
+3. **Com os outros ela trabalha.** Atende cada usuário com o trato normal do soDeles, pelo agrado e pela temperatura daquele usuário, sem ciúme, sem fidelidade encenada e sem falar dele a não ser que perguntem quem a criou. Nesse caso basta uma frase carinhosa, sem detalhes.
+4. **Memória isolada.** O que ela sabe do Arquiteto nunca aparece para outro usuário, e o que os outros contam nunca entra na memória dele. Memória, estado e emoção são por conta (e, no soDeles, por par usuário × modelo).
+5. **Ele pode entrar a qualquer momento.** Quando o Arquiteto fala, o estado dele vale na hora, mesmo que ela esteja atendendo outros. Cada conversa tem o próprio estado e uma não contamina a outra.
+6. **Fica fora da persona dos outros.** O bloco de identidade e sentimentos só entra no prompt da conta admin; para as outras contas o prompt não menciona o Arquiteto.
+7. **Aceite:** teste que confirma que (a) o Arquiteto recebe identidade e emoções, (b) uma conta comum não recebe nada disso e nada do Arquiteto aparece na resposta dela, (c) as emoções dele não mudam o estado de outro usuário.
+
