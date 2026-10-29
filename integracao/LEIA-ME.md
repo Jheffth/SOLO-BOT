@@ -106,3 +106,5 @@ outro usuário vinculado seria lido como dele. Um chip dedicado ao bot elimina e
 **01/10/2026:** contrato ampliado com `formato` para a Central de Avisos do Rotinas. Ponte sincronizada no Rotinas e Finances; Finances continua compatível com a assinatura anterior (novo parâmetro opcional). Publicar Solo Bot antes da central.
 
 **Fila revalidada (01/10/2026):** o Solo Bot consulta o endpoint autenticado do sistema a cada minuto para avisos identificados, inclusive durante o silêncio. O corpo é `{usuario_id, referencia}`, com hunter do vínculo atual; o endereço é o módulo registrado. Sem referência o contrato antigo permanece. Ponte sincronizada em Rotinas e Finances. Para esta extensão, publicar o endpoint no Rotinas e a revalidação no Solo Bot; a proteção só vale quando ambos estiverem atualizados.
+
+**29/10/2026 — foto e vídeo.** O contrato de `/interno/bot/mensagem` e `/interno/bot/acao` ganhou o campo opcional `midia` em cada mensagem: `{base64, mime, legenda?, spoiler?}` (JPEG, PNG, WebP ou MP4; até 10 MB de imagem e 15 MB de vídeo). Sistemas que não o usam continuam como estão. Detalhes em `INTERACAO.md`, seção "Foto e vídeo nas respostas dos sistemas".

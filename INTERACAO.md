@@ -433,6 +433,22 @@ Além da memória curta, a Bella guarda **lembranças** que a pessoa pede, por C
 - O grau de consentimento dúbio ou corrompido (CDC) **não existe** na conversa da Bella: ele fica restrito à narrativa dos contos. Os limites fixos (só adultos, consentimento, nada com menores nem pessoas reais, parar quando pedirem, sem pressão nem exclusividade) não mudam com a temperatura nem com o afeto.
 - Estado guardado em `bella_estados` (uma linha por conta). Falha no banco nunca derruba a conversa.
 
+## Foto e vídeo nas respostas dos sistemas
+
+Um sistema pode devolver, ao lado de `texto` e `audio`, o campo opcional `midia`:
+
+```json
+{"texto": "olha isto", "midia": {"base64": "...", "mime": "image/jpeg", "legenda": "Praia", "spoiler": false}}
+```
+
+- **Formatos:** `image/jpeg`, `image/png`, `image/webp` e `video/mp4`. O hub confere se o conteúdo bate com o tipo (um executável não passa por foto).
+- **Limites:** 10 MB por imagem, 15 MB por vídeo (o WhatsApp comprime ou recusa acima de uns 16 MB), legenda de até 1.000 caracteres. Vídeo maior precisa de uma versão de envio gerada pelo sistema dono (MP4 H.264/AAC, até 720p).
+- **Entrega:** Telegram usa `sendPhoto` (cai para arquivo se as dimensões forem recusadas) e `sendVideo`; `spoiler: true` esconde a prévia. O WhatsApp usa o `sendMedia` da Evolution e só conta como enviado se vier o id da mensagem; a visualização única fica para depois.
+- **Ordem:** o texto sai primeiro, depois a mídia, depois a voz. Mídia inválida ou falha de envio **nunca** derruba o texto.
+- **Quem decide enviar:** o sistema dono, no código dele. Para conteúdo íntimo, nunca um modelo de linguagem (ver `GALERIA_BELLA.md`).
+- Código em `backend/canais/midia.py` (validação), `canais/telegram.py` e `canais/evolution.py` (transporte) e `canais/entrega.py`. Testes em `tests/test_midia.py`.
+- O Bella.exe ainda não exibe `midia` (a rota `/api/bella/mensagem` a ignora); fica para quando a galeria existir.
+
 ## Imagens pelo Grok
 
 O botão Imagens abre um painel recolhível, separado do chat. Gere pela descrição
