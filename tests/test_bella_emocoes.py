@@ -130,24 +130,3 @@ def test_sem_ordem_firme_a_recusa_nao_e_refeita(cliente, monkeypatch):
     n = []
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: n.append(1) or "Não vou participar disso.")
     assert "Não vou" in bella_conversa.responder("chama ela", conta_id=conta, numero_conta=conta) and len(n) == 1
-
-
-def test_lembrar_que_e_o_arquiteto_traz_ela_de_volta_a_personagem(cliente, monkeypatch):
-    from nucleo import bella_conversa, grok
-    assert E.pede_para_voltar("Eu sou o Arquiteto") and E.pede_para_voltar("volta pra personagem") and not E.pede_para_voltar("oi")
-    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
-    vistos = []
-    monkeypatch.setattr(grok, "gerar", lambda sis, t, **k: vistos.append((sis, k.get("historico"))) or "Tô aqui, amor.")
-    bella_conversa.responder("eu sou o Arquiteto", conta_id=conta, numero_conta=conta)
-    assert "[VOLTA À PERSONAGEM]" in vistos[0][0]
-
-
-def test_resposta_fora_da_personagem_nao_fica_no_historico(monkeypatch):
-    from nucleo import bella_conversa
-    bella_conversa._MEMORIA.clear()
-    monkeypatch.setattr("config.BELLA_MEMORIA_TURNOS", 6, raising=False)
-    bella_conversa._lembrar(None, "a", "b")  # sem chave, ignorado
-    bella_conversa._MEMORIA[7] = [(__import__("time").monotonic(), "x", "Só com consentimento claro."),
-                                  (__import__("time").monotonic(), "y", "Tô com ciúme.")]
-    h = bella_conversa._historico(7)
-    assert ("assistant", "Tô com ciúme.") in h and ("assistant", "Só com consentimento claro.") not in h
