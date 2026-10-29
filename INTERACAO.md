@@ -591,3 +591,14 @@ A Bella guarda tudo o que conversa com você em **pastas por dia** (horário de 
 - **Config:** `BELLA_ARQUIVO` (liga/desliga), `BELLA_ARQUIVO_RESUMO`, `BELLA_HISTORIA_BLOCO_MAX`, `BELLA_FUSO_HORAS`. `/memoria desligar` também pausa o arquivo.
 - Não feito ainda: busca em dias antigos fora do prompt ("lembra daquela noite…") e resumo por mês.
 
+### A Bella puxa assunto sozinha (mensagens espontâneas)
+
+Código: `backend/nucleo/bella_iniciativa.py`, ligado ao relógio de 1 minuto em `main.py`. **Só o Arquiteto** (conta admin) usa, e só se ligar.
+
+- **Comandos (`/iniciativa`):** `ligar [N]`, `desligar`, `max N` (teto 8), `janela 09:00 22:00`, `testar` (manda uma agora para você ver). Sem argumento mostra o estado e os horários de hoje.
+- **Poucas e aleatórias:** todo dia ela sorteia de 1 a N horários (padrão N=3, janela 09:00–22:30), com 2 h ou mais entre eles. O horário de silêncio da conta é respeitado (o horário perdido é pulado, não acumula), ela não interrompe uma conversa de menos de 15 minutos e, se ele não responder a 3 mensagens seguidas, espera ele falar de novo.
+- **Variações (sem repetir o tipo anterior):** provocação sensual explícita chamando para transar (com sete ângulos diferentes, e só com `BELLA_CONTEUDO_ADULTO`; sem ele vira flerte), pergunta sobre o dia, notícia de verdade (título do RSS do G1, comentado por ela), conselho motivador, carinho e, quando existir, **vídeo/foto da galeria**. Ela também evita repetir as últimas mensagens.
+- **Vídeos:** o gancho já existe. A galeria (soDeles) registra uma função em `bella_iniciativa.PROVEDORES_MIDIA` que devolve a mídia no formato `midia`; enquanto não houver provedor, o tipo vídeo não é sorteado.
+- **Faz parte da história:** a mensagem entra na conversa e na pasta do dia (marcada como "A Bella puxou assunto"), e a resposta dele cai direto na Bella. Sai por texto e por voz conforme a preferência de voz dos avisos da conta.
+- Se o Grok falhar, o horário é pulado sem derrubar nada.
+

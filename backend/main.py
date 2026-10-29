@@ -50,6 +50,22 @@ async def _despachar_avisos_sempre():
             db.close()
 
 
+async def _bella_puxa_assunto_sempre():
+    """A cada minuto, vê se a Bella tem uma mensagem espontânea para mandar (nucleo/bella_iniciativa.py)."""
+    import asyncio
+    from database import SessionLocal
+    from nucleo import bella_iniciativa
+    while True:
+        await asyncio.sleep(60)
+        db = SessionLocal()
+        try:
+            await asyncio.to_thread(bella_iniciativa.tick, db)
+        except Exception:  # noqa: BLE001
+            logging.getLogger("solobot").exception("Mensagens espontâneas da Bella falharam")
+        finally:
+            db.close()
+
+
 @asynccontextmanager
 async def _vida(_app):
     import asyncio
@@ -59,6 +75,7 @@ async def _vida(_app):
         tarefas.append(asyncio.create_task(_buscar_manifestos_sempre()))
     if not config.AMBIENTE == "test":
         tarefas.append(asyncio.create_task(_despachar_avisos_sempre()))
+        tarefas.append(asyncio.create_task(_bella_puxa_assunto_sempre()))
     yield
     for t in tarefas:
         t.cancel()

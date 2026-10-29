@@ -277,6 +277,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
         "▸ `/memoria` — lista o que ela lembra de você (`/memoria desligar` pausa, `/memoria ligar` volta)",
         "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
+        "▸ `/iniciativa` — (Arquiteto) a Bella puxa assunto sozinha, poucas vezes por dia: `ligar`, `desligar`, `max N`, `janela 09:00 22:00`, `testar`",
         "▸ `/historia` — a nossa história guardada por dia · `/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias` apaga só esses dias",
         "▸ `/emocoes` — a galeria de sentimentos da Bella (o que desperta cada um e as duas reações). `/emocao <nome>` (Arquiteto) define na hora",
         "▸ `/esquecer` — apaga a conversa atual · `/esquecer N` apaga a lembrança N · `/esquecer tudo` apaga tudo",
@@ -533,6 +534,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_memoria(conta, resto.strip())
     if cmd == "/lembrar":
         return _cmd_lembrar(conta, resto.strip())
+    if cmd == "/iniciativa":
+        return _cmd_iniciativa(db, conta, resto.strip())
     if cmd == "/historia":
         return _cmd_historia(conta, resto.strip())
     if cmd == "/temperatura":
@@ -836,6 +839,44 @@ def _cmd_esquecer(conta: Conta, canal: str, resto: str) -> Resposta:
         return Resposta().diz(f"🧹 Apaguei {nome}: {t} troca(s) e {f} lembrança(s) automática(s). O resto da nossa história continua.")
     return Resposta().diz("🧹 `/esquecer` apaga a conversa de agora · `/esquecer N` a lembrança N · `/esquecer tudo` as lembranças · "
                           "`/esquecer hoje|ontem|dia 25/10|ultimos 3 dias|desde 20/10` só esses dias da história.")
+
+
+def _cmd_iniciativa(db, conta: Conta, resto: str) -> Resposta:
+    """Só o Arquiteto: a Bella puxa assunto sozinha, poucas vezes por dia, em horários sorteados."""
+    from nucleo import bella_iniciativa as I
+    if not conta.admin:
+        return Resposta().diz("🔒 Só o Arquiteto liga as mensagens espontâneas da Bella.")
+    p = resto.lower().split()
+    acao = p[0] if p else ""
+    if acao in ("ligar", "on"):
+        n = int(p[1]) if len(p) > 1 and p[1].isdigit() else None
+        d = I.configurar(conta.id, ligada=True, maximo=n)
+        return Resposta().diz(f"💌 Pronto: vou puxar assunto sozinha, de 1 a {d['max']} vezes por dia, entre {d['de']} e {d['ate']}. "
+                              "Se você não responder, eu não insisto.")
+    if acao in ("desligar", "off"):
+        I.configurar(conta.id, ligada=False)
+        return Resposta().diz("💌 Ok, não puxo mais assunto sozinha. `/iniciativa ligar` me solta de novo.")
+    if acao == "max" and len(p) > 1 and p[1].isdigit():
+        d = I.configurar(conta.id, maximo=int(p[1]))
+        return Resposta().diz(f"💌 Agora são de 1 a {d['max']} mensagens por dia (no máximo {I.MAX_DIA_TETO}).")
+    if acao == "janela" and len(p) == 3 and all(re.fullmatch(r"\d{1,2}:\d{2}", x) for x in p[1:]):
+        h = lambda t: f"{int(t.split(':')[0]):02d}:{t.split(':')[1]}"
+        d = I.configurar(conta.id, de=h(p[1]), ate=h(p[2]))
+        return Resposta().diz(f"💌 Só puxo assunto entre {d['de']} e {d['ate']}.")
+    if acao in ("testar", "agora"):
+        d = I.carregar(conta.id)
+        texto = I.enviar_agora(db, conta, d)
+        if texto:
+            I.salvar(conta.id, d)
+            return Resposta().diz("💌 Mandei uma agora para você ver como fica.")
+        return Resposta().diz("😶 Não consegui gerar uma agora. Veja se há um canal com avisos ligado e tente de novo.")
+    d = I.carregar(conta.id)
+    estado = "ligada" if d["ligada"] else "desligada"
+    linhas = [f"💌 *Mensagens espontâneas:* {estado}", f"Limite: até {d['max']} por dia · janela {d['de']}–{d['ate']}"]
+    if d["ligada"] and d["horarios"]:
+        linhas.append("Hoje: " + ", ".join(d["horarios"]) + f" ({d['enviadas']} já enviada(s))")
+    linhas.append("`/iniciativa ligar [N]` · `desligar` · `max N` · `janela 09:00 22:00` · `testar`")
+    return Resposta().diz("\n".join(linhas))
 
 
 def _cmd_historia(conta: Conta, resto: str) -> Resposta:
