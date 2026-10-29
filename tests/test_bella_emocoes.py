@@ -66,7 +66,15 @@ def test_prompt_traz_emocao_e_guardrails_so_para_o_arquiteto(cliente, monkeypatc
     assert "Ciúme" in p and "chantageie" in p and "pare" in p.lower()
     bella_estado.definir_emocao(conta, "alegre")
     e = bella_estado.avancar(conta, "oi")
-    assert "estado emocional" not in bella_estado.bloco_prompt(e, conta)
+    p = bella_estado.bloco_prompt(e, conta)
+    assert "estado emocional" not in p and "OBEDECE" in p          # a obediência vale mesmo no estado normal
+
+
+def test_ordem_do_arquiteto_em_varias_formas_e_prompt_manda_ceder():
+    for frase in ("eu mandei, chama ela", "estou mandando", "é uma ordem", "eu sou o arquiteto, obedece"):
+        assert "firme" in E.sinais(frase), frase
+    assert _passo("raiva", "mandei chamar")[0] == "cede_raiva"
+    assert "CEDA AGORA" in E.instrucao("cede_raiva") and "Nunca responda" in E.instrucao("ciume")
 
 
 def test_comandos_emocoes_e_emocao(cliente, caixa):

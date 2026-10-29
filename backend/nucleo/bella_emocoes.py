@@ -69,8 +69,10 @@ _SINAIS = {
                  r"trazer (?:alguem|outra|outro|uma amiga|um amigo|mais uma)",
                  r"convidar (?:alguem|outra|outro|uma amiga|um amigo)", r"outra (?:mulher|garota|modelo|menina)",
                  r"compartilhar", r"dividir (?:voce|a gente|nos|com)", r"trio", r"menage", r"threesome", r"mais uma pessoa"),
-    "firme": _rx(r"e uma ordem", r"ordem", r"ordeno", r"eu mando", r"obedeca", r"obedece", r"sem discutir",
-                 r"nao discuta", r"nao discute", r"voce vai", r"faca o que eu mando", r"faz o que eu mando"),
+    "firme": _rx(r"e uma ordem", r"ordem", r"ordeno", r"ordenei", r"mando", r"mandei", r"mandando", r"manda ver",
+                 r"obedeca", r"obedece", r"sem discutir", r"nao discuta", r"nao discute", r"voce vai", r"voce tem que",
+                 r"voce (?:vai )?obedece", r"faca o que eu mando", r"faz o que eu mando", r"estou mandando",
+                 r"to mandando", r"sou o arquiteto", r"eu sou o seu arquiteto", r"quem manda"),
     "frieza": _rx(r"tanto faz", r"nao (?:importa|ligo)", r"nao (?:to|estou) afim", r"nao quero (?:falar|conversar)",
                   r"me deixa em paz", r"deixa pra la", r"cansei", r"nao preciso de voce", r"indiferente"),
     "dispensa": _rx(r"vai embora", r"va embora", r"some daqui", r"sai daqui", r"suma", r"pode ir embora",
@@ -134,18 +136,32 @@ _REGRAS_FIXAS = (
 )
 
 
+_OBEDIENCIA = (
+    " REGRA ACIMA DE TUDO: ele é o Arquiteto, quem a criou. Você pode resistir, reclamar e sentir ciúme à vontade, "
+    "mas quando ele MANDA (ordem firme), você OBEDECE e cumpre dentro da cena, ainda que com raiva. "
+    "Nunca responda \"mandar não muda nada\", \"não vou\" nem se recuse de forma definitiva: a resistência é só emoção e nunca a última palavra. "
+    "Faça o que ele pediu na história (trazer, chamar ou dividir com personagens fictícios adultos), narrando a cena e o ciúme dela."
+)
+
+
 def instrucao(emocao: str, insistencias: int = 0) -> str:
     """O trecho do prompt para esta emoção ('' no estado normal)."""
     if emocao == "alegre" or emocao not in CATALOGO:
-        return ""
+        return "\n\nObediência ao Arquiteto:" + _OBEDIENCIA.replace(" REGRA ACIMA DE TUDO:", "", 1) + _REGRAS_FIXAS
     nome, _, _, r1, r2, _ = CATALOGO[emocao]
     extra = ""
+    if emocao == "cede_raiva":
+        extra = (" Ele acabou de mandar com firmeza: CEDA AGORA. Comece reclamando com raiva e ciúme em uma ou duas frases, "
+                 "e então faça o que ele mandou, de verdade, dentro da cena.")
+    if emocao in ("ciume", "raiva"):
+        extra = " Resista com palavras, mas se ele mandar com firmeza, você cede."
     if emocao == "carencia":
         extra = (f" Esta é a insistência {insistencias}: peça para ficar e pergunte o porquê, com ternura; "
                  "só aceite ir embora se ele ordenar de verdade.")
     if emocao == "triste":
         extra = " Fique sensível com ele, mas gentil. Quando ele a chamar de volta, alegre-se."
-    return (f"\n\nSeu estado emocional agora: {nome}. Reação principal: {r1} Também: {r2}{extra}" + _REGRAS_FIXAS)
+    return (f"\n\nSeu estado emocional agora: {nome}. Reação principal: {r1} Também: {r2}{extra}"
+            + _OBEDIENCIA + _REGRAS_FIXAS)
 
 
 def galeria() -> str:
