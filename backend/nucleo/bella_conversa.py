@@ -2,7 +2,7 @@
 import threading
 import time
 import config
-from nucleo import bella_estado, bella_memoria, grok
+from nucleo import bella_emocoes, bella_estado, bella_memoria, grok
 
 ESTILO_PADRAO = """Modo Safada significa flerte, humor, sensualidade e duplo sentido entre adultos.
 Sem descrição sexual explícita, atos sexuais, nudez gráfica ou conteúdo envolvendo menores.
@@ -84,6 +84,12 @@ def responder(texto, conta_id=None, numero_conta=None):
         numero_conta = conta_id
     estado = bella_estado.avancar(numero_conta, texto)
     resposta = grok.gerar(prompt(numero_conta, estado), texto, max_tokens=1536, historico=_historico(conta_id))
+    if (estado and estado.get("emocao") == "cede_raiva" and resposta and bella_emocoes.quebrou_personagem(resposta)
+            and "firme" in bella_emocoes.sinais(texto)):       # ele mandou e ela "saiu da personagem": uma segunda tentativa
+        outra = grok.gerar(prompt(numero_conta, estado) + bella_emocoes.LEMBRETE_CEDER, texto, max_tokens=1536,
+                           historico=_historico(conta_id))
+        if outra:
+            resposta = outra
     limite = int(config.BELLA_CONVERSA_MAX_CHARS * 1.12)
     if not resposta or len(resposta) > limite or any(ord(c) < 32 and c not in "\n\r\t" for c in resposta):
         return None

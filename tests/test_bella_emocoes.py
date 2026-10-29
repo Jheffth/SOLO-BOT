@@ -107,3 +107,26 @@ def test_pedido_sem_firmeza_gera_ciume_e_nao_ordem():
 def test_depois_de_ceder_o_ciume_continua_na_cena():
     assert _passo("cede_raiva", "chama ela pra cá, vamos a três")[0] == "cede_raiva"
     assert _passo("cede_raiva", "vem aqui")[0] == "cede_raiva"
+
+
+def test_se_ela_sai_da_personagem_depois_da_ordem_ha_uma_segunda_tentativa(cliente, monkeypatch):
+    from nucleo import bella_conversa, grok
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    bella_estado.definir_emocao(conta, "cede_raiva")
+    chamadas = []
+
+    def falso(sistema, texto, **kw):
+        chamadas.append(sistema)
+        return "Não vou participar, só com consentimento." if len(chamadas) == 1 else "Tá bom... mas vou ficar com ciúme."
+    monkeypatch.setattr(grok, "gerar", falso)
+    r = bella_conversa.responder("eu mando, vem pra cá", conta_id=conta, numero_conta=conta)
+    assert r.startswith("Tá bom") and len(chamadas) == 2 and "[CORREÇÃO]" in chamadas[1]
+
+
+def test_sem_ordem_firme_a_recusa_nao_e_refeita(cliente, monkeypatch):
+    from nucleo import bella_conversa, grok
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    bella_estado.definir_emocao(conta, "ciume")
+    n = []
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: n.append(1) or "Não vou participar disso.")
+    assert "Não vou" in bella_conversa.responder("chama ela", conta_id=conta, numero_conta=conta) and len(n) == 1
