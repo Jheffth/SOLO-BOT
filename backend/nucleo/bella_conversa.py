@@ -59,6 +59,8 @@ def _historico(conta_id):
             itens = _MEMORIA[conta_id]
     saida = []
     for _, usuario, bella in itens[-config.BELLA_MEMORIA_TURNOS:]:
+        if bella_emocoes.quebrou_personagem(bella):      # a resposta fora da personagem não vira modelo para as próximas
+            continue
         saida += [("user", usuario), ("assistant", bella)]
     return saida
 
@@ -83,10 +85,13 @@ def responder(texto, conta_id=None, numero_conta=None):
     if numero_conta is None and isinstance(conta_id, int):
         numero_conta = conta_id
     estado = bella_estado.avancar(numero_conta, texto)
-    resposta = grok.gerar(prompt(numero_conta, estado), texto, max_tokens=1536, historico=_historico(conta_id))
+    base = prompt(numero_conta, estado)
+    if estado and bella_emocoes.pede_para_voltar(texto):
+        base += bella_emocoes.LEMBRETE_VOLTAR
+    resposta = grok.gerar(base, texto, max_tokens=1536, historico=_historico(conta_id))
     if (estado and estado.get("emocao") == "cede_raiva" and resposta and bella_emocoes.quebrou_personagem(resposta)
             and "firme" in bella_emocoes.sinais(texto)):       # ele mandou e ela "saiu da personagem": uma segunda tentativa
-        outra = grok.gerar(prompt(numero_conta, estado) + bella_emocoes.LEMBRETE_CEDER, texto, max_tokens=1536,
+        outra = grok.gerar(base + bella_emocoes.LEMBRETE_CEDER, texto, max_tokens=1536,
                            historico=_historico(conta_id))
         if outra:
             resposta = outra
