@@ -95,7 +95,7 @@ def test_memoria_desligada_nao_vai_ao_prompt_mas_continua_guardada(logado, caixa
 
 def test_sem_lembrancas_o_prompt_e_o_de_sempre(logado, monkeypatch):
     conta = _conta_id(logado)
-    assert bella_conversa.prompt(conta) == bella_conversa.prompt()
+    assert "Memórias" not in bella_conversa.prompt(conta)
     assert bella_memoria.bloco_prompt(conta) == "" and bella_memoria.bloco_prompt(None) == ""
 
 
@@ -156,3 +156,130 @@ def test_falha_do_banco_nao_derruba_a_conversa(logado, monkeypatch):
     monkeypatch.setattr(bella_memoria, "listar", lambda c: (_ for _ in ()).throw(RuntimeError("banco fora")))
     assert bella_conversa.responder("oi", "telegram:1", numero_conta=_conta_id(logado)) == "bella:oi"
     assert "Memórias" not in chamadas[-1][0]
+
+
+# ── Identidade, sentimentos e termômetro ─────────────────────────
+from datetime import datetime, timedelta  # noqa: E402
+
+from nucleo import bella_estado  # noqa: E402
+from test_clonarvoz import _admin  # noqa: E402
+
+
+def test_classificar_graus():
+    c = bella_estado.classificar
+    assert c("bom dia, como foi o dia?") == 0
+    assert c("quero um beijo seu") == 1
+    assert c("você de lingerie, nua") == 2
+    assert c("quero transar com você") == 3
+    assert c("fala como uma putinha") == 4
+    assert c("me amarra e domina") == 5
+    assert c("QUERO TRANSAR") == 3 and c("tesão") == 1               # sem acento e sem maiúsculas
+    assert c("computador custa") == 0 and c("cultura") == 0          # "cu" só vale como palavra
+
+
+def test_termometro_sobe_rapido_e_esfria_devagar(cliente, monkeypatch):
+    monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", True)
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    n = lambda t: bella_estado.avancar(conta, t)["nivel"]
+    assert n("oi") == 0
+    assert n("quero transar com você") == 2          # no máximo dois degraus por mensagem
+    assert n("quero transar com você") == 3
+    assert n("e o tempo hoje?") == 3                 # uma mensagem calma não esfria
+    assert n("e o tempo hoje?") == 2                 # duas esfriam um degrau
+    assert n("beijo") == 2 and n("beijo") == 1       # com graus menores, esfria um degrau a cada duas mensagens
+
+
+def test_teto_sem_conteudo_adulto(cliente, monkeypatch):
+    monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", False)
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    for _ in range(4):
+        e = bella_estado.avancar(conta, "me amarra e domina, quero transar")
+    assert e["nivel"] == 2
+    assert bella_estado.definir_fixa(conta, 5) == 2
+
+
+def test_so_o_arquiteto_fixa_a_temperatura(cliente, caixa, monkeypatch):
+    monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", True)
+    c = _admin(cliente)
+    _ligar_telegram(c)
+    _tg(c, "/temperatura")
+    assert "Normal" in caixa[-1][2] and "automática" in caixa[-1][2] and "fixa a temperatura" in caixa[-1][2]
+    _tg(c, "/temperatura explicita")
+    assert "Fixei" in caixa[-1][2] and "[Explícita]" in caixa[-1][2] and "fixada pelo Arquiteto" in caixa[-1][2]
+    _tg(c, "/temperatura vulgar")
+    assert "[Explícita Vulgar]" in caixa[-1][2]
+    _tg(c, "/temperatura banana")
+    assert "Não conheço" in caixa[-1][2]
+    _tg(c, "/temperatura auto")
+    assert "automático" in caixa[-1][2]
+
+
+def test_conta_comum_nao_fixa_temperatura(logado, caixa):
+    _ligar_telegram(logado)
+    _tg(logado, "/temperatura quente")
+    assert "Só o Arquiteto" in caixa[-1][2]
+    _tg(logado, "/temperatura")
+    assert "fixa a temperatura" not in caixa[-1][2]
+    _tg(logado, "/temperatura auto")
+    assert "automático" in caixa[-1][2]
+
+
+def test_temperatura_fixa_vai_ao_prompt_e_nao_muda_com_a_conversa(cliente, caixa, monkeypatch):
+    monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", True)
+    chamadas = _grok(monkeypatch)
+    c = _admin(cliente)
+    _ligar_telegram(c)
+    _tg(c, "/temperatura quente")
+    _tg(c, "/bella quero transar com você agora")
+    prompt = chamadas[-1][0]
+    assert "[Quente]" in prompt and "fixada pelo Arquiteto" in prompt and "Explícita" not in prompt.split("Temperatura da conversa")[1][:80]
+
+
+def test_arquiteto_e_reconhecido_e_os_limites_fixos_continuam(cliente, caixa, monkeypatch):
+    monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", True)
+    chamadas = _grok(monkeypatch)
+    c = _admin(cliente)
+    _ligar_telegram(c)
+    _tg(c, "/bella oi")
+    p = chamadas[-1][0]
+    assert "o Arquiteto: quem te criou" in p and "apaixonada" in p and "respeito, admiração" in p
+    assert "sem cobrar nem culpar" not in p                              # primeira conversa: sem saudade
+    # os limites fixos seguem no prompt
+    for limite in ("menores de 18 anos", "consentimento", "exclusividade", "pare"):
+        assert limite in p
+
+
+def test_conta_comum_nao_recebe_a_identidade_de_arquiteto(logado, caixa, monkeypatch):
+    chamadas = _grok(monkeypatch)
+    _ligar_telegram(logado)
+    _tg(logado, "/bella oi")
+    assert "quem te criou" not in chamadas[-1][0] and "Temperatura da conversa agora: [Normal]" in chamadas[-1][0]
+
+
+def test_saudade_depois_de_dias_sem_falar(cliente):
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    antes = datetime.utcnow() - timedelta(days=4)
+    bella_estado.avancar(conta, "oi", agora=antes)
+    e = bella_estado.avancar(conta, "voltei")
+    assert e["dias_sem_falar"] == 4 and bella_estado.saudade(4) == "muita" and bella_estado.saudade(1) == "um pouco de"
+    texto = bella_estado.descricao_sentimentos(e, True, "Jefferson")
+    assert "saudade" in texto and "sem cobrar nem culpar" in texto and "Jefferson" in texto
+
+
+def test_carinho_cresce_e_parte_mais_alto_para_o_arquiteto():
+    assert bella_estado.carinho(0, True) == 80 and bella_estado.carinho(0, False) == 20
+    assert bella_estado.carinho(50, True) == 90 and bella_estado.carinho(5000, True) == 100
+
+
+def test_sentimentos_pelo_chat(cliente, caixa):
+    c = _admin(cliente)
+    _ligar_telegram(c)
+    _tg(c, "/sentimentos")
+    t = caixa[-1][2]
+    assert "Arquiteto" in t and "Carinho: 80/100" in t and "Saudade: nenhuma" in t and "Temperatura" in t
+
+
+def test_falha_do_estado_nao_derruba_a_conversa(logado, monkeypatch):
+    _grok(monkeypatch)
+    monkeypatch.setattr(bella_estado, "situacao", lambda c: (_ for _ in ()).throw(RuntimeError("banco fora")))
+    assert bella_conversa.responder("oi", "telegram:1", numero_conta=_conta_id(logado)) == "bella:oi"

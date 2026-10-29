@@ -2,7 +2,7 @@
 import threading
 import time
 import config
-from nucleo import bella_memoria, grok
+from nucleo import bella_estado, bella_memoria, grok
 
 ESTILO_PADRAO = """Modo Safada significa flerte, humor, sensualidade e duplo sentido entre adultos.
 Sem descrição sexual explícita, atos sexuais, nudez gráfica ou conteúdo envolvendo menores.
@@ -28,9 +28,10 @@ Responda em texto simples, sem Markdown ou instruções de atuação, até {limi
 Você recebe as mensagens recentes desta conversa e pode retomá-las; fora delas, não invente lembranças.
 """
 
-def prompt(numero_conta=None):
-    """`numero_conta`: a Conta Solo, para somar as lembranças que ela pediu para guardar."""
+def prompt(numero_conta=None, estado=None):
+    """`numero_conta`: a Conta Solo (lembranças, quem ela é para a Bella). `estado`: o da mensagem atual."""
     return (PROMPT_BASE.replace("{limite}", str(config.BELLA_CONVERSA_MAX_CHARS)) + estilo()
+            + bella_estado.bloco_prompt(estado, numero_conta)
             + bella_memoria.bloco_prompt(numero_conta))
 
 # Memória curta: fica só na RAM do servidor, por conta, e some ao reiniciar ou depois de um tempo.
@@ -81,7 +82,8 @@ def responder(texto, conta_id=None, numero_conta=None):
     """`conta_id`: a chave da memória curta (por canal). `numero_conta`: a Conta Solo, dona das lembranças."""
     if numero_conta is None and isinstance(conta_id, int):
         numero_conta = conta_id
-    resposta = grok.gerar(prompt(numero_conta), texto, max_tokens=1536, historico=_historico(conta_id))
+    estado = bella_estado.avancar(numero_conta, texto)
+    resposta = grok.gerar(prompt(numero_conta, estado), texto, max_tokens=1536, historico=_historico(conta_id))
     limite = int(config.BELLA_CONVERSA_MAX_CHARS * 1.12)
     if not resposta or len(resposta) > limite or any(ord(c) < 32 and c not in "\n\r\t" for c in resposta):
         return None

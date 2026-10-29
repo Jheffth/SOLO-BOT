@@ -254,6 +254,19 @@ class BellaTurno(Base):
     criado_em = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
+class BellaEstado(Base):
+    """O que a Bella sente por esta conta e a temperatura da conversa (nucleo/bella_estado.py)."""
+    __tablename__ = "bella_estados"
+
+    conta_id = Column(Integer, ForeignKey("contas.id", ondelete="CASCADE"), primary_key=True)
+    interacoes = Column(Integer, default=0, nullable=False)
+    ultimo_contato = Column(DateTime, nullable=True)
+    nivel = Column(Integer, default=0, nullable=False)          # 0 Normal … 5 Explícita Agressiva (Consensual)
+    calmas = Column(Integer, default=0, nullable=False)         # mensagens seguidas mais calmas que o nível
+    modo = Column(String(8), default="auto", nullable=False)    # auto | fixa
+    fixa = Column(Integer, nullable=True)
+
+
 def criar_tabelas():
     Base.metadata.create_all(bind=engine)
     _migrar()

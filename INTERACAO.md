@@ -424,6 +424,15 @@ Além da memória curta, a Bella guarda **lembranças** que a pessoa pede, por C
 - As últimas trocas também ficam no banco (`bella_turnos`) por `BELLA_HISTORICO_DIAS` (7) dias, só para a conversa sobreviver a um reinício do servidor; `BELLA_HISTORICO_PERSISTENTE=0` volta a guardar só na RAM. `/esquecer` apaga também do banco. O texto bruto da conversa nunca vai para o log.
 - Próximas etapas previstas: a Bella extrair fatos sozinha das conversas e um resumo das conversas antigas.
 
+### Quem é você para a Bella, sentimentos e termômetro
+
+- **Identidade.** A conta do Arquiteto (administrador) é a de quem criou a Bella: o prompt diz isso a ela, com respeito, admiração, devoção, carinho e desejo, sem exagero. Contas comuns recebem o trato normal e amigável.
+- **Sentimentos** (calculados, sem IA): carinho de 0 a 100 (o Arquiteto parte de 80, os outros de 20, e cada 5 conversas somam 1) e saudade, que aparece depois de 1 dia sem falar (muita a partir de 3). A saudade é dita com carinho, sem cobrar nem culpar. `/sentimentos` mostra o estado.
+- **Termômetro erótico**, em 6 graus: Normal, Quente, Extremamente Picante, Explícita, Explícita Vulgar e Explícita Agressiva (Consensual). No **automático**, a Bella sobe até dois graus por mensagem conforme o que a pessoa escreve e esfria um grau a cada duas mensagens mais calmas. O Arquiteto fixa um grau com `/temperatura quente` (ou `picante`, `explicita`, `vulgar`, `agressiva`, `normal`); `/temperatura auto` volta ao automático; `/temperatura` mostra. Contas comuns só usam o automático.
+- Com `BELLA_CONTEUDO_ADULTO` desligado, o teto é Extremamente Picante, mesmo se o grau for fixado.
+- O grau de consentimento dúbio ou corrompido (CDC) **não existe** na conversa da Bella: ele fica restrito à narrativa dos contos. Os limites fixos (só adultos, consentimento, nada com menores nem pessoas reais, parar quando pedirem, sem pressão nem exclusividade) não mudam com a temperatura nem com o afeto.
+- Estado guardado em `bella_estados` (uma linha por conta). Falha no banco nunca derruba a conversa.
+
 ## Imagens pelo Grok
 
 O botão Imagens abre um painel recolhível, separado do chat. Gere pela descrição

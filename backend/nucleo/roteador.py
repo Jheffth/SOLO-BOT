@@ -274,6 +274,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "Fica nesse modo até você mandar `/sair`",
         "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
         "▸ `/memoria` — lista o que ela lembra de você (`/memoria desligar` pausa, `/memoria ligar` volta)",
+        "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
         "▸ `/esquecer` — apaga a conversa atual · `/esquecer N` apaga a lembrança N · `/esquecer tudo` apaga tudo",
     ])
     bloco("🖼️ BELLA · PROMPTS DE IMAGEM", [
@@ -527,6 +528,10 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_memoria(conta, resto.strip())
     if cmd == "/lembrar":
         return _cmd_lembrar(conta, resto.strip())
+    if cmd == "/temperatura":
+        return _cmd_temperatura(conta, resto.strip())
+    if cmd == "/sentimentos":
+        return _cmd_sentimentos(conta)
 
     if cmd.startswith("/"):
         mod = _comando_de_modulo(cmd)
@@ -668,6 +673,57 @@ def _cmd_memoria(conta: Conta, resto: str) -> Resposta:
     return Resposta().diz(
         f"🧠 *Memória da Bella* ({estado}) — {len(fatos)} lembrança(s):\n\n{_lista_memoria(fatos)}\n\n"
         "`/lembrar texto` guarda mais · `/esquecer N` apaga uma · `/memoria desligar` pausa")
+
+
+def _termometro_texto(sit: dict) -> str:
+    from nucleo import bella_estado
+    _, nome, _ = bella_estado.NIVEIS[sit["nivel"]]
+    barra = "🔥" * sit["nivel"] + "▫️" * (len(bella_estado.NIVEIS) - 1 - sit["nivel"])
+    modo = "fixada pelo Arquiteto" if sit["modo"] == "fixa" else "automática (segue o clima da conversa)"
+    return f"🌡️ *Temperatura:* [{nome}] {barra}\n_{modo}_"
+
+
+def _cmd_temperatura(conta: Conta, resto: str) -> Resposta:
+    """Sem argumento mostra; `auto` devolve ao automático; um grau fixa (só o Arquiteto)."""
+    from nucleo import bella_estado
+    pedido = resto.strip().lower()
+    nomes = " · ".join(f"`{k}`" for k in bella_estado.CHAVES)
+    try:
+        if not pedido:
+            return Resposta().diz(_termometro_texto(bella_estado.situacao(conta.id)) + f"\n\nGraus: {nomes}\n"
+                                  "`/temperatura auto` deixa a Bella acompanhar a conversa."
+                                  + ("\n`/temperatura quente` (ou outro grau) fixa a temperatura." if conta.admin else ""))
+        if pedido in ("auto", "automatico", "automático"):
+            bella_estado.definir_automatico(conta.id)
+            return Resposta().diz("🌡️ Voltei ao automático: a temperatura acompanha o clima da conversa.")
+        if not conta.admin:
+            return Resposta().diz("🔒 Só o Arquiteto fixa a temperatura. Você pode usar `/temperatura auto`.")
+        nivel = bella_estado.nivel_por_nome(pedido)
+        if nivel is None:
+            return Resposta().diz(f"🌡️ Não conheço esse grau. Use: {nomes} ou `auto`.")
+        aplicado = bella_estado.definir_fixa(conta.id, nivel)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha no termômetro da Bella")
+        return Resposta().diz("😶 Não consegui mexer na temperatura agora. Tente de novo em instantes.")
+    nota = "" if aplicado == nivel else "\n_O servidor limita o grau máximo (conteúdo adulto desligado), então apliquei o mais alto permitido._"
+    return Resposta().diz("🌡️ Fixei a temperatura. " + _termometro_texto(bella_estado.situacao(conta.id)) + nota)
+
+
+def _cmd_sentimentos(conta: Conta) -> Resposta:
+    from nucleo import bella_estado
+    try:
+        sit = bella_estado.situacao(conta.id)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao ler os sentimentos da Bella")
+        return Resposta().diz("😶 Não consegui ler agora. Tente de novo em instantes.")
+    car = bella_estado.carinho(sit["interacoes"], sit["arquiteto"])
+    sau = bella_estado.saudade(sit["dias_sem_falar"])
+    quem = "Arquiteto" if sit["arquiteto"] else "amiga"
+    linhas = [f"💗 *O que a Bella sente* ({quem})",
+              f"Carinho: {car}/100 · {sit['interacoes']} conversa(s)",
+              f"Saudade: {sau.strip() or 'nenhuma'}" + (f" ({sit['dias_sem_falar']} dia(s) sem falar)" if sau else ""),
+              _termometro_texto(sit)]
+    return Resposta().diz("\n".join(linhas))
 
 
 def _cmd_esquecer(conta: Conta, canal: str, resto: str) -> Resposta:
