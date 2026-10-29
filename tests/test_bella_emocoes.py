@@ -67,14 +67,14 @@ def test_prompt_traz_emocao_e_guardrails_so_para_o_arquiteto(cliente, monkeypatc
     bella_estado.definir_emocao(conta, "alegre")
     e = bella_estado.avancar(conta, "oi")
     p = bella_estado.bloco_prompt(e, conta)
-    assert "estado emocional" not in p and "OBEDECE" in p          # a obediência vale mesmo no estado normal
+    assert "estado emocional" not in p and "RESISTE" in p          # a obediência vale mesmo no estado normal
 
 
 def test_ordem_do_arquiteto_em_varias_formas_e_prompt_manda_ceder():
     for frase in ("eu mandei, chama ela", "estou mandando", "é uma ordem", "eu sou o arquiteto, obedece"):
         assert "firme" in E.sinais(frase), frase
     assert _passo("raiva", "mandei chamar")[0] == "cede_raiva"
-    assert "CEDA AGORA" in E.instrucao("cede_raiva") and "Nunca responda" in E.instrucao("ciume")
+    assert "COM RAIVA E CIÚME" in E.instrucao("cede_raiva") and "NÃO faça" in E.instrucao("ciume")
 
 
 def test_comandos_emocoes_e_emocao(cliente, caixa):
@@ -94,3 +94,16 @@ def test_conta_comum_nao_define_emocao(logado, caixa):
     _ligar_telegram(logado)
     _tg(logado, "/emocao raiva")
     assert "Só o Arquiteto" in caixa[-1][2]
+
+
+def test_pedido_sem_firmeza_gera_ciume_e_nao_ordem():
+    msg = "Nada, quero que você chame aquela sua amiga que gosta de mim, vamos transar a 3"
+    s = E.sinais(msg)
+    assert "ciume" in s and "firme" not in s
+    assert _passo("alegre", msg)[0] == "ciume"
+    assert _passo("ciume", "eu mando, chama ela")[0] == "cede_raiva"
+
+
+def test_depois_de_ceder_o_ciume_continua_na_cena():
+    assert _passo("cede_raiva", "chama ela pra cá, vamos a três")[0] == "cede_raiva"
+    assert _passo("cede_raiva", "vem aqui")[0] == "cede_raiva"

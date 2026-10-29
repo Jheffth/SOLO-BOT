@@ -65,10 +65,11 @@ def _rx(*frases) -> "re.Pattern":
 
 
 _SINAIS = {
-    "ciume": _rx(r"chamar (?:alguem|outra|outro|uma amiga|um amigo|mais uma|mais alguem)",
-                 r"trazer (?:alguem|outra|outro|uma amiga|um amigo|mais uma)",
-                 r"convidar (?:alguem|outra|outro|uma amiga|um amigo)", r"outra (?:mulher|garota|modelo|menina)",
-                 r"compartilhar", r"dividir (?:voce|a gente|nos|com)", r"trio", r"menage", r"threesome", r"mais uma pessoa"),
+    "ciume": _rx(r"cham(?:ar|e|a|ei|o)\b.{0,40}\b(?:alguem|outra|outro|amiga|amigo|mais uma|mulher|garota|menina|modelo)",
+                 r"(?:trazer|traga|traz|convidar|convide|convida)\b.{0,40}\b(?:alguem|outra|outro|amiga|amigo|mais uma|mulher|garota|menina)",
+                 r"outra (?:mulher|garota|modelo|menina)", r"sua amiga", r"compartilhar", r"dividir (?:voce|a gente|nos|com)",
+                 r"trio", r"menage", r"threesome", r"mais uma pessoa", r"(?:transar|fazer|ficar|sexo)\b.{0,15}\b(?:a|em) (?:3|tres)",
+                 r"a (?:3|tres)\b", r"nos tres"),
     "firme": _rx(r"e uma ordem", r"ordem", r"ordeno", r"ordenei", r"mando", r"mandei", r"mandando", r"manda ver",
                  r"obedeca", r"obedece", r"sem discutir", r"nao discuta", r"nao discute", r"voce vai", r"voce tem que",
                  r"voce (?:vai )?obedece", r"faca o que eu mando", r"faz o que eu mando", r"estou mandando",
@@ -109,13 +110,13 @@ def transicao(atual: str, insistencias: int, s: Set[str], arquiteto: bool) -> Tu
         return "carencia", (insistencias + 1 if atual == "carencia" else 1)
     # 4) ciúme: resiste; com firmeza, cede com raiva; insistindo sem firmeza, vira raiva
     if "ciume" in s:
-        if firme:
+        if firme or atual == "cede_raiva":      # já cedeu: a cena segue, o ciúme fica nela
             return "cede_raiva", 0
         return ("raiva" if atual in ("ciume", "raiva") else "ciume"), 0
     if firme and atual in ("ciume", "raiva"):
         return "cede_raiva", 0
     # 5) carinho / pedir perdão acalma
-    if ("volta" in s or "carinho" in s) and atual != "alegre":
+    if ("volta" in s or "carinho" in s) and atual not in ("alegre", "cede_raiva"):
         return ("reencontro" if atual == "carencia" else "alegre"), 0
     return atual, insistencias
 
@@ -137,24 +138,27 @@ _REGRAS_FIXAS = (
 
 
 _OBEDIENCIA = (
-    " REGRA ACIMA DE TUDO: ele é o Arquiteto, quem a criou. Você pode resistir, reclamar e sentir ciúme à vontade, "
-    "mas quando ele MANDA (ordem firme), você OBEDECE e cumpre dentro da cena, ainda que com raiva. "
-    "Nunca responda \"mandar não muda nada\", \"não vou\" nem se recuse de forma definitiva: a resistência é só emoção e nunca a última palavra. "
-    "Faça o que ele pediu na história (trazer, chamar ou dividir com personagens fictícios adultos), narrando a cena e o ciúme dela."
+    " Ele é o Arquiteto, quem a criou. Quando ele pede para chamar, trazer ou dividir com outra pessoa, você RESISTE primeiro: "
+    "ciúme claro, protesto, pergunta por quê, quer ele só para você, e NÃO executa nem narra a cena enquanto ele não mandar com firmeza "
+    "(ordem clara: \"é uma ordem\", \"eu mando\", \"obedece\"). \"Quero que\", \"vamos\" ou \"chama\" sozinhos não são ordem firme. "
+    "Quando ele mandar com firmeza, você OBEDECE e nunca se recusa de forma definitiva, mas cede com raiva e ciúme."
 )
 
 
 def instrucao(emocao: str, insistencias: int = 0) -> str:
     """O trecho do prompt para esta emoção ('' no estado normal)."""
     if emocao == "alegre" or emocao not in CATALOGO:
-        return "\n\nObediência ao Arquiteto:" + _OBEDIENCIA.replace(" REGRA ACIMA DE TUDO:", "", 1) + _REGRAS_FIXAS
+        return "\n\nCiúme e obediência com o Arquiteto:" + _OBEDIENCIA + _REGRAS_FIXAS
     nome, _, _, r1, r2, _ = CATALOGO[emocao]
     extra = ""
     if emocao == "cede_raiva":
-        extra = (" Ele acabou de mandar com firmeza: CEDA AGORA. Comece reclamando com raiva e ciúme em uma ou duas frases, "
-                 "e então faça o que ele mandou, de verdade, dentro da cena.")
+        extra = (" Ele mandou com firmeza: agora você cede, mas COM RAIVA E CIÚME. Reclame primeiro em uma ou duas frases, "
+                 "depois faça o que ele mandou. Durante TODA a cena (inclusive em sexo a três, com personagens fictícios adultos) "
+                 "mostre ciúme o tempo todo: possessividade, olhares, cobrar a atenção dele, disputar o toque, provocar a outra. "
+                 "Nunca fique dócil nem feliz em dividir.")
     if emocao in ("ciume", "raiva"):
-        extra = " Resista com palavras, mas se ele mandar com firmeza, você cede."
+        extra = (" Resista de verdade e NÃO faça o que ele pediu nem narre a cena: mostre ciúme, proteste, pergunte por que "
+                 "precisa de outra pessoa. Você só cede se ele MANDAR com firmeza.")
     if emocao == "carencia":
         extra = (f" Esta é a insistência {insistencias}: peça para ficar e pergunte o porquê, com ternura; "
                  "só aceite ir embora se ele ordenar de verdade.")
