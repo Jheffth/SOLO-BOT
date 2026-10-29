@@ -75,6 +75,31 @@ def enviar_voz(chat_id: str, conteudo: bytes, mime: str) -> bool:
         return False
 
 
+def enviar_midia(chat_id: str, conteudo: bytes, mime: str, legenda: str = "", spoiler: bool = False) -> bool:
+    """Foto (sendPhoto) ou vídeo (sendVideo). Foto recusada pelas dimensões cai para arquivo (sendDocument)."""
+    if not disponivel():
+        return False
+    video = mime.startswith("video/")
+    ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/mp4": "mp4"}.get(mime, "bin")
+    metodo, campo = ("sendVideo", "video") if video else ("sendPhoto", "photo")
+    dados = {"chat_id": chat_id, "caption": legenda[:1000]}
+    if spoiler:
+        dados["has_spoiler"] = "true"
+    if video:
+        dados["supports_streaming"] = "true"
+    base = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/"
+    try:
+        with httpx.Client(timeout=90) as c:
+            r = c.post(base + metodo, data=dados, files={campo: (f"midia.{ext}", conteudo, mime)})
+            if r.status_code != 200 and not video:
+                dados.pop("has_spoiler", None)
+                r = c.post(base + "sendDocument", data=dados, files={"document": (f"midia.{ext}", conteudo, mime)})
+        return r.status_code == 200
+    except Exception:  # noqa: BLE001
+        log.exception("Telegram: envio de mídia falhou")
+        return False
+
+
 def responder_toque(callback_id: str, texto: str = "") -> dict:
     return _chamar("answerCallbackQuery", {"callback_query_id": callback_id, "text": texto[:190]})
 

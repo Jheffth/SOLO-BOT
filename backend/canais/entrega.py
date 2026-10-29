@@ -31,6 +31,7 @@ def entregar(db: Session, canal: str, origem: str, resposta: "roteador.Resposta"
                 continue
             if m["texto"]:
                 telegram.enviar(origem, m["texto"], render.teclado_telegram(m.get("opcoes")))
+            _midia(canal, origem, m.get("midia"))
             if not exclusivo:
                 _voz(canal, origem, m.get("audio"))
         return
@@ -72,9 +73,26 @@ def _entregar_whatsapp(db, origem, resposta, entrada_audio, falar, forcar_voz):
 
     _preparar_voz(db, "whatsapp", origem, resposta, entrada_audio, falar, forcar_voz)
     for m, corpo, exclusivo in mensagens:
+        _midia("whatsapp", origem, m.get("midia"))
         enviado = _voz("whatsapp", origem, m.get("audio"))
         if exclusivo and not enviado and corpo:
             evolution.enviar(origem, corpo)
+
+
+def _midia(canal: str, origem: str, midia) -> bool:
+    """Foto/vídeo da resposta (canais/midia.py). Falha aqui nunca derruba o texto nem a voz."""
+    if not midia:
+        return False
+    try:
+        if canal == "telegram":
+            import base64
+            return bool(telegram.enviar_midia(origem, base64.b64decode(midia["base64"]), midia["mime"],
+                                              midia.get("legenda") or "", bool(midia.get("spoiler"))))
+        r = evolution.enviar_midia(origem, midia)        # a visualização única do WhatsApp fica para depois
+        return bool(isinstance(r, dict) and (r.get("key") or {}).get("id") and not r.get("erro") and not r.get("error"))
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao entregar mídia")
+        return False
 
 
 def _voz(canal: str, origem: str, audio):

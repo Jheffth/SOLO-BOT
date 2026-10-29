@@ -93,6 +93,9 @@ def caixa(monkeypatch):
     monkeypatch.setattr(evolution, "enviar", lambda jid, t: enviadas.append(("whatsapp", jid, t, None)) or {})
     monkeypatch.setattr(telegram, "enviar_voz", lambda chat, b, mime: enviadas.append(("voz-telegram", chat, b, mime)) or True)
     monkeypatch.setattr(evolution, "enviar_audio", lambda jid, b64: enviadas.append(("voz-whatsapp", jid, b64, None)) or {})
+    monkeypatch.setattr(telegram, "enviar_midia", lambda chat, b, mime, legenda="", spoiler=False:
+                        enviadas.append(("midia-telegram", chat, (mime, legenda, spoiler), b)) or True)
+    monkeypatch.setattr(evolution, "enviar_midia", lambda jid, m: enviadas.append(("midia-whatsapp", jid, m, None)) or {"key": {"id": "X"}})
     import config
     monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "")          # sem voz, a não ser que o teste ligue
     monkeypatch.setattr(config, "ELEVENLABS_API_KEY_SECONDARY", "")

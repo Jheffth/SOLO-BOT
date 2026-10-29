@@ -49,6 +49,22 @@ def enviar_audio(jid: str, audio_b64: str) -> dict:
                 {"number": jid.split("@")[0], "audio": audio_b64, "encoding": True, "delay": 200})
 
 
+def enviar_midia(jid: str, midia: dict) -> dict:
+    """Foto ou vídeo (já validados por canais/midia.py), com legenda. Um único envio."""
+    imagem = midia["tipo"] == "imagem"
+    ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/mp4": "mp4"}[midia["mime"]]
+    st, dados = _chamar("POST", f"/message/sendMedia/{config.EVOLUTION_INSTANCE}",
+                        {"number": jid.split("@")[0], "mediatype": "image" if imagem else "video",
+                         "mimetype": midia["mime"], "caption": midia.get("legenda") or "",
+                         "media": midia["base64"], "fileName": f"{'foto' if imagem else 'video'}.{ext}", "delay": 200},
+                        timeout=90)
+    if not isinstance(dados, dict):
+        dados = {}
+    if st == 0:
+        return {"erro": "falha de rede"}
+    return dados
+
+
 def midia_base64(chave: dict, mensagem: dict) -> dict:
     """O conteúdo de uma mídia recebida: {base64, mimetype}. {} se falhar."""
     r = _req("POST", f"/chat/getBase64FromMediaMessage/{config.EVOLUTION_INSTANCE}",

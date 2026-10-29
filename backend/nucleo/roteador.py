@@ -42,10 +42,12 @@ class Resposta:
     mensagens: List[dict] = field(default_factory=list)   # [{texto, opcoes}]
     curta: Optional[str] = None                            # toast do Telegram
 
-    def diz(self, texto: str, opcoes=None, audio=None) -> "Resposta":
+    def diz(self, texto: str, opcoes=None, audio=None, midia=None) -> "Resposta":
         m = {"texto": texto, "opcoes": opcoes or []}
         if audio:
             m["audio"] = audio                           # {base64, mime}: voz depois do texto
+        if midia:
+            m["midia"] = midia                           # {base64, mime, tipo, legenda, spoiler}: já validada
         self.mensagens.append(m)
         return self
 
@@ -374,7 +376,8 @@ def _traduzir(mod: modulos.Modulo, dados: dict, r: Resposta) -> Resposta:
         if i == 0:
             texto = f"{mod.selo}\n{texto}" if texto else mod.selo
         audio = m.get("audio") if isinstance(m.get("audio"), dict) else None
-        r.diz(texto, render.prefixar(m.get("opcoes"), mod.chave), audio)
+        from canais import midia as _midia
+        r.diz(texto, render.prefixar(m.get("opcoes"), mod.chave), audio, _midia.validar(m.get("midia")))
         if m.get("falado"):
             r.mensagens[-1]["falado"] = str(m["falado"])[:900]   # a versão para ouvir, feita pelo sistema
     if dados.get("curta"):
