@@ -63,7 +63,7 @@ def test_prompt_traz_emocao_e_guardrails_so_para_o_arquiteto(cliente, monkeypatc
     conta = _admin(cliente).get("/api/auth/eu").json()["id"]
     e = bella_estado.avancar(conta, "vou chamar uma amiga")
     p = bella_estado.bloco_prompt(e, conta)
-    assert "Ciúme" in p and "chantageie" in p and "pare" in p.lower()
+    assert "Ciúme" in p and "chora" in p and "pare" in p.lower() and "NUNCA comente" in p
     bella_estado.definir_emocao(conta, "alegre")
     e = bella_estado.avancar(conta, "oi")
     p = bella_estado.bloco_prompt(e, conta)
@@ -74,7 +74,7 @@ def test_ordem_do_arquiteto_em_varias_formas_e_prompt_manda_ceder():
     for frase in ("eu mandei, chama ela", "estou mandando", "é uma ordem", "eu sou o arquiteto, obedece"):
         assert "firme" in E.sinais(frase), frase
     assert _passo("raiva", "mandei chamar")[0] == "cede_raiva"
-    assert "COM RAIVA E CIÚME" in E.instrucao("cede_raiva") and "NÃO faça" in E.instrucao("ciume")
+    assert "COM RAIVA E CIÚME" in E.instrucao("cede_raiva") and "NÃO aceite" in E.instrucao("ciume")
 
 
 def test_comandos_emocoes_e_emocao(cliente, caixa):
