@@ -413,6 +413,17 @@ trata como lançamento) é respondida direto pela Bella. `/bella` fixa a convers
 `BELLA_CONTEUDO_ADULTO`), com memória curta própria de cada canal. `/esquecer` limpa a memória,
 `/sair` volta ao hub e o modo expira após `MODO_MINUTOS` sem mensagem.
 
+### Memória de longo prazo da Bella
+
+Além da memória curta, a Bella guarda **lembranças** que a pessoa pede, por Conta Solo (valem no WhatsApp, no Telegram e no Bella.exe):
+
+- `/lembrar gosto de café sem açúcar` guarda uma lembrança (até 300 caracteres, até `BELLA_MEMORIA_FATOS_MAX`=60 por conta). Não guarda senhas, CPF nem número de cartão ou conta, e ignora repetidas.
+- `/memoria` lista as lembranças numeradas. `/memoria desligar` faz a Bella parar de usá-las (continuam guardadas); `/memoria ligar` volta.
+- `/esquecer` apaga só a conversa atual; `/esquecer N` apaga a lembrança N; `/esquecer tudo` apaga conversa e todas as lembranças.
+- A cada resposta o prompt da Bella ganha o bloco "Memórias" (no máximo 1.000 caracteres, as mais recentes primeiro). Sem lembranças, ou com a memória desligada, o prompt é o de sempre. Falha no banco nunca derruba a conversa.
+- As últimas trocas também ficam no banco (`bella_turnos`) por `BELLA_HISTORICO_DIAS` (7) dias, só para a conversa sobreviver a um reinício do servidor; `BELLA_HISTORICO_PERSISTENTE=0` volta a guardar só na RAM. `/esquecer` apaga também do banco. O texto bruto da conversa nunca vai para o log.
+- Próximas etapas previstas: a Bella extrair fatos sozinha das conversas e um resumo das conversas antigas.
+
 ## Imagens pelo Grok
 
 O botão Imagens abre um painel recolhível, separado do chat. Gere pela descrição

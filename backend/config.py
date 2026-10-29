@@ -78,6 +78,9 @@ def _inteiro(nome, padrao, minimo, maximo):
 BELLA_CONVERSA_MAX_CHARS = _inteiro("BELLA_CONVERSA_MAX_CHARS", 900, 200, 2000)
 BELLA_MEMORIA_TURNOS = _inteiro("BELLA_MEMORIA_TURNOS", 6, 0, 20)      # 0 desliga a memória
 BELLA_MEMORIA_MINUTOS = _inteiro("BELLA_MEMORIA_MINUTOS", 30, 1, 240)
+BELLA_MEMORIA_FATOS_MAX = _inteiro("BELLA_MEMORIA_FATOS_MAX", 60, 5, 300)       # lembranças (/lembrar) por conta
+BELLA_HISTORICO_PERSISTENTE = _env("BELLA_HISTORICO_PERSISTENTE", "1").strip().lower() in ("1", "true", "sim", "yes")
+BELLA_HISTORICO_DIAS = _inteiro("BELLA_HISTORICO_DIAS", 7, 1, 90)                  # por quanto tempo guardar as trocas
 
 # ── Fala (responder por voz, para todos os sistemas) ─────────────
 ELEVENLABS_API_KEY = _env("ELEVENLABS_API_KEY")

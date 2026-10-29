@@ -2,7 +2,7 @@
 import threading
 import time
 import config
-from nucleo import grok
+from nucleo import bella_memoria, grok
 
 ESTILO_PADRAO = """Modo Safada significa flerte, humor, sensualidade e duplo sentido entre adultos.
 Sem descrição sexual explícita, atos sexuais, nudez gráfica ou conteúdo envolvendo menores.
@@ -28,8 +28,10 @@ Responda em texto simples, sem Markdown ou instruções de atuação, até {limi
 Você recebe as mensagens recentes desta conversa e pode retomá-las; fora delas, não invente lembranças.
 """
 
-def prompt():
-    return PROMPT_BASE.replace("{limite}", str(config.BELLA_CONVERSA_MAX_CHARS)) + estilo()
+def prompt(numero_conta=None):
+    """`numero_conta`: a Conta Solo, para somar as lembranças que ela pediu para guardar."""
+    return (PROMPT_BASE.replace("{limite}", str(config.BELLA_CONVERSA_MAX_CHARS)) + estilo()
+            + bella_memoria.bloco_prompt(numero_conta))
 
 # Memória curta: fica só na RAM do servidor, por conta, e some ao reiniciar ou depois de um tempo.
 _MEMORIA = {}
@@ -47,6 +49,13 @@ def _historico(conta_id):
             _MEMORIA[conta_id] = itens
         else:
             _MEMORIA.pop(conta_id, None)
+    if not itens:                       # reinício do servidor: recupera as últimas trocas do banco
+        recuperadas = bella_memoria.turnos_recentes(conta_id, config.BELLA_MEMORIA_TURNOS, config.BELLA_MEMORIA_MINUTOS)
+        if recuperadas:
+            agora = time.monotonic()
+            with _TRAVA:
+                _MEMORIA[conta_id] = [(agora, u, b) for u, b in recuperadas]
+            itens = _MEMORIA[conta_id]
     saida = []
     for _, usuario, bella in itens[-config.BELLA_MEMORIA_TURNOS:]:
         saida += [("user", usuario), ("assistant", bella)]
@@ -61,13 +70,18 @@ def _lembrar(conta_id, usuario, bella):
         _MEMORIA[conta_id] = itens[-config.BELLA_MEMORIA_TURNOS:]
         while len(_MEMORIA) > _MAX_CONTAS:
             _MEMORIA.pop(next(iter(_MEMORIA)))
+    bella_memoria.gravar_turno(conta_id, usuario[:_MAX_FALA_USUARIO], bella)
 
 def esquecer(conta_id):
     with _TRAVA:
         _MEMORIA.pop(conta_id, None)
+    bella_memoria.apagar_turnos(conta_id)
 
-def responder(texto, conta_id=None):
-    resposta = grok.gerar(prompt(), texto, max_tokens=1536, historico=_historico(conta_id))
+def responder(texto, conta_id=None, numero_conta=None):
+    """`conta_id`: a chave da memória curta (por canal). `numero_conta`: a Conta Solo, dona das lembranças."""
+    if numero_conta is None and isinstance(conta_id, int):
+        numero_conta = conta_id
+    resposta = grok.gerar(prompt(numero_conta), texto, max_tokens=1536, historico=_historico(conta_id))
     limite = int(config.BELLA_CONVERSA_MAX_CHARS * 1.12)
     if not resposta or len(resposta) > limite or any(ord(c) < 32 and c not in "\n\r\t" for c in resposta):
         return None

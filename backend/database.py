@@ -233,6 +233,27 @@ def gravar_config(db, chave: str, valor):
     db.commit()
 
 
+class BellaMemoria(Base):
+    """Uma lembrança que a pessoa pediu para a Bella guardar (`/lembrar`). Por Conta Solo."""
+    __tablename__ = "bella_memorias"
+
+    id = Column(Integer, primary_key=True)
+    conta_id = Column(Integer, ForeignKey("contas.id", ondelete="CASCADE"), nullable=False, index=True)
+    texto = Column(String(300), nullable=False)
+    criado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class BellaTurno(Base):
+    """Uma troca da conversa com a Bella, guardada por poucos dias para sobreviver a reinícios."""
+    __tablename__ = "bella_turnos"
+
+    id = Column(Integer, primary_key=True)
+    chave = Column(String(40), nullable=False, index=True)      # "whatsapp:3", "telegram:3" ou o id da conta (Bella.exe)
+    usuario = Column(Text, nullable=False)
+    bella = Column(Text, nullable=False)
+    criado_em = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
 def criar_tabelas():
     Base.metadata.create_all(bind=engine)
     _migrar()

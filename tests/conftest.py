@@ -7,6 +7,7 @@ from pathlib import Path
 _TMP = tempfile.mkdtemp()
 os.environ.update({
     "AMBIENTE": "test",
+    "BELLA_HISTORICO_PERSISTENTE": "0",         # os testes ligam quando precisam; evita vazar conversa entre testes
     "DATABASE_URL": f"sqlite:///{_TMP}/teste.db",
     "TELEGRAM_BOT_TOKEN": "123:abc", "TELEGRAM_BOT_USERNAME": "SoloBot", "TELEGRAM_SECRET": "tg-secreto",
     "EVOLUTION_API_KEY": "evo", "EVOLUTION_WEBHOOK_SECRET": "wa-secreto", "WHATSAPP_NUMERO": "5561999990000",

@@ -272,7 +272,9 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
     bloco("💋 BELLA · MODO SAFADA", [
         "▸ `/bella` (ou `/safada`) — conversa com a Bella: flerte, humor e, se estiver liberado, conteúdo adulto. "
         "Fica nesse modo até você mandar `/sair`",
-        "▸ `/esquecer` — apaga a memória da conversa com a Bella",
+        "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
+        "▸ `/memoria` — lista o que ela lembra de você (`/memoria desligar` pausa, `/memoria ligar` volta)",
+        "▸ `/esquecer` — apaga a conversa atual · `/esquecer N` apaga a lembrança N · `/esquecer tudo` apaga tudo",
     ])
     bloco("🖼️ BELLA · PROMPTS DE IMAGEM", [
         "▸ `/prompt` — realismo sensual: `/prompt cozinha, cosplay de odalisca`",
@@ -520,9 +522,11 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if cmd in ("/vozes", "/usarvoz", "/testarvoz"):
         return _cmd_vozes(db, conta, cmd, resto.strip(), canal)
     if cmd == "/esquecer":
-        from nucleo import bella_conversa
-        bella_conversa.esquecer(_chave_bella(canal, conta))
-        return Resposta().diz("🧹 Pronto, esqueci o que conversamos.")
+        return _cmd_esquecer(conta, canal, resto.strip())
+    if cmd == "/memoria":
+        return _cmd_memoria(conta, resto.strip())
+    if cmd == "/lembrar":
+        return _cmd_lembrar(conta, resto.strip())
 
     if cmd.startswith("/"):
         mod = _comando_de_modulo(cmd)
@@ -626,6 +630,66 @@ def _prompt_responder(db, conta: Conta, canal: str, pedido: str, categoria: str 
     return r
 
 
+# ── Memória de longo prazo da Bella: /lembrar, /memoria, /esquecer ──
+def _lista_memoria(fatos: list) -> str:
+    return "\n".join(f"{i}. {f}" for i, f in enumerate(fatos, 1))
+
+
+def _cmd_lembrar(conta: Conta, texto: str) -> Resposta:
+    from nucleo import bella_memoria
+    try:
+        ok, msg = bella_memoria.adicionar(conta.id, texto)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao guardar lembrança")
+        return Resposta().diz("😶 Não consegui guardar agora. Tente de novo em instantes.")
+    if not ok:
+        return Resposta().diz(f"🧠 {msg}")
+    aviso = "" if bella_memoria.ativa(conta.id) else "\n_A memória está desligada: `/memoria ligar` para eu usar._"
+    return Resposta().diz(f"🧠 Guardei: _{msg}_{aviso}\n`/memoria` mostra tudo, `/esquecer N` apaga uma.")
+
+
+def _cmd_memoria(conta: Conta, resto: str) -> Resposta:
+    from nucleo import bella_memoria
+    pedido = resto.lower()
+    if pedido in ("desligar", "desliga", "off"):
+        bella_memoria.definir_ativa(conta.id, False)
+        return Resposta().diz("🧠 Memória desligada: a Bella não usa mais suas lembranças (elas continuam guardadas). `/memoria ligar` volta.")
+    if pedido in ("ligar", "liga", "on"):
+        bella_memoria.definir_ativa(conta.id, True)
+        return Resposta().diz("🧠 Memória ligada. A Bella volta a usar suas lembranças.")
+    try:
+        fatos = bella_memoria.listar(conta.id)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao listar lembranças")
+        return Resposta().diz("😶 Não consegui abrir a memória agora. Tente de novo em instantes.")
+    estado = "ligada" if bella_memoria.ativa(conta.id) else "desligada"
+    if not fatos:
+        return Resposta().diz(f"🧠 Memória {estado}, ainda vazia. Ensine algo: `/lembrar gosto de café sem açúcar`.")
+    return Resposta().diz(
+        f"🧠 *Memória da Bella* ({estado}) — {len(fatos)} lembrança(s):\n\n{_lista_memoria(fatos)}\n\n"
+        "`/lembrar texto` guarda mais · `/esquecer N` apaga uma · `/memoria desligar` pausa")
+
+
+def _cmd_esquecer(conta: Conta, canal: str, resto: str) -> Resposta:
+    from nucleo import bella_conversa, bella_memoria
+    pedido = resto.lower()
+    if not pedido:
+        bella_conversa.esquecer(_chave_bella(canal, conta))
+        return Resposta().diz("🧹 Pronto, esqueci o que conversamos. As lembranças de `/memoria` continuam; "
+                              "`/esquecer N` apaga uma e `/esquecer tudo` apaga todas.")
+    if pedido in ("tudo", "todas", "todos"):
+        bella_conversa.esquecer(_chave_bella(canal, conta))
+        bella_conversa.esquecer(conta.id)                     # a conversa do Bella.exe também
+        n = bella_memoria.apagar_tudo(conta.id)
+        return Resposta().diz(f"🧹 Esqueci a conversa e apaguei {n} lembrança(s).")
+    if pedido.isdigit():
+        apagada = bella_memoria.apagar(conta.id, int(pedido))
+        if apagada is None:
+            return Resposta().diz("🧠 Não achei essa lembrança. Veja os números em `/memoria`.")
+        return Resposta().diz(f"🧹 Esqueci: _{apagada}_")
+    return Resposta().diz("🧹 `/esquecer` apaga a conversa · `/esquecer N` apaga a lembrança N · `/esquecer tudo` apaga tudo.")
+
+
 def _bella_entrar(canal: str, conta: Conta, primeira: str) -> Resposta:
     if primeira:
         return _bella_responder(None, conta, canal, primeira)
@@ -634,7 +698,7 @@ def _bella_entrar(canal: str, conta: Conta, primeira: str) -> Resposta:
 
 def _bella_responder(db, conta: Conta, canal: str, txt: str, so_se_responder: bool = False) -> Optional[Resposta]:
     from nucleo import bella_conversa
-    texto = bella_conversa.responder(txt, _chave_bella(canal, conta))
+    texto = bella_conversa.responder(txt, _chave_bella(canal, conta), numero_conta=conta.id)
     if not texto and so_se_responder:
         return None                          # sem Grok: o hub segue como antes
     if db is not None:
