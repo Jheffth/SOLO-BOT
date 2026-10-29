@@ -19,6 +19,7 @@ from typing import Optional
 
 import config
 from database import BellaEstado, Conta, SessionLocal
+from nucleo import bella_emocoes
 
 log = logging.getLogger("solobot.bella_estado")
 
@@ -123,10 +124,20 @@ def avancar(conta_id: Optional[int], texto: str, agora: Optional[datetime] = Non
         else:
             e.calmas = 0
         e.nivel = min(e.nivel, limite)
+        conta = db.get(Conta, int(conta_id))
+        arquiteto = bool(conta and conta.admin)
+        if bella_emocoes.expirou(e.emocao, e.emocao_ate, agora):        # esfriou com o tempo
+            e.emocao, e.insistencias = "alegre", 0
+        nova, e.insistencias = bella_emocoes.transicao(e.emocao, e.insistencias, bella_emocoes.sinais(texto), arquiteto)
+        if nova != e.emocao:
+            e.emocao, e.emocao_ate = nova, bella_emocoes.validade(nova, agora)
+        if e.emocao == "reencontro" and e.emocao_ate and agora >= e.emocao_ate:
+            e.emocao = "alegre"
         e.interacoes += 1
         e.ultimo_contato = agora
         db.commit()
-        return {"nivel": e.nivel, "modo": e.modo, "fixa": e.fixa, "interacoes": e.interacoes, "dias_sem_falar": dias}
+        return {"nivel": e.nivel, "modo": e.modo, "fixa": e.fixa, "interacoes": e.interacoes, "dias_sem_falar": dias,
+                "emocao": e.emocao, "insistencias": e.insistencias}
     except Exception:  # noqa: BLE001
         db.rollback()
         log.debug("Estado da Bella indisponível", exc_info=True)
@@ -145,7 +156,22 @@ def situacao(conta_id: int) -> dict:
         return {"nivel": min(e.nivel, teto()) if e else 0, "modo": e.modo if e else "auto", "fixa": e.fixa if e else None,
                 "interacoes": e.interacoes if e else 0,
                 "dias_sem_falar": (agora - e.ultimo_contato).days if e and e.ultimo_contato else None,
-                "arquiteto": bool(conta and conta.admin), "nome": conta.nome if conta else ""}
+                "arquiteto": bool(conta and conta.admin), "nome": conta.nome if conta else "",
+                "emocao": e.emocao if e else "alegre", "insistencias": e.insistencias if e else 0}
+    finally:
+        db.close()
+
+
+def definir_emocao(conta_id: int, emocao: str) -> None:
+    """O Arquiteto define a emoção na hora (`/emocao`). Ela esfria sozinha no tempo de sempre."""
+    if emocao not in bella_emocoes.ESTADOS:
+        raise ValueError("emoção desconhecida")
+    agora = datetime.utcnow()
+    db = SessionLocal()
+    try:
+        e = _obter(db, conta_id)
+        e.emocao, e.insistencias, e.emocao_ate = emocao, 0, bella_emocoes.validade(emocao, agora)
+        db.commit()
     finally:
         db.close()
 
@@ -216,4 +242,5 @@ def bloco_prompt(estado: Optional[dict], conta_id: Optional[int]) -> str:
         f"\n\nTemperatura da conversa agora: [{nome_nivel}] ({modo}). {instrucao} "
         "Esta temperatura manda no quão explícita você é; os limites do estilo acima valem como teto, não como obrigação. "
         "Só suba o grau quando ele subir; se ele esfriar, esfrie com ele."
+        + (bella_emocoes.instrucao(estado.get("emocao", "alegre"), estado.get("insistencias", 0)) if s["arquiteto"] else "")
     )

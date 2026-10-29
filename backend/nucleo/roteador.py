@@ -277,6 +277,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
         "▸ `/memoria` — lista o que ela lembra de você (`/memoria desligar` pausa, `/memoria ligar` volta)",
         "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
+        "▸ `/emocoes` — a galeria de sentimentos da Bella (o que desperta cada um e as duas reações). `/emocao <nome>` (Arquiteto) define na hora",
         "▸ `/esquecer` — apaga a conversa atual · `/esquecer N` apaga a lembrança N · `/esquecer tudo` apaga tudo",
     ])
     bloco("🖼️ BELLA · PROMPTS DE IMAGEM", [
@@ -535,6 +536,11 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_temperatura(conta, resto.strip())
     if cmd == "/sentimentos":
         return _cmd_sentimentos(conta)
+    if cmd == "/emocoes":
+        from nucleo import bella_emocoes
+        return Resposta().diz(bella_emocoes.galeria())
+    if cmd == "/emocao":
+        return _cmd_emocao(conta, resto.strip())
 
     if cmd.startswith("/"):
         mod = _comando_de_modulo(cmd)
@@ -712,6 +718,34 @@ def _cmd_temperatura(conta: Conta, resto: str) -> Resposta:
     return Resposta().diz("🌡️ Fixei a temperatura. " + _termometro_texto(bella_estado.situacao(conta.id)) + nota)
 
 
+def _cmd_emocao(conta: Conta, resto: str) -> Resposta:
+    """Só o Arquiteto: define a emoção da Bella na hora (`/emocao ciume`) ou volta ao normal (`/emocao alegre`)."""
+    from nucleo import bella_emocoes, bella_estado
+    if not conta.admin:
+        return Resposta().diz("🔒 Só o Arquiteto mexe nas emoções da Bella.")
+    nomes = {_sem_acento(v[0]).lower(): k for k, v in bella_emocoes.CATALOGO.items() if k in bella_emocoes.ESTADOS}
+    nomes.update({k: k for k in bella_emocoes.ESTADOS})
+    nomes.update({"normal": "alegre", "apaixonada": "alegre", "cede": "cede_raiva", "medo": "carencia"})
+    alvo = nomes.get(_sem_acento(resto).lower().replace(" ", "_")) or nomes.get(_sem_acento(resto).lower())
+    if not alvo:
+        return Resposta().diz("💗 Use `/emocao` + uma destas: " + ", ".join(f"`{k}`" for k in bella_emocoes.ESTADOS))
+    try:
+        bella_estado.definir_emocao(conta.id, alvo)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao definir a emoção da Bella")
+        return Resposta().diz("😶 Não consegui agora. Tente de novo em instantes.")
+    nome, emoji = bella_emocoes.CATALOGO[alvo][0], bella_emocoes.CATALOGO[alvo][1]
+    return Resposta().diz(f"{emoji} Pronto: a Bella agora está *{nome}*.")
+
+
+def _emocao_texto(sit: dict) -> str:
+    from nucleo import bella_emocoes
+    if not sit.get("arquiteto"):
+        return "normal"
+    nome, emoji = bella_emocoes.CATALOGO[sit.get("emocao", "alegre")][:2]
+    return f"{emoji} {nome}"
+
+
 def _cmd_sentimentos(conta: Conta) -> Resposta:
     from nucleo import bella_estado
     try:
@@ -725,6 +759,7 @@ def _cmd_sentimentos(conta: Conta) -> Resposta:
     linhas = [f"💗 *O que a Bella sente* ({quem})",
               f"Carinho: {car}/100 · {sit['interacoes']} conversa(s)",
               f"Saudade: {sau.strip() or 'nenhuma'}" + (f" ({sit['dias_sem_falar']} dia(s) sem falar)" if sau else ""),
+              f"Emoção: {_emocao_texto(sit)}",
               _termometro_texto(sit)]
     return Resposta().diz("\n".join(linhas))
 

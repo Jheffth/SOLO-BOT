@@ -265,6 +265,9 @@ class BellaEstado(Base):
     calmas = Column(Integer, default=0, nullable=False)         # mensagens seguidas mais calmas que o nível
     modo = Column(String(8), default="auto", nullable=False)    # auto | fixa
     fixa = Column(Integer, nullable=True)
+    emocao = Column(String(12), default="alegre", nullable=False)     # ver nucleo/bella_emocoes.py
+    emocao_ate = Column(DateTime, nullable=True)                      # quando esta emoção esfria sozinha
+    insistencias = Column(Integer, default=0, nullable=False)         # vezes que ela pediu para ficar
 
 
 def criar_tabelas():
@@ -307,6 +310,13 @@ def _migrar():
                              + ("FALSE" if engine.dialect.name == "postgresql" else "0")))
         if engine.dialect.name == "postgresql" and not colunas.get("email", {}).get("nullable", True):
             con.execute(text("ALTER TABLE contas ALTER COLUMN email DROP NOT NULL"))
+        if "bella_estados" in insp.get_table_names():
+            est = {c["name"] for c in insp.get_columns("bella_estados")}
+            tipo = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
+            for nome, ddl in (("emocao", "VARCHAR(12) DEFAULT 'alegre' NOT NULL"), ("emocao_ate", tipo),
+                              ("insistencias", "INTEGER DEFAULT 0 NOT NULL")):
+                if nome not in est:
+                    con.execute(text(f"ALTER TABLE bella_estados ADD COLUMN {nome} {ddl}"))
         if "avisos_pendentes" in insp.get_table_names():
             pend = {c["name"] for c in insp.get_columns("avisos_pendentes")}
             if "valido_ate" not in pend:

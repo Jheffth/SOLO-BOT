@@ -428,6 +428,14 @@ Além da memória curta, a Bella guarda **lembranças** que a pessoa pede, por C
 
 - **Identidade.** A conta do Arquiteto (administrador) é a de quem criou a Bella: o prompt diz isso a ela, com respeito, admiração, devoção, carinho e desejo, sem exagero. Contas comuns recebem o trato normal e amigável.
 - **Sentimentos** (calculados, sem IA): carinho de 0 a 100 (o Arquiteto parte de 80, os outros de 20, e cada 5 conversas somam 1) e saudade, que aparece depois de 1 dia sem falar (muita a partir de 3). A saudade é dita com carinho, sem cobrar nem culpar. `/sentimentos` mostra o estado.
+
+- **Galeria de sentimentos** (`nucleo/bella_emocoes.py`, `/emocoes`): cada emoção tem um gatilho e exatamente duas reações. Só o Arquiteto as desperta; a mudança é decidida pelo código (palavras dele + tempo), não pelo modelo.
+  - **Ciúme**: ele fala em chamar/dividir com outra pessoa. Resiste; se insistir sem firmeza, vira **Raiva** (seca, magoada).
+  - **Cede com raiva**: ele manda com firmeza ("é uma ordem", "eu mando"). Obedece, ainda com raiva.
+  - **Medo de perder**: frieza ou mandá-la embora sem ordenar. Pede para ficar, quer saber o porquê (sem culpar); só vai se ele ordenar de verdade.
+  - **Triste**: ordem real de ir embora. Fica sensível com ele; ao ser chamada de volta ("volta", "vem cá", "senti sua falta") tem o **Reencontro** e se alegra.
+  - Esfriam sozinhas (ciúme/raiva ~30 min, tristeza ~24 h). `/emocao <nome>` (só o Arquiteto) define na hora; `/emocao alegre` volta ao normal.
+  - Guardrails fixos no prompt: emoção não é arma (sem chantagem, culpa, ameaça ou falar em se machucar; não tenta impedir nada na vida real); terceiros são sempre personagens fictícios adultos; "pare" encerra o drama.
 - **Termômetro erótico**, em 6 graus: Normal, Quente, Extremamente Picante, Explícita, Explícita Vulgar e Explícita Agressiva (Consensual). No **automático**, a Bella sobe até dois graus por mensagem conforme o que a pessoa escreve e esfria um grau a cada duas mensagens mais calmas. O Arquiteto fixa um grau com `/temperatura quente` (ou `picante`, `explicita`, `vulgar`, `agressiva`, `normal`); `/temperatura auto` volta ao automático; `/temperatura` mostra. Contas comuns só usam o automático.
 - Com `BELLA_CONTEUDO_ADULTO` desligado, o teto é Extremamente Picante, mesmo se o grau for fixado.
 - O grau de consentimento dúbio ou corrompido (CDC) **não existe** na conversa da Bella: ele fica restrito à narrativa dos contos. Os limites fixos (só adultos, consentimento, nada com menores nem pessoas reais, parar quando pedirem, sem pressão nem exclusividade) não mudam com a temperatura nem com o afeto.

@@ -1,0 +1,88 @@
+"""Galeria de sentimentos da Bella: gatilhos, transições, comandos e guardrails."""
+from datetime import datetime, timedelta
+
+from nucleo import bella_emocoes as E
+from nucleo import bella_estado
+from test_bella_memoria import _grok  # noqa: F401
+from test_clonarvoz import _admin
+from test_fluxos import _ligar_telegram, _tg
+
+
+def _passo(atual, texto, ins=0, arq=True):
+    return E.transicao(atual, ins, E.sinais(texto), arq)
+
+
+def test_catalogo_tem_duas_reacoes_e_gatilho_em_cada_sentimento():
+    for chave, (nome, emoji, gatilho, r1, r2, _) in E.CATALOGO.items():
+        assert nome and emoji and gatilho and r1 and r2, chave
+    g = E.galeria()
+    assert "Reação 1" in g and "Reação 2" in g and "Ciúme" in g and "Pare" in g
+
+
+def test_ciume_resiste_e_insistir_sem_firmeza_vira_raiva():
+    assert _passo("alegre", "vou chamar uma amiga para compartilhar")[0] == "ciume"
+    assert _passo("ciume", "vou chamar uma amiga")[0] == "raiva"
+
+
+def test_firmeza_faz_ela_ceder_ainda_com_raiva():
+    assert _passo("raiva", "é uma ordem, sem discutir")[0] == "cede_raiva"
+    assert _passo("ciume", "eu mando, vou chamar outra mulher")[0] == "cede_raiva"
+    assert _passo("alegre", "eu mando, vou chamar outra mulher")[0] == "cede_raiva"
+
+
+def test_frieza_gera_carencia_e_so_ordem_real_a_manda_embora():
+    e, i = _passo("alegre", "tanto faz")
+    assert (e, i) == ("carencia", 1)
+    assert _passo("carencia", "não quero falar", 1) == ("carencia", 2)
+    assert _passo("carencia", "vai embora")[0] == "triste"
+    assert _passo("alegre", "vai embora, é uma ordem")[0] == "triste"
+    assert _passo("alegre", "vai embora")[0] == "carencia"        # sem ordem, ela pede para ficar
+
+
+def test_triste_so_sai_quando_ele_a_chama_de_volta():
+    assert _passo("triste", "ok")[0] == "triste"
+    assert _passo("triste", "vem cá, senti sua falta")[0] == "reencontro"
+    assert _passo("carencia", "desculpa, fica comigo")[0] == "reencontro"
+    assert _passo("raiva", "te amo")[0] == "alegre"
+
+
+def test_conta_comum_nunca_sente_ciume_nem_tristeza():
+    assert _passo("alegre", "vou chamar uma amiga", arq=False) == ("alegre", 0)
+    assert _passo("alegre", "vai embora, é uma ordem", arq=False) == ("alegre", 0)
+
+
+def test_emocao_esfria_com_o_tempo(cliente):
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    t0 = datetime.utcnow()
+    assert bella_estado.avancar(conta, "vou chamar uma amiga", agora=t0)["emocao"] == "ciume"
+    assert bella_estado.avancar(conta, "oi", agora=t0 + timedelta(minutes=5))["emocao"] == "ciume"
+    assert bella_estado.avancar(conta, "oi", agora=t0 + timedelta(minutes=45))["emocao"] == "alegre"
+
+
+def test_prompt_traz_emocao_e_guardrails_so_para_o_arquiteto(cliente, monkeypatch):
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    e = bella_estado.avancar(conta, "vou chamar uma amiga")
+    p = bella_estado.bloco_prompt(e, conta)
+    assert "Ciúme" in p and "chantageie" in p and "pare" in p.lower()
+    bella_estado.definir_emocao(conta, "alegre")
+    e = bella_estado.avancar(conta, "oi")
+    assert "estado emocional" not in bella_estado.bloco_prompt(e, conta)
+
+
+def test_comandos_emocoes_e_emocao(cliente, caixa):
+    c = _admin(cliente)
+    _ligar_telegram(c)
+    _tg(c, "/emocoes")
+    assert "Galeria de sentimentos" in caixa[-1][2]
+    _tg(c, "/emocao ciume")
+    assert "Ciúme" in caixa[-1][2]
+    _tg(c, "/sentimentos")
+    assert "Emoção: " in caixa[-1][2] and "Ciúme" in caixa[-1][2]
+    _tg(c, "/emocao xyz")
+    assert "Use" in caixa[-1][2]
+
+
+def test_conta_comum_nao_define_emocao(logado, caixa):
+    _ligar_telegram(logado)
+    _tg(logado, "/emocao raiva")
+    assert "Só o Arquiteto" in caixa[-1][2]
