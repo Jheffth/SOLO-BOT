@@ -141,7 +141,7 @@ Decisão do Arquiteto: o soDeles será integrado ao Solo Bot; a **Bella do Whats
 | Canais (WhatsApp/Telegram), `midia`, comandos do hub | Solo Bot | O soDeles entra como módulo em `SOLO_MODULOS`. |
 | Perfis, galeria, relação usuário×modelo | soDeles | Banco próprio. |
 
-Ponto em aberto: a Bella.exe e a Bella modelo compartilham memória do Arquiteto ou são conversas separadas? Premissa até decidir: separadas, com a identidade do Arquiteto igual nas duas.
+Decidido pelo Arquiteto: a Bella.exe e a Bella modelo **compartilham** a memória dele (mesma conta, mesmo histórico, resumo e lembranças). A memória precisa ficar num lugar único que os dois leem e escrevem.
 
 ### 11.2 Perfil de modelo (cada modelo é um registro)
 - **Identidade:** nome, apelido, idade fictícia adulta (18+), bio curta e bio longa, redes (Instagram, TikTok), idioma, fotos de perfil.
