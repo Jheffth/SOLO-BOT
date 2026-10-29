@@ -81,6 +81,10 @@ BELLA_MEMORIA_MINUTOS = _inteiro("BELLA_MEMORIA_MINUTOS", 30, 1, 240)
 BELLA_MEMORIA_FATOS_MAX = _inteiro("BELLA_MEMORIA_FATOS_MAX", 60, 5, 300)       # lembranças (/lembrar) por conta
 BELLA_HISTORICO_PERSISTENTE = _env("BELLA_HISTORICO_PERSISTENTE", "1").strip().lower() in ("1", "true", "sim", "yes")
 BELLA_HISTORICO_DIAS = _inteiro("BELLA_HISTORICO_DIAS", 7, 1, 90)                  # por quanto tempo guardar as trocas
+BELLA_ARQUIVO = _env("BELLA_ARQUIVO", "1").strip().lower() in ("1", "true", "sim", "yes")                # história por dia, sem prazo
+BELLA_ARQUIVO_RESUMO = _env("BELLA_ARQUIVO_RESUMO", "1").strip().lower() in ("1", "true", "sim", "yes")  # Grok resume os dias
+BELLA_HISTORIA_BLOCO_MAX = _inteiro("BELLA_HISTORIA_BLOCO_MAX", 1800, 300, 6000)    # caracteres de história no prompt
+BELLA_FUSO_HORAS = _inteiro("BELLA_FUSO_HORAS", -3, -12, 14)                        # fuso para separar os dias (Brasília)
 
 # ── Fala (responder por voz, para todos os sistemas) ─────────────
 ELEVENLABS_API_KEY = _env("ELEVENLABS_API_KEY")

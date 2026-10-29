@@ -2,7 +2,7 @@
 import threading
 import time
 import config
-from nucleo import bella_emocoes, bella_estado, bella_memoria, grok
+from nucleo import bella_emocoes, bella_estado, bella_historia, bella_memoria, grok
 
 ESTILO_PADRAO = """Modo Safada significa flerte, humor, sensualidade e duplo sentido entre adultos.
 Sem descrição sexual explícita, atos sexuais, nudez gráfica ou conteúdo envolvendo menores.
@@ -32,7 +32,8 @@ def prompt(numero_conta=None, estado=None):
     """`numero_conta`: a Conta Solo (lembranças, quem ela é para a Bella). `estado`: o da mensagem atual."""
     return (PROMPT_BASE.replace("{limite}", str(config.BELLA_CONVERSA_MAX_CHARS)) + estilo()
             + bella_estado.bloco_prompt(estado, numero_conta)
-            + bella_memoria.bloco_prompt(numero_conta))
+            + bella_memoria.bloco_prompt(numero_conta)
+            + bella_historia.bloco_prompt(numero_conta))
 
 # Memória curta: fica só na RAM do servidor, por conta, e some ao reiniciar ou depois de um tempo.
 _MEMORIA = {}
@@ -94,4 +95,5 @@ def responder(texto, conta_id=None, numero_conta=None):
     if not resposta or len(resposta) > limite or any(ord(c) < 32 and c not in "\n\r\t" for c in resposta):
         return None
     _lembrar(conta_id, texto, resposta)
+    bella_historia.gravar(numero_conta, texto, resposta)      # a pasta do dia, sem prazo, por Conta Solo
     return resposta

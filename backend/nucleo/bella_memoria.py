@@ -66,7 +66,7 @@ def definir_ativa(conta_id: int, ligada: bool) -> None:
 
 
 # ── Fatos ────────────────────────────────────────────────────────
-def adicionar(conta_id: int, texto: str) -> Tuple[bool, str]:
+def adicionar(conta_id: int, texto: str, dia: Optional[str] = None) -> Tuple[bool, str]:
     """(ok, mensagem). Recusa o vazio, o longo demais, segredos e o que já está guardado."""
     texto = re.sub(r"\s+", " ", (texto or "")).strip()
     if len(texto) < MIN_TEXTO:
@@ -83,7 +83,7 @@ def adicionar(conta_id: int, texto: str) -> Tuple[bool, str]:
         if len(existentes) >= config.BELLA_MEMORIA_FATOS_MAX:
             return False, (f"A memória está cheia ({config.BELLA_MEMORIA_FATOS_MAX} lembranças). "
                            "Apague alguma com `/esquecer N`.")
-        db.add(BellaMemoria(conta_id=conta_id, texto=texto))
+        db.add(BellaMemoria(conta_id=conta_id, texto=texto, dia=dia))
         db.commit()
         return True, texto
     finally:

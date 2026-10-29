@@ -277,6 +277,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
         "▸ `/memoria` — lista o que ela lembra de você (`/memoria desligar` pausa, `/memoria ligar` volta)",
         "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
+        "▸ `/historia` — a nossa história guardada por dia · `/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias` apaga só esses dias",
         "▸ `/emocoes` — a galeria de sentimentos da Bella (o que desperta cada um e as duas reações). `/emocao <nome>` (Arquiteto) define na hora",
         "▸ `/esquecer` — apaga a conversa atual · `/esquecer N` apaga a lembrança N · `/esquecer tudo` apaga tudo",
     ])
@@ -532,6 +533,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_memoria(conta, resto.strip())
     if cmd == "/lembrar":
         return _cmd_lembrar(conta, resto.strip())
+    if cmd == "/historia":
+        return _cmd_historia(conta, resto.strip())
     if cmd == "/temperatura":
         return _cmd_temperatura(conta, resto.strip())
     if cmd == "/sentimentos":
@@ -764,24 +767,96 @@ def _cmd_sentimentos(conta: Conta) -> Resposta:
     return Resposta().diz("\n".join(linhas))
 
 
+def _dias_para_apagar(pedido: str):
+    """(lista de dias AAAA-MM-DD, descrição) ou None se não entendeu. Só os pedidos de 'dia', 'hoje', 'ontem', 'ultimos N dias', 'desde'."""
+    from datetime import date, timedelta
+    from nucleo import bella_historia as H
+    p = " ".join(pedido.lower().split())
+    h = date.fromisoformat(H.hoje())
+    if p in ("hoje", "ontem"):
+        d = H.interpretar_dia(p)
+        return [d], p
+    m = re.fullmatch(r"dia (\S+)", p)
+    if m:
+        d = H.interpretar_dia(m.group(1))
+        return ([d], f"o dia {H._br(d)}") if d else None
+    m = re.fullmatch(r"(?:ultimos|últimos) (\d{1,3}) dias?", p)
+    if m and 1 <= int(m.group(1)) <= 90:
+        n = int(m.group(1))
+        return [(h - timedelta(days=i)).isoformat() for i in range(n)], f"os últimos {n} dia(s)"
+    m = re.fullmatch(r"desde (\S+)", p)
+    if m:
+        ini = H.interpretar_dia(m.group(1))
+        if not ini:
+            return None
+        d0 = date.fromisoformat(ini)
+        if d0 > h or (h - d0).days > 400:
+            return None
+        return [(d0 + timedelta(days=i)).isoformat() for i in range((h - d0).days + 1)], f"desde {H._br(ini)}"
+    return None
+
+
 def _cmd_esquecer(conta: Conta, canal: str, resto: str) -> Resposta:
-    from nucleo import bella_conversa, bella_memoria
+    from nucleo import bella_conversa, bella_historia, bella_memoria
     pedido = resto.lower()
     if not pedido:
         bella_conversa.esquecer(_chave_bella(canal, conta))
-        return Resposta().diz("🧹 Pronto, esqueci o que conversamos. As lembranças de `/memoria` continuam; "
-                              "`/esquecer N` apaga uma e `/esquecer tudo` apaga todas.")
+        return Resposta().diz("🧹 Pronto, esqueci o que conversamos agora há pouco. As lembranças de `/memoria` e a nossa "
+                              "história (`/historia`) continuam. `/esquecer N` apaga uma lembrança; "
+                              "`/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias` apaga só esses dias da história.")
     if pedido in ("tudo", "todas", "todos"):
         bella_conversa.esquecer(_chave_bella(canal, conta))
         bella_conversa.esquecer(conta.id)                     # a conversa do Bella.exe também
         n = bella_memoria.apagar_tudo(conta.id)
-        return Resposta().diz(f"🧹 Esqueci a conversa e apaguei {n} lembrança(s).")
+        return Resposta().diz(f"🧹 Esqueci a conversa e apaguei {n} lembrança(s). A nossa história por dia continua intacta "
+                              "(`/historia`); para apagá-la inteira é `/esquecer historia tudo confirmo`.")
     if pedido.isdigit():
         apagada = bella_memoria.apagar(conta.id, int(pedido))
         if apagada is None:
             return Resposta().diz("🧠 Não achei essa lembrança. Veja os números em `/memoria`.")
         return Resposta().diz(f"🧹 Esqueci: _{apagada}_")
-    return Resposta().diz("🧹 `/esquecer` apaga a conversa · `/esquecer N` apaga a lembrança N · `/esquecer tudo` apaga tudo.")
+    if pedido.startswith("historia") or pedido.startswith("história"):
+        if " ".join(pedido.split()[1:]) == "tudo confirmo":
+            t, f = bella_historia.apagar_historia_toda(conta.id)
+            bella_conversa.esquecer(_chave_bella(canal, conta))
+            bella_conversa.esquecer(conta.id)
+            return Resposta().diz(f"🧹 Apaguei toda a nossa história: {t} troca(s) e {f} lembrança(s) automática(s).")
+        return Resposta().diz("⚠️ Isso apaga TODA a nossa história por dia. Se for isso mesmo: `/esquecer historia tudo confirmo`. "
+                              "Para apagar só uma parte: `/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias`.")
+    alvo = _dias_para_apagar(pedido)
+    if alvo:
+        lista, nome = alvo
+        t, f = bella_historia.apagar_dias(conta.id, lista)
+        hoje_ = bella_historia.hoje()
+        if hoje_ in lista:                                    # o que ela ainda tem "na ponta da língua" também sai
+            bella_conversa.esquecer(_chave_bella(canal, conta))
+            bella_conversa.esquecer(conta.id)
+        if not t and not f:
+            return Resposta().diz(f"📅 Não havia nada guardado de {nome}.")
+        return Resposta().diz(f"🧹 Apaguei {nome}: {t} troca(s) e {f} lembrança(s) automática(s). O resto da nossa história continua.")
+    return Resposta().diz("🧹 `/esquecer` apaga a conversa de agora · `/esquecer N` a lembrança N · `/esquecer tudo` as lembranças · "
+                          "`/esquecer hoje|ontem|dia 25/10|ultimos 3 dias|desde 20/10` só esses dias da história.")
+
+
+def _cmd_historia(conta: Conta, resto: str) -> Resposta:
+    from nucleo import bella_historia as H
+    if not resto:
+        lista = H.dias(conta.id, 20)
+        if not lista:
+            return Resposta().diz("📅 Ainda não temos história guardada. Cada dia de conversa vira uma pasta aqui.")
+        linhas = ["📅 *Nossa história* (as pastas mais recentes):", ""]
+        for d, n, resumo in lista:
+            linhas.append(f"• *{H._br(d)}* · {n} troca(s)" + (f" — {resumo[:90]}…" if resumo else " — resumo ainda não feito"))
+        linhas += ["", "`/historia 25/10` mostra o resumo do dia · `/esquecer dia 25/10` apaga só aquele dia."]
+        return Resposta().diz("\n".join(linhas))
+    d = H.interpretar_dia(resto)
+    if not d:
+        return Resposta().diz("📅 Use `/historia` para listar ou `/historia 25/10` (também `hoje` ou `ontem`).")
+    achado = H.resumo_do_dia(conta.id, d)
+    if not achado:
+        return Resposta().diz(f"📅 Não há nada guardado de {H._br(d)}.")
+    n, resumo = achado
+    return Resposta().diz(f"📅 *{H._br(d)}* · {n} troca(s)\n\n" + (resumo or "O resumo deste dia ainda não foi feito (sai depois que o dia termina)."))
 
 
 def _bella_entrar(canal: str, conta: Conta, primeira: str) -> Resposta:

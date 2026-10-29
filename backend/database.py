@@ -240,7 +240,32 @@ class BellaMemoria(Base):
     id = Column(Integer, primary_key=True)
     conta_id = Column(Integer, ForeignKey("contas.id", ondelete="CASCADE"), nullable=False, index=True)
     texto = Column(String(300), nullable=False)
+    dia = Column(String(10), nullable=True, index=True)        # AAAA-MM-DD se o Grok tirou a lembrança desse dia; vazio se foi /lembrar
     criado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class BellaArquivo(Base):
+    """Toda troca com a Bella, sem prazo, na pasta do dia (nucleo/bella_historia.py)."""
+    __tablename__ = "bella_arquivo"
+
+    id = Column(Integer, primary_key=True)
+    conta_id = Column(Integer, ForeignKey("contas.id", ondelete="CASCADE"), nullable=False, index=True)
+    dia = Column(String(10), nullable=False, index=True)       # AAAA-MM-DD no fuso de Brasília
+    usuario = Column(Text, nullable=False)
+    bella = Column(Text, nullable=False)
+    criado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class BellaDia(Base):
+    """O resumo de um dia da história com a Bella."""
+    __tablename__ = "bella_dias"
+
+    id = Column(Integer, primary_key=True)
+    conta_id = Column(Integer, ForeignKey("contas.id", ondelete="CASCADE"), nullable=False, index=True)
+    dia = Column(String(10), nullable=False, index=True)
+    resumo = Column(Text, nullable=False, default="")
+    turnos = Column(Integer, default=0, nullable=False)        # quantas trocas o resumo cobre
+    atualizado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class BellaTurno(Base):
@@ -317,6 +342,10 @@ def _migrar():
                               ("insistencias", "INTEGER DEFAULT 0 NOT NULL")):
                 if nome not in est:
                     con.execute(text(f"ALTER TABLE bella_estados ADD COLUMN {nome} {ddl}"))
+        if "bella_memorias" in insp.get_table_names():
+            mem = {c["name"] for c in insp.get_columns("bella_memorias")}
+            if "dia" not in mem:
+                con.execute(text("ALTER TABLE bella_memorias ADD COLUMN dia VARCHAR(10)"))
         if "avisos_pendentes" in insp.get_table_names():
             pend = {c["name"] for c in insp.get_columns("avisos_pendentes")}
             if "valido_ate" not in pend:

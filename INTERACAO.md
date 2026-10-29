@@ -576,3 +576,18 @@ Não há medição de tempo real da VPS nos testes locais.
 (comandos vindos do manifesto), Bella · Modo Safada, Bella · Prompts de imagem, Voz das respostas,
 Clonagem e vozes (só administrador) e Navegação. Comando novo do hub entra no bloco do seu assunto;
 a lista precisa caber numa mensagem do Telegram (o teste `test_ajuda_em_blocos_e_clonagem_so_para_admin` confere).
+
+### A nossa história por dia (pastas com data)
+
+A Bella guarda tudo o que conversa com você em **pastas por dia** (horário de Brasília), sem prazo, por Conta Solo (vale para WhatsApp, Telegram e Bella.exe). Código: `backend/nucleo/bella_historia.py`.
+
+- **Arquivo:** cada troca vai para a pasta do dia (`bella_arquivo`).
+- **Resumo do dia:** depois que o dia termina, o Grok resume o que aconteceu, o que cada um sentiu e o que combinaram (`bella_dias`). Dia que ganha trocas novas é resumido de novo.
+- **Lembranças automáticas:** o mesmo resumo extrai até 5 fatos duradouros por dia (sem senhas nem números de cartão). Elas carregam o dia e entram em `/memoria`.
+- **No prompt:** a Bella lê os resumos dos dias anteriores (os 5 mais novos com mais detalhe, os antigos mais curtos, até `BELLA_HISTORIA_BLOCO_MAX` caracteres). O dia de hoje vem pelo histórico da conversa.
+- **Comandos:** `/historia` lista as pastas; `/historia 25/10` (ou `hoje`, `ontem`) mostra o resumo do dia.
+- **Apagar só o que você quer:** `/esquecer hoje`, `/esquecer ontem`, `/esquecer dia 25/10`, `/esquecer ultimos 3 dias`, `/esquecer desde 20/10`. Apaga a pasta, o resumo e as lembranças automáticas daqueles dias; o resto da história fica.
+- **Proteção:** `/esquecer tudo` apaga só as lembranças de `/memoria`, não a história. Apagar a história inteira exige `/esquecer historia tudo confirmo`.
+- **Config:** `BELLA_ARQUIVO` (liga/desliga), `BELLA_ARQUIVO_RESUMO`, `BELLA_HISTORIA_BLOCO_MAX`, `BELLA_FUSO_HORAS`. `/memoria desligar` também pausa o arquivo.
+- Não feito ainda: busca em dias antigos fora do prompt ("lembra daquela noite…") e resumo por mês.
+
