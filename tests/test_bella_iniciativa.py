@@ -256,3 +256,29 @@ def test_bom_dia_sem_foto_vai_so_o_texto_e_comandos(cliente, caixa, tmp_path, mo
     assert "Mandei um bom dia" in caixa[-1][2] or any("Bom dia, amor." in str(m) for m in caixa[-3:])
     _tg(c, "/galeria")
     assert "Galeria da Bella" in caixa[-1][2] and "bom_dia: 0" in caixa[-1][2]
+
+
+def test_bom_dia_pode_ser_picante_ou_explicito_so_com_conteudo_adulto(cliente, monkeypatch):
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    from nucleo import bella_estado
+    bella_estado.definir_automatico(conta)
+    vistos = {I.intensidade_bom_dia(conta, True, random.Random(s)) for s in range(200)}
+    assert vistos == {"suave", "picante", "explicito"}
+    assert {I.intensidade_bom_dia(conta, False, random.Random(s)) for s in range(50)} == {"suave"}
+    monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", True)
+    bella_estado.definir_fixa(conta, 4)                                       # ele fixou a temperatura em 4
+    assert I.intensidade_bom_dia(conta, True) == "explicito"
+    bella_estado.definir_fixa(conta, 2)
+    assert I.intensidade_bom_dia(conta, True) == "picante"
+    bella_estado.definir_automatico(conta)
+
+
+def test_foto_do_bom_dia_acompanha_a_intensidade_e_nu_so_se_habilitado(tmp_path, monkeypatch, cliente):
+    _galeria(tmp_path, monkeypatch, ("bom_dia", "sensual", "nu"), 1)
+    pic = G.escolher("bella", I.NIVEIS_BOM_DIA["picante"], rng=random.Random(0))
+    assert pic                                                                 # pegou 'sensual'
+    assert G._usadas("bella_galeria_usadas:bella")[-1].startswith("sensual/")
+    assert G.escolher("bella", ("nu",)) is None                                # nu desligado por padrão
+    monkeypatch.setattr(config, "BELLA_GALERIA_NIVEIS", "bom_dia,normal,sensual,nu")
+    assert G.escolher("bella", I.NIVEIS_BOM_DIA["explicito"], rng=random.Random(0))
+    assert G._usadas("bella_galeria_usadas:bella")[-1].startswith("nu/")

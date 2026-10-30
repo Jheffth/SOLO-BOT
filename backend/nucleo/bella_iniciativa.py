@@ -61,9 +61,20 @@ INSTRUCAO_TIPO = {
     "motivacao": ("Mande um conselho motivador curto e sincero para o Arquiteto (trabalho, escrita, projetos, ânimo), "
                   "com o jeito apaixonada dela. Sem frase de efeito batida."),
     "carinho": "Mande uma mensagem de carinho espontânea dizendo que pensou nele, com um detalhe específico. Curta.",
-    "bom_dia": ("Mande o bom dia do Arquiteto: curto (até 2 frases), carinhoso e sensual, no tom dela, diferente dos anteriores. "
+    "bom_dia": ("Mande o bom dia do Arquiteto: curto (até 3 frases), no tom dela, diferente dos anteriores. {tom} "
                 "{foto}Não invente fatos sobre o dia dele."),
     "video": "Escreva uma legenda curta, provocante e carinhosa para o vídeo que você está mandando para ele.",
+}
+TONS_BOM_DIA = {
+    "suave": "Tom: carinhoso e romântico, com um toque de sensualidade.",
+    "picante": "Tom: picante e provocante, com insinuação clara de desejo por ele.",
+    "explicito": "Tom: explícito e safado, dizendo com palavras diretas o que quer fazer com ele hoje, sem rodeios.",
+}
+# Que pastas da galeria combinam com cada intensidade (só entram as habilitadas em BELLA_GALERIA_NIVEIS).
+NIVEIS_BOM_DIA = {
+    "suave": ("bom_dia", "normal"),
+    "picante": ("sensual", "bom_dia", "normal"),
+    "explicito": ("nu", "topless", "lingerie", "sensual", "bom_dia"),
 }
 NOTICIAS_RSS = "https://g1.globo.com/rss/g1/"
 
@@ -168,6 +179,18 @@ def escolher_tipo(dados: dict, adulto: bool, rng=random) -> str:
     return rng.choices(nomes, weights=[pesos[k] for k in nomes])[0]
 
 
+def intensidade_bom_dia(conta_id: int, adulto: bool, rng=random) -> str:
+    """suave | picante | explicito. Respeita a temperatura que o Arquiteto fixou; sem conteúdo adulto, sempre suave."""
+    if not adulto:
+        return "suave"
+    from nucleo import bella_estado
+    sit = bella_estado.situacao(conta_id)
+    if sit.get("modo") == "fixa":
+        n = sit.get("nivel", 0)
+        return "suave" if n <= 1 else "picante" if n == 2 else "explicito"
+    return rng.choices(["suave", "picante", "explicito"], weights=[35, 40, 25])[0]
+
+
 def buscar_noticia(timeout: float = 8.0) -> Optional[str]:
     """Um título real do dia (RSS do G1). None se não der."""
     try:
@@ -181,11 +204,13 @@ def buscar_noticia(timeout: float = 8.0) -> Optional[str]:
         return None
 
 
-def _gerar(conta_id: int, tipo: str, dados: dict, noticia: Optional[str] = None, foto: bool = False) -> Optional[str]:
+def _gerar(conta_id: int, tipo: str, dados: dict, noticia: Optional[str] = None, foto: bool = False,
+           intensidade: str = "suave") -> Optional[str]:
     from nucleo import bella_conversa, bella_estado, grok
     angulo = random.choice(ANGULOS_PROVOCACAO)
     pedido = INSTRUCAO_TIPO[tipo].format(angulo=angulo, noticia=noticia or "",
-                                         foto="Você está mandando junto uma foto sua; pode aludir a ela. " if foto else "")
+                                         foto="Você está mandando junto uma foto sua; pode aludir a ela. " if foto else "",
+                                         tom=TONS_BOM_DIA.get(intensidade, ""))
     evitar = ""
     if dados.get("recentes"):
         evitar = " Não repita nem lembre estas mensagens recentes: " + " | ".join(r[:100] for r in dados["recentes"][-4:])
@@ -235,6 +260,7 @@ def enviar_agora(db, conta: Conta, dados: dict, tipo: Optional[str] = None) -> O
     tipo = tipo or escolher_tipo(dados, config.BELLA_CONTEUDO_ADULTO)
     noticia = None
     midia = None
+    intensidade = "suave"
     if tipo == "noticia":
         noticia = buscar_noticia()
         if not noticia:
@@ -251,8 +277,11 @@ def enviar_agora(db, conta: Conta, dados: dict, tipo: Optional[str] = None) -> O
             tipo = "carinho"
     if tipo == "bom_dia":
         from nucleo import bella_galeria
-        midia = bella_galeria.escolher("bella", ("bom_dia", "normal"), so_imagem=True)     # sem foto, vai só o texto
-    texto = _gerar(conta.id, tipo, dados, noticia, foto=bool(midia) and tipo == "bom_dia")
+        intensidade = intensidade_bom_dia(conta.id, config.BELLA_CONTEUDO_ADULTO)
+        midia = bella_galeria.escolher("bella", NIVEIS_BOM_DIA[intensidade], so_imagem=True)   # sem foto, vai só o texto
+        if not midia and intensidade != "suave":
+            midia = bella_galeria.escolher("bella", NIVEIS_BOM_DIA["suave"], so_imagem=True)
+    texto = _gerar(conta.id, tipo, dados, noticia, foto=bool(midia) and tipo == "bom_dia", intensidade=intensidade)
     if not texto:
         return None
     r = roteador.Resposta().diz(texto, midia=midia)
