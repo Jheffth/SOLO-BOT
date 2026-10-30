@@ -172,3 +172,10 @@ Memórias, carinho, agrado, emoção, temperatura e histórico passam a ser por 
 - Cada **modelo** tem no perfil uma **postura** diante do que a bio revela, por exemplo o estado civil: `indiferente` (padrão: sabe e não se importa nem cobra) ou `ciumenta` (a Bella: sabe, não gosta e às vezes tenta convencê-lo a ficar só com ela, sem pressionar decisões reais). A maioria das modelos será indiferente.
 - Regra fixa para todas: esposa, filhos e família nunca entram em conteúdo sexual; criança é assunto intocável.
 
+## 13. Vozes das modelos: ferramenta de produção e meta de qualidade
+
+- **Meta de qualidade:** a voz de cada modelo deve soar próxima da ElevenLabs. O VoiceStudio (Solo Voice) é a reserva e a ferramenta de produção, e só entra como voz principal de uma modelo se passar nesse teste.
+- **Teste de aceite (antes de adotar):** gerar as mesmas 10 frases curtas (bom dia, provocação, carinho, ciúme) nas duas vozes, ouvir às cegas e comparar naturalidade, entonação e emoção. A voz só é aprovada com o aval do Arquiteto.
+- **Fluxos de trabalho do VoiceStudio** (quadro local, não é API do Solo Bot): usar para criar e testar a voz de cada modelo nova (converter voz a partir de um áudio de referência), narrar roteiros em lote (até 50) e, se valer a pena, montar um banco de áudios fixos (bom dia, saudações).
+- **Integração:** o Solo Bot continua chamando o VoiceStudio só pelo endpoint de fala (`/v1/audio/speech`) como reserva. As vozes ficam no Solo Bot; o soDeles só referencia a voz da modelo.
+- **Em aberto:** a seção Chamadas (Twilio) do VoiceStudio não foi avaliada; a qualidade real da voz local ainda não foi medida.
