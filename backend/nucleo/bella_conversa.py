@@ -61,6 +61,8 @@ def _historico(conta_id):
             itens = _MEMORIA[conta_id]
     saida = []
     for _, usuario, bella in itens[-config.BELLA_MEMORIA_TURNOS:]:
+        if _NEGA_ENVIO.search(bella or ""):                  # "ainda não tenho foto" de quando a galeria estava vazia: não é modelo
+            continue
         saida += [("user", usuario), ("assistant", bella)]
     return saida
 
@@ -80,6 +82,14 @@ def esquecer(conta_id):
         _MEMORIA.pop(conta_id, None)
     bella_memoria.apagar_turnos(conta_id)
 
+import random as _random
+import re as _re
+
+# A Bella dizendo que "não tem" ou "não pode mandar" enquanto a mídia SAI é contraditório: barramos essa fala.
+_NEGA_ENVIO = _re.compile(r"(?:ainda )?n[aã]o (?:tenho|posso|consigo|vou) (?:te )?(?:mandar|enviar|nenhum|nenhuma|foto|v[ií]deo|nada)|"
+                          r"n[aã]o (?:tenho|há|ha) (?:foto|v[ií]deo|nada)|assim que (?:eu )?tiver|quando (?:eu )?tiver", _re.I)
+_LEGENDAS = ["Pra você, meu amor. 💋", "Toma, só pra você.", "Pensei em você e lembrei de te mandar essa.",
+             "Olha o que eu separei pra você, amor.", "Gostou? É toda sua."]
 _NOTA_ENVIAR = ("\n\n[AGORA] Ele pediu e você VAI mandar {o_que} dele para ele junto com esta mensagem. Escreva só uma frase curta, "
                 "provocante e do seu jeito, apresentando; não descreva o que há no arquivo.")
 _NOTA_CHATEADA = ("\n\n[AGORA] Ele pediu {o_que}, mas você não está no clima por causa do que sente agora. Não mande: responda como a "
@@ -116,10 +126,16 @@ def responder(texto, conta_id=None, numero_conta=None, saida_midia=None):
     nota, midia, gasto = "", None, 0
     if saida_midia is not None and estado and bella_estado.eh_arquiteto(numero_conta):
         nota, midia, gasto = _pedido_de_midia(texto, estado)
-    resposta = grok.gerar(prompt(numero_conta, estado) + nota, texto, max_tokens=1536, historico=_historico(conta_id))
+    pergunta = texto + nota.replace("[AGORA]", "[INSTRUÇÃO INTERNA, não cite]") if nota else texto   # a nota vai junto da fala dele: pesa mais que o histórico
+    resposta = grok.gerar(prompt(numero_conta, estado), pergunta, max_tokens=1536, historico=_historico(conta_id))
+    if midia and resposta and _NEGA_ENVIO.search(resposta):          # ia mandar a mídia mas falou que não tem: tenta de novo, firme
+        outra = grok.gerar(prompt(numero_conta, estado), texto + "\n\n[INSTRUÇÃO INTERNA, não cite] A mídia JÁ ESTÁ SENDO ENVIADA agora. "
+                           "Escreva só uma frase curta e carinhosa entregando; NUNCA diga que não tem, que não pode ou que vai mandar depois.",
+                           max_tokens=400, historico=[])
+        resposta = outra if outra and not _NEGA_ENVIO.search(outra) else _random.choice(_LEGENDAS)
     if (estado and estado.get("emocao") == "cede_raiva" and resposta and bella_emocoes.quebrou_personagem(resposta)
             and "firme" in bella_emocoes.sinais(texto)):       # ele mandou e ela "saiu da personagem": uma segunda tentativa
-        outra = grok.gerar(prompt(numero_conta, estado) + nota + bella_emocoes.LEMBRETE_CEDER, texto, max_tokens=1536,
+        outra = grok.gerar(prompt(numero_conta, estado) + bella_emocoes.LEMBRETE_CEDER, pergunta, max_tokens=1536,
                            historico=_historico(conta_id))
         if outra:
             resposta = outra

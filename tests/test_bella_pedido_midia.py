@@ -76,7 +76,7 @@ def test_conversa_envia_a_midia_e_gasta_agrado_so_para_o_arquiteto(cliente, tmp_
     _montar(tmp_path, monkeypatch, ("normal",))
     conta = _admin(cliente).get("/api/auth/eu").json()["id"]
     notas = []
-    monkeypatch.setattr(grok, "gerar", lambda sis, t, **k: notas.append(sis) or "Toma, amor.")
+    monkeypatch.setattr(grok, "gerar", lambda sis, t, **k: notas.append(t) or "Toma, amor.")
     saida = []
     bella_conversa.responder("me manda um vídeo, minha linda", conta_id=conta, numero_conta=conta, saida_midia=saida)
     assert saida and saida[0]["tipo"] == "video" and "VAI mandar" in notas[-1]
@@ -98,7 +98,7 @@ def test_pedido_negado_vira_provocacao_sem_midia(cliente, tmp_path, monkeypatch)
     db.commit()
     db.close()
     notas = []
-    monkeypatch.setattr(grok, "gerar", lambda sis, t, **k: notas.append(sis) or "Hoje não, Jefferson.")
+    monkeypatch.setattr(grok, "gerar", lambda sis, t, **k: notas.append(t) or "Hoje não, Jefferson.")
     saida = []
     bella_conversa.responder("manda um vídeo", conta_id=conta, numero_conta=conta, saida_midia=saida)
     assert saida == [] and "não está no clima" in notas[-1]
@@ -110,3 +110,34 @@ def test_elogio_sobe_o_agrado(cliente):
     antes = bella_estado.avancar(conta, "oi")["agrado"]
     depois = bella_estado.avancar(conta, "você é linda e maravilhosa, meu amor")["agrado"]
     assert depois - antes >= 10
+
+
+def test_se_vai_mandar_a_midia_ela_nao_pode_dizer_que_nao_tem(cliente, tmp_path, monkeypatch):
+    _montar(tmp_path, monkeypatch, ("normal",))
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    respostas = ["Amor, eu ainda não tenho foto nenhuma pra te mandar agora.", "Toma, só pra você."]
+    chamadas = []
+    monkeypatch.setattr(grok, "gerar", lambda sis, t, **k: chamadas.append((t, k.get("historico"))) or respostas.pop(0))
+    saida = []
+    r = bella_conversa.responder("me manda uma foto", conta_id=conta, numero_conta=conta, saida_midia=saida)
+    assert saida and r == "Toma, só pra você." and len(chamadas) == 2
+    assert "INSTRUÇÃO INTERNA" in chamadas[0][0] and "JÁ ESTÁ SENDO ENVIADA" in chamadas[1][0]
+
+
+def test_se_insistir_em_negar_vai_uma_legenda_segura(cliente, tmp_path, monkeypatch):
+    _montar(tmp_path, monkeypatch, ("normal",))
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "Assim que eu tiver, mando, amor.")
+    saida = []
+    r = bella_conversa.responder("manda um vídeo", conta_id=conta, numero_conta=conta, saida_midia=saida)
+    assert saida and r in bella_conversa._LEGENDAS
+
+
+def test_resposta_antiga_de_nao_tenho_foto_sai_do_historico(monkeypatch):
+    import time
+    bella_conversa._MEMORIA.clear()
+    monkeypatch.setattr(config, "BELLA_MEMORIA_TURNOS", 6)
+    bella_conversa._MEMORIA[9] = [(time.monotonic(), "manda foto", "Amor, eu ainda não tenho foto pra te mandar agora."),
+                                  (time.monotonic(), "oi", "Oi, meu amor.")]
+    h = bella_conversa._historico(9)
+    assert ("assistant", "Oi, meu amor.") in h and not any("não tenho foto" in t for _, t in h)
