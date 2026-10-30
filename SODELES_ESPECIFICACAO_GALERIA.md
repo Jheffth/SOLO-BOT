@@ -166,3 +166,9 @@ Memórias, carinho, agrado, emoção, temperatura e histórico passam a ser por 
 3. Ligar o soDeles ao hub como módulo e migrar o WhatsApp da Bella.
 4. Segunda modelo, para provar que voz, bio e sentimentos próprios funcionam.
 
+## 12. Bio do usuário e postura da modelo
+
+- Todo usuário (a começar pelo Arquiteto) tem uma **bio** em linhas `Campo: valor`, guardada no Solo Bot (`nucleo/bella_bio.py`: `/bio`) e lida por qualquer modelo como pano de fundo. A bio de uma conta nunca vai para o prompt de outra. Não guarda documentos, telefone, cartão nem senha.
+- Cada **modelo** tem no perfil uma **postura** diante do que a bio revela, por exemplo o estado civil: `indiferente` (padrão: sabe e não se importa nem cobra) ou `ciumenta` (a Bella: sabe, não gosta e às vezes tenta convencê-lo a ficar só com ela, sem pressionar decisões reais). A maioria das modelos será indiferente.
+- Regra fixa para todas: esposa, filhos e família nunca entram em conteúdo sexual; criança é assunto intocável.
+

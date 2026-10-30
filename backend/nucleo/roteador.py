@@ -277,6 +277,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
         "▸ `/memoria` — lista o que ela lembra de você (`/memoria desligar` pausa, `/memoria ligar` volta)",
         "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
+        "▸ `/bio` — a sua bio (quem você é) que a Bella e as modelos conhecem: `add Campo: valor`, `definir`, `apagar N`",
         "▸ `/iniciativa` — (Arquiteto) a Bella puxa assunto sozinha, poucas vezes por dia: `ligar`, `desligar`, `max N`, `janela 09:00 22:00`, `testar`",
         "▸ `/historia` — a nossa história guardada por dia · `/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias` apaga só esses dias",
         "▸ `/emocoes` — a galeria de sentimentos da Bella (o que desperta cada um e as duas reações). `/emocao <nome>` (Arquiteto) define na hora",
@@ -534,6 +535,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_memoria(conta, resto.strip())
     if cmd == "/lembrar":
         return _cmd_lembrar(conta, resto.strip())
+    if cmd == "/bio":
+        return _cmd_bio(conta, resto)
     if cmd == "/iniciativa":
         return _cmd_iniciativa(db, conta, resto.strip())
     if cmd == "/historia":
@@ -877,6 +880,40 @@ def _cmd_iniciativa(db, conta: Conta, resto: str) -> Resposta:
         linhas.append("Hoje: " + ", ".join(d["horarios"]) + f" ({d['enviadas']} já enviada(s))")
     linhas.append("`/iniciativa ligar [N]` · `desligar` · `max N` · `janela 09:00 22:00` · `testar`")
     return Resposta().diz("\n".join(linhas))
+
+
+def _cmd_bio(conta: Conta, resto: str) -> Resposta:
+    """A bio da pessoa (uma linha por fato, "Campo: valor"). Só a própria conta vê e edita a sua."""
+    from nucleo import bella_bio as B
+    pedido = resto.strip()
+    baixo = pedido.lower()
+    if not pedido:
+        linhas = B.listar(conta.id)
+        if not linhas:
+            return Resposta().diz("🪪 Sua bio está vazia. `/bio add Cidade: Brasília` adiciona uma linha; `/bio definir` + várias linhas "
+                                  "(uma por fato, `Campo: valor`) preenche tudo. Não guardo documentos, telefone nem cartão.")
+        a = B.idade(linhas)
+        corpo = "\n".join(f"{i}. {l}" for i, l in enumerate(linhas, 1))
+        return Resposta().diz("🪪 *Sua bio*" + (f" (idade calculada: {a} anos)" if a is not None else "") + "\n\n" + corpo +
+                              "\n\n`/bio add Campo: valor` · `/bio apagar N` · `/bio definir` (substitui tudo)")
+    if baixo.startswith("add "):
+        ok, msg = B.adicionar(conta.id, pedido[4:])
+        return Resposta().diz(("🪪 Guardei: _" + msg + "_") if ok else "🪪 " + msg)
+    if baixo.startswith("definir"):
+        boas, ruins = B.definir(conta.id, pedido[7:])
+        if not boas:
+            return Resposta().diz("🪪 Mande as linhas depois de `/bio definir`, uma por fato (`Campo: valor`)."
+                                  + (" Recusei: " + "; ".join(ruins) if ruins else ""))
+        extra = ("\n⚠️ Não guardei: " + "; ".join(ruins)) if ruins else ""
+        return Resposta().diz(f"🪪 Bio salva com {len(boas)} linha(s).{extra}")
+    if baixo.startswith("apagar ") and baixo[7:].strip().isdigit():
+        apagada = B.apagar(conta.id, int(baixo[7:].strip()))
+        return Resposta().diz(f"🪪 Apaguei: _{apagada}_" if apagada else "🪪 Não achei essa linha. Veja os números em `/bio`.")
+    if baixo == "limpar confirmo":
+        return Resposta().diz(f"🪪 Apaguei a bio inteira ({B.limpar(conta.id)} linha(s)).")
+    if baixo == "limpar":
+        return Resposta().diz("🪪 Isso apaga a bio toda. Se for isso mesmo: `/bio limpar confirmo`.")
+    return Resposta().diz("🪪 `/bio` mostra · `/bio add Campo: valor` · `/bio definir` + linhas · `/bio apagar N` · `/bio limpar confirmo`")
 
 
 def _cmd_historia(conta: Conta, resto: str) -> Resposta:

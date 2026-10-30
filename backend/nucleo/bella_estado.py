@@ -146,6 +146,19 @@ def avancar(conta_id: Optional[int], texto: str, agora: Optional[datetime] = Non
         db.close()
 
 
+def eh_arquiteto(conta_id: Optional[int]) -> bool:
+    if conta_id is None:
+        return False
+    db = SessionLocal()
+    try:
+        conta = db.get(Conta, int(conta_id))
+        return bool(conta and conta.admin)
+    except Exception:  # noqa: BLE001
+        return False
+    finally:
+        db.close()
+
+
 def situacao(conta_id: int) -> dict:
     """O estado sem mexer em nada (para `/temperatura` e `/sentimentos`)."""
     db = SessionLocal()

@@ -2,7 +2,7 @@
 import threading
 import time
 import config
-from nucleo import bella_emocoes, bella_estado, bella_historia, bella_memoria, grok
+from nucleo import bella_bio, bella_emocoes, bella_estado, bella_historia, bella_memoria, grok
 
 ESTILO_PADRAO = """Modo Safada significa flerte, humor, sensualidade e duplo sentido entre adultos.
 Sem descrição sexual explícita, atos sexuais, nudez gráfica ou conteúdo envolvendo menores.
@@ -32,6 +32,7 @@ def prompt(numero_conta=None, estado=None):
     """`numero_conta`: a Conta Solo (lembranças, quem ela é para a Bella). `estado`: o da mensagem atual."""
     return (PROMPT_BASE.replace("{limite}", str(config.BELLA_CONVERSA_MAX_CHARS)) + estilo()
             + bella_estado.bloco_prompt(estado, numero_conta)
+            + bella_bio.bloco_prompt(numero_conta, bool(estado and bella_estado.eh_arquiteto(numero_conta)))
             + bella_memoria.bloco_prompt(numero_conta)
             + bella_historia.bloco_prompt(numero_conta))
 
