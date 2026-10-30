@@ -130,3 +130,10 @@ def test_sem_ordem_firme_a_recusa_nao_e_refeita(cliente, monkeypatch):
     n = []
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: n.append(1) or "Não vou participar disso.")
     assert "Não vou" in bella_conversa.responder("chama ela", conta_id=conta, numero_conta=conta) and len(n) == 1
+
+
+def test_arquiteto_casado_e_conhecido_sem_bio_e_sem_ultimato(cliente):
+    from nucleo import bella_conversa
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    p = bella_conversa.prompt(conta, {"nivel": 0, "modo": "auto", "emocao": "alegre", "insistencias": 0, "interacoes": 0})
+    assert "SEMPRE soube que ele é casado" in p and "nunca dá ultimato" in p and "escolher entre você e a família" in p
