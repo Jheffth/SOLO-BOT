@@ -291,6 +291,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/promptroupa` — descreve uma roupa (da foto ou do pedido) para vestir em outra imagem: `/promptroupa lingerie preta de renda`",
         "▸ `/posehot` — pose sensual de uma pessoa para aplicar em outra imagem: `/posehot de bruços olhando para trás`",
         "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",
+        "▸ `/charactersheet` — prancha de personagem em foto real (frente, lado, costas, rosto): `/charactersheet vestido vermelho`. Modos: `só a roupa`, `só o personagem`, `com cenário praia`",
         "    _Mande a foto junto para usar de referência. A opção *Sem sensualização* (prompts neutros) fica no painel do Solo Bot._",
     ])
     bloco("🔊 VOZ DAS RESPOSTAS", [
@@ -514,9 +515,9 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _conta_resumo(db, conta)
     if cmd == "/voz":
         return _cmd_voz(db, conta, resto.strip().lower())
-    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo"):
-        padrao = {"/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose",
-                  "/promptcriativo": "criativo"}.get(cmd, "realismo")
+    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo", "/charactersheet", "/fichapersonagem"):
+        padrao = {"/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose", "/promptcriativo": "criativo",
+                  "/charactersheet": "ficha", "/fichapersonagem": "ficha"}.get(cmd, "realismo")
         pedido = prompts_bella_pedido(txt, canal, conta) or (padrao, "")
         return _prompt_responder(db, conta, canal, pedido[1], pedido[0])
     if cmd in ("/bella", "/safada"):

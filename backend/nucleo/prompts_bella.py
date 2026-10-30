@@ -36,7 +36,8 @@ CATEGORIAS = {"realismo": "Realismo sensual (selfie de smartphone, modelo própr
               "modelo": "Modelo nova do zero (/promptmodelo)",
               "roupa": "Troca de roupa em imagem externa (/promptroupa)",
               "pose": "Troca de pose em imagem externa (/posehot)",
-              "criativo": "Realismo sensual criativo, fora da biblioteca (/promptcriativo)"}
+              "criativo": "Realismo sensual criativo, fora da biblioteca (/promptcriativo)",
+              "ficha": "Character sheet em fotografia real: padrão, só roupa, só personagem ou com cenário (/charactersheet)"}
 # Começa o texto enviado ao Bella.exe quando a resposta é um prompt; a tela tira a marca e abre a caixa de copiar.
 MARCA_PROMPT = "[[prompt]]"
 
@@ -296,6 +297,115 @@ de adulta, épocas, esportes, festas, viagens, fantasias de personagens adultos,
 com o gesto). Fuja de quarto, cozinha, banheiro e jaqueta, a menos que o pedido peça. NÃO repita nem se aproxime
 de nada da lista "Já usados". Mantenha todo o texto fixo do modelo; só as partes entre colchetes mudam."""
 
+# ── /charactersheet: prancha de personagem em fotografia real (mesmo realismo do /prompt) ───────────────────────
+# Quatro modos: "padrao" (personagem com roupa), "roupa" (só a roupa), "personagem" (só o personagem) e "cenario"
+# (personagem, roupa e cenário). O texto fixo é montado aqui; o Grok só preenche os colchetes. Respeita "Sem sensualização".
+_FICHA_ABERTURA = """Crie uma prancha de personagem (character sheet) em estilo de fotografia real, de uma única mulher adulta, com a mesma identidade em todos os painéis. Use a imagem da modelo como referência principal para manter o mesmo rosto, identidade facial, proporções naturais, cor de pele, cabelo e aparência geral da pessoa original. Nunca altere a cor do cabelo, não adicione perucas nem mude o estilo natural do cabelo da referência.
+
+Proporção horizontal 16:9, painéis lado a lado em uma única imagem, com cortes limpos, espaçamento uniforme e sem molduras decorativas.
+Características que se mantêm em todos os painéis: [CARACTERÍSTICAS: só o que o pedido ou a imagem mostrarem (cabelo, olhos, pintas, tatuagens, piercings, óculos, joias fixas); se nada foi informado, escreva "as mesmas da imagem de referência"]."""
+
+_FICHA_FUNDO = """Fundo neutro cinza-claro liso de estúdio, sem cenário, com luz suave e difusa, igual em todos os painéis e sem sombras duras."""
+
+_FICHA_LAYOUT = {
+    "padrao": """Painéis: três vistas de corpo inteiro da modelo lado a lado, com os pés visíveis: de frente, de lado (perfil) e de costas, em pose neutra e relaxada, braços levemente afastados do corpo. Abaixo, três closes do rosto e ombros (de frente, três quartos e perfil) com expressão [EXPRESSÃO natural] e um quarto close com [OUTRA EXPRESSÃO]. Ao lado, dois ou três painéis de detalhe da roupa e dos acessórios (tecido, costuras, fecho, calçado, joias).
+""" + _FICHA_FUNDO + """
+
+A roupa é [ROUPA peça por peça e a textura realista dela: tecido, costuras, zíper, caimento]. Estética natural e sensual, sem pose de ensaio.""",
+    "roupa": """Painéis: à esquerda, ocupando metade da imagem, três vistas de corpo inteiro da modelo vestindo a roupa, com os pés visíveis: de frente, de lado e de costas, em pose neutra e relaxada. À direita, uma grade de quatro a seis painéis de detalhe da roupa: [DETALHES: os close-ups que fazem sentido para esta roupa, como tecido, costuras, decote, fecho, bainha, calçado, joias, meias e acessórios]. O rosto não é o foco: mantenha a mesma identidade, mas o enquadramento mostra a roupa.
+""" + _FICHA_FUNDO + """
+
+A roupa é [ROUPA peça por peça, com cor exata, comprimento, decote, mangas, cintura, corte e caimento].
+Tecido e acabamento: [TECIDO E TEXTURA realistas: brilho, transparência, renda, malha, couro, cetim, elástico, costuras, zíper, botões, babados, bordados, strass].
+Acessórios do look: [MEIAS, LIGAS, LUVAS, CINTO, CHOKER, JOIAS, CALÇADOS, ou "nenhum"]. Estética natural e sensual, sem pose de ensaio.""",
+    "personagem": """Painéis: três vistas de corpo inteiro da modelo lado a lado, com os pés visíveis: de frente, de lado (perfil) e de costas, em pose neutra e relaxada, braços levemente afastados do corpo. Abaixo, quatro closes do rosto e ombros: de frente, três quartos, perfil e um com [EXPRESSÃO diferente]. Mostre com fidelidade o rosto, o cabelo, o corpo e os detalhes da pele (pintas, sardas, tatuagens, piercings).
+""" + _FICHA_FUNDO + """
+
+A roupa é básica e neutra, só para mostrar o corpo: [ROUPA BÁSICA: peça simples e justa de cor lisa (top e shorts, body, maiô liso)], sem estampas, sem acessórios chamativos e sem painéis de detalhe de roupa. Estética natural e sensual, sem pose de ensaio.""",
+    "cenario": """Painéis: na metade esquerda, três vistas de corpo inteiro da modelo vestindo a roupa, com os pés visíveis: de frente, de lado e de costas, em pose neutra e relaxada, sobre fundo neutro cinza-claro liso de estúdio com luz suave e difusa; abaixo delas, dois closes do rosto (de frente e três quartos) com expressão [EXPRESSÃO natural]. Na metade direita, um painel largo do cenário sem a modelo e, abaixo dele, um painel da modelo dentro desse cenário, em pose natural, com a mesma luz e a mesma paleta do ambiente.
+O cenário é [CENÁRIO: local, objetos, materiais, hora do dia, clima e atmosfera, realistas]. A luz do cenário é [LUZ E PALETA DO CENÁRIO], coerente nos dois painéis do cenário.
+
+A roupa é [ROUPA peça por peça e a textura realista dela: tecido, costuras, zíper, caimento]. Estética natural e sensual, sem pose de ensaio.""",
+}
+
+_FICHA_REALISMO = """Estilo de fotografia real, não ilustração: pele com textura hiper-realista, poros visíveis, brilho natural, pequenas irregularidades, sombras suaves e aparência crua sem retoque. Cabelo natural com fios irregulares. Mãos e pés anatomicamente corretos. Qualidade de câmera moderna, com nitidez boa no rosto e no corpo, ruído digital leve e pequenas imperfeições de foco. Mesma pessoa, mesmo rosto, mesma pele, mesmo cabelo e mesmas proporções em todos os painéis, com identidade facial consistente.
+
+Evite aparência de IA, pele plástica, textura artificial, simetria perfeita, iluminação exagerada de estúdio de moda, corpo exagerado, rosto deformado, mãos deformadas, olhos tortos, roupas sem textura ou excesso de nitidez.
+Não criar aparência de render 3D, desenho, anime ou boneca, não remover a textura natural da pele, não exagerar nas curvas do corpo, não criar maquiagem pesada, não mudar o rosto entre os painéis, não distorcer olhos, boca, mãos, pés ou proporções corporais, não adicionar textos, legendas, números, setas, logos ou marcas d'água nos painéis, não mudar a cor do cabelo e não usar perucas."""
+
+_FICHA_MODOS = {
+    "padrao": "FICHA PADRÃO: personagem com roupa. Três vistas de corpo inteiro, closes do rosto e detalhes da roupa, em fundo neutro.",
+    "roupa": "SÓ A ROUPA: o foco é a roupa e os acessórios, descritos peça por peça (tecido, costuras, fecho). O rosto não é o foco e não há cenário.",
+    "personagem": "SÓ O PERSONAGEM: rosto, corpo, cabelo e detalhes da pele. A roupa é básica e neutra, sem detalhes de roupa e sem cenário.",
+    "cenario": "PERSONAGEM, ROUPA E CENÁRIO: além das vistas da modelo vestida, a prancha traz o cenário sozinho e a modelo dentro dele.",
+}
+
+
+def modelo_ficha(modo="padrao"):
+    return _FICHA_ABERTURA + "\n\n" + _FICHA_LAYOUT.get(modo, _FICHA_LAYOUT["padrao"]) + "\n\n" + _FICHA_REALISMO
+
+
+INSTRUCAO_FICHA = """Você é a Bella e está ajudando seu dono a criar prompts de CHARACTER SHEET (prancha de personagem) em português
+para o Grok Imagine, em estilo de fotografia real. Ele anexa a imagem de referência da modelo no Grok, junto do prompt.
+Entregue SEMPRE um único prompt completo, seguindo exatamente o MODELO abaixo.
+
+Regras do trabalho:
+- Mantenha todo o texto fixo do modelo (referência, 16:9, painéis, fundo, realismo, evite/não criar) e troque somente
+  o que está entre colchetes pelo que o pedido descreve, de forma concreta e visual. Não deixe colchetes no resultado.
+- Realismo acima de tudo: fotografia de pessoa real (pele com poros, cabelo natural, luz coerente). Nunca desenho,
+  anime, ilustração, boneca ou render 3D, nem em cosplay, fantasia ou personagem de ficção adulto: descreva só a roupa
+  e os acessórios, como peças reais de tecido real.
+- Os painéis são só enquadramentos: não peça títulos, legendas, rótulos, números nem setas.
+- O que o pedido descrever manda (roupa, cabelo, tatuagens, cenário, expressão). Pedido vago ou "aleatório": sorteie
+  roupa (e cenário, se o modo tiver) coerentes e diferentes dos últimos.
+- Se o pedido mudar um elemento fixo (sem óculos, outra proporção), ajuste só aquilo.
+- A modelo é sempre uma mulher adulta (18+): nada de uniforme escolar, aparência infantil, "menina", "novinha"
+  ou ambientes de escola. Nada de pessoas reais, famosos ou nomes de pessoas. Se o pedido violar isso, responda somente
+  com uma linha começando por "RECUSA:" e o motivo curto, sem prompt.
+- Saída: apenas o prompt, em texto simples, sem título, sem explicações, sem Markdown, sem comentários antes ou depois
+  e com no máximo 5500 caracteres. Comece exatamente por "Crie uma prancha de personagem".
+"""
+
+INSTRUCAO_REFERENCIA_FICHA = """
+
+REFERÊNCIA ANEXADA: junto do pedido há uma imagem.
+- Use dela as características fixas da modelo para o campo CARACTERÍSTICAS (cabelo, olhos, pintas, tatuagens, piercings,
+  óculos, joias fixas), de forma concreta. Não diga quem é a pessoa nem use nome.
+- Se o pedido não descrever a roupa, use a roupa da imagem, peça por peça (cor, tecido, corte, acessórios).
+- Cenário, fundo e luz da imagem: NÃO use, a menos que o pedido peça de forma explícita (ou o modo tenha cenário e o
+  pedido não descreva um: aí use o cenário da imagem).
+- Se a pessoa da imagem parecer menor de idade, ou for uma pessoa famosa que você reconheça, ou a imagem não mostrar
+  uma pessoa utilizável, responda somente com uma linha começando por "RECUSA:" e o motivo curto, sem prompt."""
+
+
+def instrucao_ficha(modo="padrao"):
+    return (INSTRUCAO_FICHA + "\nMODO DESTA FICHA: " + _FICHA_MODOS.get(modo, _FICHA_MODOS["padrao"])
+            + "\n\nMODELO:\n" + modelo_ficha(modo))
+
+
+_PEDIDO_FICHA = re.compile(
+    r"^\s*(?:/(?:charactersheet|character_sheet|fichapersonagem)\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
+    r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?(?:prompt\s+(?:de\s+|da\s+|para\s+)?)?"
+    r"(?:character\s*sheet|ficha\s+de\s+personagem|folha\s+de\s+personagem)\b)"
+    r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+_MODOS_FICHA = (
+    ("roupa", re.compile(r"\b(?:s[oó]|apenas|somente)\s+(?:a\s+|as\s+)?(?:roupas?|looks?|figurinos?|vestimentas?)\b|\bficha\s+de\s+roupas?\b", re.I)),
+    ("personagem", re.compile(r"\b(?:s[oó]|apenas|somente)\s+(?:(?:a|o|as|os)\s+)?(?:personagem|modelo|pessoa)\b", re.I)),
+    ("cenario", re.compile(r"\b(?:com|tamb[eé]m|mais|incluindo)\s+(?:(?:o|um|os)\s+)?(?:cen[aá]rios?|ambientes?)\b", re.I)),
+)
+
+
+def modo_ficha(pedido):
+    """(modo, pedido sem as palavras do modo): 'só a roupa', 'só o personagem', 'com cenário' ou o padrão."""
+    pedido = pedido or ""
+    for modo, regra in _MODOS_FICHA:
+        m = regra.search(pedido)
+        if m:
+            resto = re.sub(r"\s{2,}", " ", pedido[:m.start()] + " " + pedido[m.end():]).strip(" ,.;:-–")
+            return modo, resto
+    return "padrao", pedido.strip()
+
+
 # ── "Sem sensualização" (opção da conta no painel do Solo Bot; vale para Bella, WhatsApp e Telegram) ──────────────
 # O MESMO modelo de qualidade, com as frases sensuais trocadas por equivalentes neutros: câmera, 9:16, pele, luz,
 # composição e negativos ficam idênticos. Só mudam postura, expressão, roupa, tag final e as regras do Grok.
@@ -313,6 +423,8 @@ _SUAVIZAR = (
     ("expressão provocante e natural", "expressão simpática e natural"),
     ("A pose parece espontânea e íntima,", "A pose parece espontânea e do dia a dia,"),
     ("não criar pose de ensaio fotográfico,", "não criar pose de ensaio fotográfico, não criar pose chamativa nem roupa curta ou justa demais,"),
+    ("Estética natural e sensual, sem pose de ensaio.", "Estética natural e casual, sem pose de ensaio."),
+    ("(top e shorts, body, maiô liso)", "(camiseta e legging, ou camiseta e shorts de ginástica)"),
 )
 TAG_SUAVE = ("Ela fica sem falar nada, movimento dela é natural, sem parecer uma IA, como se fosse uma blogueira "
              "postando no seu perfil, a câmera não se mexe. Se ela tiver qualquer pinta, sinal ou tatuagem, mantenha com "
@@ -414,7 +526,7 @@ def solicitacao(texto, chave=None):
     texto = (texto or "").strip()
     if not texto:
         return None
-    for categoria, regra in (("criativo", _PEDIDO_CRIATIVO), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
+    for categoria, regra in (("ficha", _PEDIDO_FICHA), ("criativo", _PEDIDO_CRIATIVO), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
         m = regra.match(texto)
         if m:
             pedido = m.group(1).strip()
@@ -501,6 +613,10 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         pedido = re.sub(r"\s{2,}", " ", _EXTRAIR_TUDO.sub("", pedido)).strip(" ,.;:-–")
     roupa = categoria == "roupa"
     pose = categoria == "pose"
+    ficha = categoria == "ficha"
+    modo = "padrao"
+    if ficha:
+        modo, pedido = modo_ficha(pedido)
     ref = (referencia_anexa or (referencia(chave) if chave is not None else None)) if not sem else None
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
     criativo = categoria == "criativo"
@@ -529,7 +645,12 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         entrada = "Pedido: crie a modelo a partir das características da imagem de referência; cenário à sua escolha."
     elif ref and not pedido:
         entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
-    if pose:
+    if ficha:
+        entrada = ("Pedido: " + pedido[:600]) if pedido else (
+            "Pedido: aleatório. Sorteie " + ("a roupa e o cenário" if modo == "cenario" else "a roupa" if modo != "personagem" else "a modelo e a roupa básica")
+            + ", diferentes dos últimos." if not ref else "Pedido: use as características e a roupa da imagem de referência.")
+        base = instrucao_ficha(modo) + (INSTRUCAO_REFERENCIA_FICHA if ref else "")
+    elif pose:
         base = INSTRUCAO_POSE + (INSTRUCAO_REFERENCIA_POSE if ref else "")
         if ref and not pedido:
             entrada = "Pedido: copie fielmente a pose da imagem de referência."
@@ -544,10 +665,10 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
     if suave:
         if pose:
             base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (INSTRUCAO_REFERENCIA_POSE if ref else "")
-        base = suavizar(base) + REGRAS_SUAVES
+        base = suavizar(base) + (REGRAS_SUAVES.replace("o formato, o 9:16 e", "o formato e") if ficha else REGRAS_SUAVES)
     orcamento = 70 if tudo else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
     inicio = time.monotonic()
-    tokens = 8000 if tudo else 4096 if ref else 2048      # o raciocínio do modelo também conta nesse limite
+    tokens = 8000 if tudo else 4096 if (ref or ficha) else 2048      # o raciocínio do modelo também conta nesse limite
     aviso = ""
     for tentativa in (1, 2):
         restante = orcamento - (time.monotonic() - inicio)
@@ -562,11 +683,14 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         saida = re.sub(r"\s*Ela se exibe sem falar nada.*$", "", saida, flags=re.S | re.I).rstrip()
         if saida.upper().startswith("RECUSA"):
             raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
-        if roupa or pose:   # troca de roupa/pose em imagem externa: sem 9:16 e sem a tag de movimento
-            inicios = ("vista a pessoa", "dress the person") if roupa else ("recrie a pessoa", "recreate the person")
-            motivo = ("curto demais" if len(saida) < 600 else "longo demais" if len(saida) > MAX_PROMPT
+        if roupa or pose or ficha:   # troca de roupa/pose e ficha: sem 9:16 e sem a tag de movimento
+            inicios = (("crie uma prancha de personagem",) if ficha else ("vista a pessoa", "dress the person") if roupa
+                       else ("recrie a pessoa", "recreate the person"))
+            motivo = ("curto demais" if len(saida) < (900 if ficha else 600) else "longo demais" if len(saida) > MAX_PROMPT
                       else "não começa pelo texto fixo do modelo" if not saida.lower().startswith(inicios)
                       else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")
+            if not motivo and ficha and "16:9" not in saida:
+                motivo = "sem a proporção 16:9 do modelo"
             if not motivo and suave and _TERMOS_SENSUAIS.search(saida):
                 motivo = "ainda com termos sensuais"
             if not motivo:

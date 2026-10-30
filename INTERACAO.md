@@ -457,6 +457,17 @@ Um sistema pode devolver, ao lado de `texto` e `audio`, o campo opcional `midia`
 - Código em `backend/canais/midia.py` (validação), `canais/telegram.py` e `canais/evolution.py` (transporte) e `canais/entrega.py`. Testes em `tests/test_midia.py`.
 - O Bella.exe ainda não exibe `midia` (a rota `/api/bella/mensagem` a ignora); fica para quando a galeria existir.
 
+## Character sheet em foto real (`/charactersheet`)
+
+Prancha de personagem 16:9 em fotografia real, com o mesmo realismo do `/prompt` (pele com poros, sem cara de IA, mesmos "evite/não criar"). Também vale em português: "crie um prompt de character sheet ...". Quatro modos, escolhidos pelo que você escreve:
+
+- `/charactersheet vestido vermelho`: **padrão**, personagem com roupa (frente, lado, costas, closes do rosto, detalhes da roupa).
+- `/charactersheet só a roupa vestido vermelho`: **só a roupa**, com grade de detalhes (tecido, costuras, fecho, joias).
+- `/charactersheet só o personagem`: **só o personagem**, rosto, corpo, cabelo e detalhes da pele, com roupa básica neutra.
+- `/charactersheet com cenário praia ao entardecer`: **personagem, roupa e cenário**, com o cenário sozinho e a modelo dentro dele.
+
+Com imagem anexa (referência de 15 min), o Grok tira da foto os traços fixos e a roupa. O mesmo prompt vem pelo Bella.exe, WhatsApp e Telegram, na caixa de copiar. "Sem sensualização" na conta troca o texto sensual por equivalentes casuais e recusa saída que ainda tenha termos sensuais. Tem alias `/fichapersonagem`.
+
 ## Imagens pelo Grok
 
 O botão Imagens abre um painel recolhível, separado do chat. Gere pela descrição

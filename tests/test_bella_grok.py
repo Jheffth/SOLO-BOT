@@ -456,7 +456,7 @@ def test_posehot_reconhece_pedido_e_cria_pose(monkeypatch):
 def test_todo_prompt_sai_marcado_para_a_caixa_de_copiar(monkeypatch):
     """Regra: toda categoria de prompt (inclusive as futuras) é marcada, para o Bella.exe abrir a caixa de copiar."""
     from nucleo import prompts_bella as pb, roteador
-    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "criativo": "/promptcriativo x"}
+    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "criativo": "/promptcriativo x", "ficha": "/charactersheet x"}
     assert set(comandos) == set(pb.CATEGORIAS), "categoria nova: registre o comando aqui e em CATEGORIAS"
     monkeypatch.setattr(pb, "criar", lambda *a, **k: "texto do prompt")
     monkeypatch.setattr(roteador, "_registrar", lambda *a, **k: None)
@@ -464,6 +464,68 @@ def test_todo_prompt_sai_marcado_para_a_caixa_de_copiar(monkeypatch):
         assert pb.solicitacao(comando)[0] == categoria
         r = roteador._prompt_responder(None, SimpleNamespace(id=1), "telegram", "x", categoria)
         assert r.mensagens[-1].get("prompt") is True
+
+
+def test_charactersheet_reconhece_pedido_e_modos():
+    from nucleo import prompts_bella as pb
+    assert pb.solicitacao("/charactersheet vestido vermelho") == ("ficha", "vestido vermelho")
+    assert pb.solicitacao("/charactersheet") == ("ficha", "")
+    assert pb.solicitacao("crie um prompt de character sheet com cenário praia") == ("ficha", "com cenário praia")
+    assert pb.solicitacao("/prompt cozinha")[0] == "realismo"
+    assert pb.modo_ficha("só a roupa: vestido vermelho") == ("roupa", "vestido vermelho")
+    assert pb.modo_ficha("somente o personagem") == ("personagem", "")
+    assert pb.modo_ficha("só a modelo, ruiva") == ("personagem", "ruiva")
+    assert pb.modo_ficha("com cenário praia ao entardecer") == ("cenario", "praia ao entardecer")
+    assert pb.modo_ficha("vestido vermelho") == ("padrao", "vestido vermelho")
+
+
+@pytest.mark.parametrize("modo", ["padrao", "roupa", "personagem", "cenario"])
+def test_charactersheet_cria_prancha_realista_em_cada_modo(monkeypatch, modo):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    vistos = []
+    pronto = pb.modelo_ficha(modo)
+    assert "16:9" in pronto and "poros visíveis" in pronto and "Evite aparência de IA" in pronto
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or pronto)
+    pedido = {"padrao": "vestido vermelho", "roupa": "só a roupa vestido vermelho", "personagem": "só o personagem",
+              "cenario": "com cenário praia"}[modo]
+    texto = pb.criar(pedido, "f1", "ficha")
+    instr, entrada, kw = vistos[0]
+    assert texto == pronto and "Spicy mode" not in texto and "9:16" not in texto
+    assert pb._FICHA_MODOS[modo] in instr
+    assert "só a roupa" not in entrada.lower() and "com cenário" not in entrada.lower()
+    assert pb._recente("f1") == "ficha"
+
+
+def test_charactersheet_suave_troca_o_sensual_e_rejeita_sensual(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    vistos = []
+    pronto = pb.suavizar(pb.modelo_ficha("personagem"))
+    assert "sensual" not in pronto and "maiô" not in pronto
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append(instr) or pronto)
+    assert pb.criar("", "f2", "ficha", suave=True) == pronto
+    assert "SEM sensualização" in vistos[0] or "MODO SEM SENSUALIZAÇÃO" in vistos[0]
+    assert "9:16" not in vistos[0].split("MODO SEM SENSUALIZAÇÃO")[-1]
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: pronto + " lingerie preta provocante")
+    assert pb.criar("", "f2", "ficha", suave=True) is None
+
+
+def test_charactersheet_com_referencia_e_recusa(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pb.guardar_referencia("f3", "image/png", b"abc")
+    vistos = []
+    pronto = pb.modelo_ficha("padrao")
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or pronto)
+    pb.criar("", "f3", "ficha")
+    assert vistos[0][2]["imagens"] == [("image/png", "YWJj")] and "REFERÊNCIA ANEXADA" in vistos[0][0]
+    assert "características e a roupa da imagem" in vistos[0][1]
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "texto qualquer que não começa pelo modelo " * 40)
+    assert pb.criar("x", "f3", "ficha") is None
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "RECUSA: uniforme escolar")
+    with pytest.raises(pb.Recusa):
+        pb.criar("uniforme escolar", "f3", "ficha")
 
 
 @pytest.fixture(autouse=True)
@@ -612,7 +674,7 @@ def test_prompt_longo_e_dividido_nos_canais(monkeypatch):
 def test_sem_sensualizacao_troca_as_frases_do_mesmo_modelo(monkeypatch):
     from nucleo import grok, prompts_bella as pb
     # cada troca existe nos modelos reais (se alguém reescrever o modelo, este teste avisa para atualizar a lista)
-    fontes = pb.INSTRUCAO + pb.INSTRUCAO_MODELO + pb.MODELO_POSE
+    fontes = pb.INSTRUCAO + pb.INSTRUCAO_MODELO + pb.MODELO_POSE + "".join(pb._FICHA_LAYOUT.values())
     for antes, _ in pb._SUAVIZAR:
         assert antes in fontes, antes
     suave = pb.suavizar(fontes)
