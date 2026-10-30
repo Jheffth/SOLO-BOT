@@ -9,10 +9,20 @@
     { cmd: "/promptmodelo", nome: "Modelo", dica: "Cria a modelo (use com imagem de referência)" },
     { cmd: "/promptroupa", nome: "Roupa", dica: "Veste uma roupa em uma imagem de referência" },
     { cmd: "/posehot", nome: "Pose", dica: "Pose sensual" },
-    { cmd: "/promptcriativo", nome: "Criativo", dica: "Ideia nova, fora da biblioteca" }
+    { cmd: "/promptcriativo", nome: "Criativo", dica: "Ideia nova, fora da biblioteca" },
+    // Character sheet em foto real: use com a imagem de referência anexa. O "modo" vira a palavra depois do comando.
+    { id: "ficha", cmd: "/charactersheet", nome: "Ficha", dica: "Character sheet: personagem com a roupa da imagem anexa" },
+    { id: "ficha-roupa", cmd: "/charactersheet", modo: "roupa", nome: "Ficha · Roupa", dica: "Character sheet só da roupa da imagem anexa" },
+    { id: "ficha-personagem", cmd: "/charactersheet", modo: "personagem", nome: "Ficha · Personagem", dica: "Character sheet só do personagem da imagem anexa" },
+    { id: "ficha-cenario", cmd: "/charactersheet", modo: "cenario", nome: "Ficha · Cenário", dica: "Character sheet com personagem, roupa e cenário da imagem anexa" },
+    { id: "ficha-tudo", cmd: "/charactersheet", modo: "tudo", nome: "Ficha · Tudo", dica: "Character sheet extraindo tudo da imagem anexa" }
   ];
+  COMANDOS.forEach(c => { c.id = c.id || c.cmd; });
+  const MODOS_FICHA = /^(roupa|personagem|cenario|tudo)\b/i;
   const LIMITE = 1500;      // o servidor aceita 2000 caracteres por pedido
-  let comando = COMANDOS[0].cmd;
+  let comando = COMANDOS[0].id;          // id do atalho escolhido
+  const atual = () => COMANDOS.find(c => c.id === comando) || COMANDOS[0];
+  const corpoDe = (c, extra) => [c.modo, extra].filter(Boolean).join(" ");
   const itens = [];
   let abertos = {};
 
@@ -138,6 +148,7 @@
     if (api.ocupada()) return aviso("Espere eu terminar o pedido anterior.");
     const tudo = $("extrair-tudo") && $("extrair-tudo").checked && cmd === "/promptmodelo";
     if (tudo && !api.temAnexo()) return aviso("Anexe a imagem de referência para extrair tudo dela.");
+    if (cmd === "/charactersheet" && MODOS_FICHA.test(corpo || "") && !api.temAnexo()) return aviso("Anexe a imagem de referência: a ficha usa o que está nela.");
     const t = (cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "")).trim();
     if (t.length > LIMITE + 40) return aviso("O pedido ficou muito grande. Tire alguns itens.");
     api.fechar(); api.enviar(t);
@@ -147,23 +158,23 @@
     if (!$("montar-grupos")) return;
     const atalhos = $("atalhos");
     COMANDOS.forEach(c => {
-      const b = el("button", "btn atalho", c.cmd); b.type = "button"; b.title = c.dica + " — envia agora ao chat";
-      b.onclick = () => enviar(c.cmd, ""); atalhos.appendChild(b);
+      const b = el("button", "btn atalho", c.cmd + (c.modo ? " " + c.modo : "")); b.type = "button"; b.title = c.dica + " — envia agora ao chat";
+      b.onclick = () => enviar(c.cmd, corpoDe(c, "")); atalhos.appendChild(b);
     });
     const seg = $("montar-cmd");
     COMANDOS.forEach(c => {
-      const b = el("button", "seg-bt", c.nome); b.type = "button"; b.title = c.cmd + " — " + c.dica; b.dataset.cmd = c.cmd;
-      b.setAttribute("aria-pressed", String(c.cmd === comando)); if (c.cmd === comando) b.classList.add("on");
+      const b = el("button", "seg-bt", c.nome); b.type = "button"; b.title = c.cmd + (c.modo ? " " + c.modo : "") + " — " + c.dica; b.dataset.cmd = c.id;
+      b.setAttribute("aria-pressed", String(c.id === comando)); if (c.id === comando) b.classList.add("on");
       b.onclick = () => {
-        comando = c.cmd;
+        comando = c.id;
         seg.querySelectorAll(".seg-bt").forEach(x => { const on = x.dataset.cmd === comando; x.classList.toggle("on", on); x.setAttribute("aria-pressed", String(on)); });
-        $("montar-dica").textContent = c.cmd + " — " + c.dica;
+        $("montar-dica").textContent = c.cmd + (c.modo ? " " + c.modo : "") + " — " + c.dica;
       };
       seg.appendChild(b);
     });
     $("montar-dica").textContent = COMANDOS[0].cmd + " — " + COMANDOS[0].dica;
-    $("montar-enviar").onclick = () => enviar(comando, texto());
-    $("montar-campo").onclick = () => { if (window.bellaApi) { window.bellaApi.inserir((comando + " " + texto()).trim()); window.bellaApi.fechar(); } };
+    $("montar-enviar").onclick = () => { const c = atual(); enviar(c.cmd, corpoDe(c, texto())); };
+    $("montar-campo").onclick = () => { if (window.bellaApi) { const c = atual(); window.bellaApi.inserir((c.cmd + " " + corpoDe(c, texto())).trim()); window.bellaApi.fechar(); } };
     $("montar-limpar").onclick = () => { itens.length = 0; $("montar-extra").value = ""; atualizarResumo(); marcarChips(); };
     $("montar-sorte").onclick = surpresa;
     $("montar-extra").addEventListener("input", atualizarResumo);
