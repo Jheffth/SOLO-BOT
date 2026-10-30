@@ -491,7 +491,7 @@ def test_charactersheet_cria_prancha_realista_em_cada_modo(monkeypatch, modo):
     pb._REFERENCIAS.clear()
     vistos = []
     pronto = pb.modelo_ficha(modo)
-    assert "16:9" in pronto and "poros visíveis" in pronto and "Evite aparência de IA" in pronto
+    assert "2:3" in pronto and "poros visíveis" in pronto and "Evite aparência de IA" in pronto
     monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or pronto)
     pedido = {"padrao": "", "roupa": "roupa", "personagem": "personagem", "cenario": "cenário", "tudo": "tudo"}[modo]
     texto = pb.criar(pedido, "f1", "ficha")

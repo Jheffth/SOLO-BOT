@@ -302,28 +302,32 @@ de nada da lista "Já usados". Mantenha todo o texto fixo do modelo; só as part
 # (personagem, roupa e cenário). O texto fixo é montado aqui; o Grok só preenche os colchetes. Respeita "Sem sensualização".
 _FICHA_ABERTURA = """Crie uma prancha de personagem (character sheet) em estilo de fotografia real, de uma única mulher adulta, com a mesma identidade em todos os painéis. Use a imagem da modelo como referência principal para manter o mesmo rosto, identidade facial, proporções naturais, cor de pele, cabelo e aparência geral da pessoa original. Nunca altere a cor do cabelo, não adicione perucas nem mude o estilo natural do cabelo da referência.
 
-Proporção horizontal 16:9, painéis lado a lado em uma única imagem, com cortes limpos, espaçamento uniforme e sem molduras decorativas.
+Proporção vertical 2:3, em formato de colagem de character sheet de design de personagem: um painel principal grande e vários painéis menores de tamanhos diferentes encaixados na mesma imagem, sem molduras decorativas.
 Características que se mantêm em todos os painéis: [CARACTERÍSTICAS: só o que o pedido ou a imagem mostrarem (cabelo, olhos, pintas, tatuagens, piercings, óculos, joias fixas); se nada foi informado, escreva "as mesmas da imagem de referência"]."""
 
-_FICHA_FUNDO = """Fundo neutro cinza-claro liso de estúdio, sem cenário, com luz suave e difusa, igual em todos os painéis e sem sombras duras."""
+_FICHA_FUNDO = """Fundo neutro cinza-claro liso de estúdio nos painéis de corpo, sem cenário, com luz suave e difusa, igual em todos os painéis e sem sombras duras."""
+
+# Layout de colagem de design de personagem (modelo do Arquiteto): painel principal grande à esquerda, costas e pose
+# agachada no centro, coluna de closes e detalhes à direita, tudo encaixado, em proporção vertical 2:3.
+_FICHA_PAINEL_PRINCIPAL = """à esquerda, o painel principal grande, de corpo inteiro com os pés visíveis, em pose dinâmica e natural de três quartos, um braço levantado passando perto da cabeça, peso do corpo numa perna, cabelo caindo como está na referência; no centro, na parte alta, um painel da modelo de costas, de corpo inteiro ou até os joelhos, olhando levemente por cima do ombro, mostrando o cabelo, as costas e a parte de trás das pernas; no centro, na parte baixa, um painel da modelo agachada ou sentada em pose descontraída, olhando para a câmera, mostrando a roupa e o calçado em outra posição"""
 
 _FICHA_LAYOUT = {
-    "padrao": """Painéis: três vistas de corpo inteiro da modelo lado a lado, com os pés visíveis: de frente, de lado (perfil) e de costas, em pose neutra e relaxada, braços levemente afastados do corpo. Abaixo, três closes do rosto e ombros (de frente, três quartos e perfil) com expressão [EXPRESSÃO natural] e um quarto close com [OUTRA EXPRESSÃO]. Ao lado, dois ou três painéis de detalhe da roupa e dos acessórios (tecido, costuras, fecho, calçado, joias).
+    "padrao": """Painéis (colagem de character sheet): """ + _FICHA_PAINEL_PRINCIPAL + """. Na coluna da direita, painéis empilhados de alturas diferentes: um close grande do rosto em três quartos olhando para a câmera, um close do rosto de perfil, uma faixa estreita só dos olhos e da testa, e um close pequeno da boca [DETALHE DA BOCA: lábios entreabertos e o detalhe do piercing ou da língua]. Entre eles, painéis pequenos de detalhe: [DETALHES: mãos com anéis e unhas, meias ou pernas, bainha, calçado, joias e acessórios, três ou quatro]. Os painéis se encaixam como uma colagem, com bordas finas claras e leve sobreposição, sem espaços vazios.
 """ + _FICHA_FUNDO + """
 
 A roupa é [ROUPA peça por peça e a textura realista dela: tecido, costuras, zíper, caimento]. Estética natural e sensual, sem pose de ensaio.""",
-    "roupa": """Painéis: à esquerda, ocupando metade da imagem, três vistas de corpo inteiro da modelo vestindo a roupa, com os pés visíveis: de frente, de lado e de costas, em pose neutra e relaxada. À direita, uma grade de quatro a seis painéis de detalhe da roupa: [DETALHES: os close-ups que fazem sentido para esta roupa, como tecido, costuras, decote, fecho, bainha, calçado, joias, meias e acessórios]. O rosto não é o foco: mantenha a mesma identidade, mas o enquadramento mostra a roupa.
+    "roupa": """Painéis (colagem de character sheet): """ + _FICHA_PAINEL_PRINCIPAL + """. Na coluna da direita, painéis de detalhe da roupa empilhados de alturas diferentes: [DETALHES: seis ou sete close-ups que fazem sentido para esta roupa, como tecido, costuras, decote, fecho, fivelas, bainha, meias, calçado, joias e acessórios], e um único close pequeno do rosto. O rosto não é o foco: mantenha a mesma identidade, mas o enquadramento mostra a roupa. Os painéis se encaixam como uma colagem, com bordas finas claras e leve sobreposição, sem espaços vazios.
 """ + _FICHA_FUNDO + """
 
 A roupa é [ROUPA peça por peça, com cor exata, comprimento, decote, mangas, cintura, corte e caimento].
 Tecido e acabamento: [TECIDO E TEXTURA realistas: brilho, transparência, renda, malha, couro, cetim, elástico, costuras, zíper, botões, babados, bordados, strass].
 Acessórios do look: [MEIAS, LIGAS, LUVAS, CINTO, CHOKER, JOIAS, CALÇADOS, ou "nenhum"]. Estética natural e sensual, sem pose de ensaio.""",
-    "personagem": """Painéis: três vistas de corpo inteiro da modelo lado a lado, com os pés visíveis: de frente, de lado (perfil) e de costas, em pose neutra e relaxada, braços levemente afastados do corpo. Abaixo, quatro closes do rosto e ombros: de frente, três quartos, perfil e um com [EXPRESSÃO diferente]. Mostre com fidelidade o rosto, o cabelo, o corpo e os detalhes da pele (pintas, sardas, tatuagens, piercings).
+    "personagem": """Painéis (colagem de character sheet): """ + _FICHA_PAINEL_PRINCIPAL + """. Na coluna da direita, painéis de closes empilhados de alturas diferentes: dois closes grandes do rosto (três quartos e perfil), uma faixa estreita só dos olhos e da testa, um close pequeno da boca [DETALHE DA BOCA: lábios entreabertos e o detalhe do piercing ou da língua], e painéis pequenos dos detalhes da pele e do corpo: [DETALHES: mãos e unhas, pintas, sardas, tatuagens, piercings, ombros e costas, o que existir]. Mostre com fidelidade o rosto, o cabelo, o corpo e os detalhes da pele. Os painéis se encaixam como uma colagem, com bordas finas claras e leve sobreposição, sem espaços vazios.
 """ + _FICHA_FUNDO + """
 
 A roupa é básica e neutra, só para mostrar o corpo: [ROUPA BÁSICA: peça simples e justa de cor lisa (top e shorts, body, maiô liso)], sem estampas, sem acessórios chamativos e sem painéis de detalhe de roupa. Estética natural e sensual, sem pose de ensaio.""",
-    "cenario": """Painéis: na metade esquerda, três vistas de corpo inteiro da modelo vestindo a roupa, com os pés visíveis: de frente, de lado e de costas, em pose neutra e relaxada, sobre fundo neutro cinza-claro liso de estúdio com luz suave e difusa; abaixo delas, dois closes do rosto (de frente e três quartos) com expressão [EXPRESSÃO natural]. Na metade direita, um painel largo do cenário sem a modelo e, abaixo dele, um painel da modelo dentro desse cenário, em pose natural, com a mesma luz e a mesma paleta do ambiente.
-O cenário é [CENÁRIO: local, objetos, materiais, hora do dia, clima e atmosfera, realistas]. A luz do cenário é [LUZ E PALETA DO CENÁRIO], coerente nos dois painéis do cenário.
+    "cenario": """Painéis (colagem de character sheet): """ + _FICHA_PAINEL_PRINCIPAL + """, com a modelo dentro do cenário descrito abaixo nos painéis de corpo, e um painel do cenário sozinho, sem a modelo, numa faixa horizontal estreita. Na coluna da direita, painéis empilhados de alturas diferentes: um close grande do rosto em três quartos olhando para a câmera, um close do rosto de perfil, uma faixa estreita só dos olhos e da testa, e painéis pequenos de detalhe: [DETALHES: mãos com anéis e unhas, meias ou pernas, calçado, joias e acessórios, três ou quatro]. Os painéis se encaixam como uma colagem, com bordas finas claras e leve sobreposição, sem espaços vazios.
+O cenário é [CENÁRIO: local, objetos, materiais, hora do dia, clima e atmosfera, realistas]. A luz do cenário é [LUZ E PALETA DO CENÁRIO], coerente em todos os painéis de corpo; os closes do rosto e dos detalhes seguem a mesma luz.
 
 A roupa é [ROUPA peça por peça e a textura realista dela: tecido, costuras, zíper, caimento]. Estética natural e sensual, sem pose de ensaio.""",
 }
@@ -334,7 +338,7 @@ Evite aparência de IA, pele plástica, textura artificial, simetria perfeita, i
 Não criar aparência de render 3D, desenho, anime ou boneca, não remover a textura natural da pele, não exagerar nas curvas do corpo, não criar maquiagem pesada, não mudar o rosto entre os painéis, não distorcer olhos, boca, mãos, pés ou proporções corporais, não adicionar textos, legendas, números, setas, logos ou marcas d'água nos painéis, não mudar a cor do cabelo e não usar perucas."""
 
 _FICHA_MODOS = {
-    "padrao": "FICHA PADRÃO: personagem com roupa. Três vistas de corpo inteiro, closes do rosto e detalhes da roupa, em fundo neutro.",
+    "padrao": "FICHA PADRÃO: personagem com roupa, em colagem: pose principal, costas, pose agachada, closes do rosto e detalhes, em fundo neutro.",
     "roupa": "SÓ A ROUPA: o foco é a roupa e os acessórios, descritos peça por peça (tecido, costuras, fecho). O rosto não é o foco e não há cenário.",
     "personagem": "SÓ O PERSONAGEM: rosto, corpo, cabelo e detalhes da pele. A roupa é básica e neutra, sem detalhes de roupa e sem cenário.",
     "tudo": "TUDO DA IMAGEM: a prancha traz a modelo, a roupa e o cenário, todos extraídos fielmente da imagem anexa.",
@@ -352,7 +356,7 @@ para o Grok Imagine, em estilo de fotografia real. Ele anexa a imagem de referê
 Entregue SEMPRE um único prompt completo, seguindo exatamente o MODELO abaixo.
 
 Regras do trabalho:
-- Mantenha todo o texto fixo do modelo (referência, 16:9, painéis, fundo, realismo, evite/não criar) e troque somente
+- Mantenha todo o texto fixo do modelo (referência, 2:3, colagem de painéis, fundo, realismo, evite/não criar) e troque somente
   o que está entre colchetes pelo que o pedido descreve, de forma concreta e visual. Não deixe colchetes no resultado.
 - Realismo acima de tudo: fotografia de pessoa real (pele com poros, cabelo natural, luz coerente). Nunca desenho,
   anime, ilustração, boneca ou render 3D, nem em cosplay, fantasia ou personagem de ficção adulto: descreva só a roupa
@@ -442,6 +446,7 @@ _SUAVIZAR = (
     ("não criar pose de ensaio fotográfico,", "não criar pose de ensaio fotográfico, não criar pose chamativa nem roupa curta ou justa demais,"),
     ("Estética natural e sensual, sem pose de ensaio.", "Estética natural e casual, sem pose de ensaio."),
     ("(top e shorts, body, maiô liso)", "(camiseta e legging, ou camiseta e shorts de ginástica)"),
+    ("[DETALHE DA BOCA: lábios entreabertos e o detalhe do piercing ou da língua]", "[DETALHE DA BOCA: lábios com um sorriso leve e o detalhe do brinco ou do piercing discreto]"),
 )
 TAG_SUAVE = ("Ela fica sem falar nada, movimento dela é natural, sem parecer uma IA, como se fosse uma blogueira "
              "postando no seu perfil, a câmera não se mexe. Se ela tiver qualquer pinta, sinal ou tatuagem, mantenha com "
@@ -712,8 +717,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
             motivo = ("curto demais" if len(saida) < (900 if ficha else 600) else "longo demais" if len(saida) > MAX_PROMPT
                       else "não começa pelo texto fixo do modelo" if not saida.lower().startswith(inicios)
                       else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")
-            if not motivo and ficha and "16:9" not in saida:
-                motivo = "sem a proporção 16:9 do modelo"
+            if not motivo and ficha and "2:3" not in saida:
+                motivo = "sem a proporção 2:3 do modelo"
             if not motivo and suave and _TERMOS_SENSUAIS.search(saida):
                 motivo = "ainda com termos sensuais"
             if not motivo:

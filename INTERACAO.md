@@ -459,9 +459,9 @@ Um sistema pode devolver, ao lado de `texto` e `audio`, o campo opcional `midia`
 
 ## Character sheet em foto real (`/charactersheet`)
 
-Prancha de personagem 16:9 em fotografia real, com o mesmo realismo do `/prompt` (pele com poros, sem cara de IA, mesmos "evite/não criar"). O uso normal é **com a imagem anexa** (vale 15 min, ou legenda `/charactersheet ...` na foto): o Grok tira dela o que o modo pede. Basta uma palavra:
+Prancha de personagem vertical 2:3 em fotografia real, em colagem (pose principal grande, costas, pose agachada, coluna de closes do rosto e painéis de detalhe), com o mesmo realismo do `/prompt` (pele com poros, sem cara de IA, mesmos "evite/não criar"). O uso normal é **com a imagem anexa** (vale 15 min, ou legenda `/charactersheet ...` na foto): o Grok tira dela o que o modo pede. Basta uma palavra:
 
-- `/charactersheet`: **padrão**, personagem com a roupa do anexo (frente, lado, costas, closes do rosto, detalhes da roupa).
+- `/charactersheet`: **padrão**, personagem com a roupa do anexo (pose principal, costas, agachada, closes do rosto e detalhes da roupa).
 - `/charactersheet roupa`: **só a roupa** do anexo, copiada peça por peça, com grade de detalhes (tecido, costuras, fecho, joias).
 - `/charactersheet personagem`: **só o personagem**, rosto, corpo, cabelo e detalhes da pele, com roupa básica neutra.
 - `/charactersheet cenario`: personagem, roupa **e cenário** do anexo (o cenário sozinho e a modelo dentro dele).
