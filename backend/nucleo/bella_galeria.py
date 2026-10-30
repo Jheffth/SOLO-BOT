@@ -38,7 +38,7 @@ def _pasta(modelo: str, nivel: str) -> Path:
     return Path(config.BELLA_GALERIA_DIR) / modelo / nivel
 
 
-def arquivos(modelo: str, nivel: str, so_imagem: bool = False) -> List[Path]:
+def arquivos(modelo: str, nivel: str, so_imagem: bool = False, tipo: Optional[str] = None) -> List[Path]:
     if nivel not in niveis_ativos():
         return []
     pasta = _pasta(modelo, nivel)
@@ -46,7 +46,8 @@ def arquivos(modelo: str, nivel: str, so_imagem: bool = False) -> List[Path]:
         return []
     achados = [p for p in sorted(pasta.iterdir())
                if p.is_file() and EXTENSOES.get(p.suffix.lower())
-               and (not so_imagem or EXTENSOES[p.suffix.lower()].startswith("image/"))]
+               and (not so_imagem or EXTENSOES[p.suffix.lower()].startswith("image/"))
+               and (tipo is None or EXTENSOES[p.suffix.lower()].startswith("video/" if tipo == "video" else "image/"))]
     return achados
 
 
@@ -62,12 +63,12 @@ def _usadas(chave: str) -> List[str]:
 
 
 def escolher(modelo: str, niveis: Sequence[str], legenda: str = "", so_imagem: bool = False,
-             spoiler: bool = False, rng=random) -> Optional[dict]:
+             spoiler: bool = False, rng=random, tipo: Optional[str] = None) -> Optional[dict]:
     """Uma mídia {base64, mime, tipo, legenda, spoiler} já validada, do primeiro nível que tiver arquivo. None se não houver."""
     chave = f"bella_galeria_usadas:{modelo}"
     usadas = _usadas(chave)
     for nivel in niveis:
-        todos = arquivos(modelo, nivel, so_imagem)
+        todos = arquivos(modelo, nivel, so_imagem, tipo)
         if not todos:
             continue
         novos = [p for p in todos if f"{nivel}/{p.name}" not in usadas] or todos      # esgotou: recomeça
@@ -100,3 +101,58 @@ def provedor_iniciativa(conta) -> Optional[dict]:
 
 
 provedor_iniciativa.disponivel = lambda: any(contar("bella").get(n) for n in ("normal", "sensual"))   # type: ignore[attr-defined]
+
+
+# ── Quando ele PEDE uma foto ou um vídeo ─────────────────────────
+# Cada nível pede um agrado mínimo (0-100) e um grau mínimo do termômetro (0 Normal … 3 Explícita), como na seção 2
+# de SODELES_ESPECIFICACAO_GALERIA.md. Ordem firme do Arquiteto ("eu mando", "é uma ordem") dispensa os dois.
+REGRAS = {"bom_dia": (0, 0), "normal": (5, 0), "sensual": (25, 0), "lingerie": (30, 1), "topless": (60, 2), "nu": (85, 3)}
+SPOILER = ("topless", "nu")
+CUSTO = {"video": 20, "foto": 10}
+_VERBO = None
+_VIDEO = None
+_FOTO = None
+
+
+def _rx():
+    import re
+    global _VERBO, _VIDEO, _FOTO
+    if _VERBO is None:
+        _VERBO = re.compile(r"\b(?:manda|mande|mandar|envia|envie|enviar|mostra|mostre|mostrar|quero ver|me da|cade|tem (?:algum|alguma|um|uma))\b")
+        _VIDEO = re.compile(r"\bvideo(?:s|zinho|zinhos)?\b|\bclipe\b")
+        _FOTO = re.compile(r"\bfot(?:o|inha|ozinha)s?\b|\bselfie\b|\bimagem\b|\bprint\b")
+    return _VERBO, _VIDEO, _FOTO
+
+
+def detectar_pedido(texto: str) -> Optional[str]:
+    """'video', 'foto' ou None. Precisa de um verbo de pedir e de foto/vídeo na mesma mensagem."""
+    from nucleo import bella_emocoes
+    verbo, video, foto = _rx()
+    t = bella_emocoes._norm(texto)
+    if not verbo.search(t):
+        return None
+    if video.search(t):
+        return "video"
+    if foto.search(t):
+        return "foto"
+    return None
+
+
+def decidir(estado: dict, pedido: str, firme: bool, rng=random) -> tuple:
+    """('enviar', midia, nivel) | ('negar', motivo, None) | ('vazio', '', None). Quem decide é o código."""
+    tipo = "video" if pedido == "video" else "imagem"
+    chateada = estado.get("emocao") not in ("alegre", "reencontro")
+    if chateada and not firme:
+        return "negar", "chateada", None
+    agrado, grau = estado.get("agrado", 0), estado.get("nivel", 0)
+    existem = [n for n in niveis_ativos() if arquivos("bella", n, tipo=tipo)]
+    if not existem:
+        return "vazio", "", None
+    liberados = [n for n in existem if firme or (agrado >= REGRAS.get(n, (999, 9))[0] and grau >= REGRAS.get(n, (999, 9))[1])]
+    if not liberados:
+        return "negar", "agrado", None
+    nivel = rng.choice(liberados)
+    m = escolher("bella", (nivel,), tipo=tipo, spoiler=nivel in SPOILER, rng=rng)
+    if not m:
+        return "vazio", "", None
+    return "enviar", m, nivel

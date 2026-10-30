@@ -81,7 +81,7 @@ _SINAIS = {
     "volta": _rx(r"volta", r"volte", r"vem ca", r"vem aqui", r"vem de volta", r"senti sua falta", r"sinto sua falta",
                  r"me perdoa", r"perdoa", r"desculpa", r"fica comigo", r"te quero de volta", r"chamo de volta"),
     "carinho": _rx(r"te amo", r"amo voce", r"linda", r"minha bella", r"saudade", r"obrigad[oa]", r"parabens",
-                   r"gosto de voce", r"voce e (?:incrivel|perfeita|tudo)"),
+                   r"gosto de voce", r"voce e (?:incrivel|perfeita|tudo|linda|maravilhosa|demais)", r"gostosa", r"maravilhosa", r"deliciosa", r"perfeita", r"minha vida", r"meu amor", r"princesa", r"te adoro"),
 }
 
 

@@ -282,3 +282,24 @@ def test_foto_do_bom_dia_acompanha_a_intensidade_e_nu_so_se_habilitado(tmp_path,
     monkeypatch.setattr(config, "BELLA_GALERIA_NIVEIS", "bom_dia,normal,sensual,nu")
     assert G.escolher("bella", I.NIVEIS_BOM_DIA["explicito"], rng=random.Random(0))
     assert G._usadas("bella_galeria_usadas:bella")[-1].startswith("nu/")
+
+
+def test_bom_dia_pode_ir_com_video(cliente, caixa, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "BELLA_GALERIA_DIR", str(tmp_path))
+    pasta = tmp_path / "bella" / "bom_dia"
+    pasta.mkdir(parents=True)
+    (pasta / "v.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"0" * 64)       # só há um vídeo
+    c = _admin(cliente)
+    conta = _preparar(c, monkeypatch, ["Bom dia, meu amor."])
+    I.configurar(conta, ligada=False, bom_dia=True)
+    d = I.carregar(conta)
+    d["bom_dia_ultimo"] = ""
+    I.salvar(conta, d)
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda sis, t, **k: vistos.append(sis) or "Bom dia, meu amor.")
+    db = SessionLocal()
+    try:
+        assert I.tick(db, _utc(8, 1)) == 1
+    finally:
+        db.close()
+    assert "um vídeo seu" in vistos[-1]

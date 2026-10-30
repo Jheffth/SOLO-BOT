@@ -771,7 +771,7 @@ def _cmd_sentimentos(conta: Conta) -> Resposta:
     linhas = [f"💗 *O que a Bella sente* ({quem})",
               f"Carinho: {car}/100 · {sit['interacoes']} conversa(s)",
               f"Saudade: {sau.strip() or 'nenhuma'}" + (f" ({sit['dias_sem_falar']} dia(s) sem falar)" if sau else ""),
-              f"Emoção: {_emocao_texto(sit)}",
+              f"Emoção: {_emocao_texto(sit)}" + (f" · Agrado: {sit.get('agrado', 0)}/100" if sit.get("arquiteto") else ""),
               _termometro_texto(sit)]
     return Resposta().diz("\n".join(linhas))
 
@@ -985,14 +985,15 @@ def _bella_entrar(canal: str, conta: Conta, primeira: str) -> Resposta:
 
 def _bella_responder(db, conta: Conta, canal: str, txt: str, so_se_responder: bool = False) -> Optional[Resposta]:
     from nucleo import bella_conversa
-    texto = bella_conversa.responder(txt, _chave_bella(canal, conta), numero_conta=conta.id)
+    extra = []
+    texto = bella_conversa.responder(txt, _chave_bella(canal, conta), numero_conta=conta.id, saida_midia=extra)
     if not texto and so_se_responder:
         return None                          # sem Grok: o hub segue como antes
     if db is not None:
         _registrar(db, conta, canal, None, "bella", "conversa")
     if not texto:
         return Resposta().diz("😶 Não consegui responder agora. Tente de novo em instantes.")
-    r = Resposta().diz(texto)
+    r = Resposta().diz(texto, midia=extra[0] if extra else None)
     r.mensagens[-1]["literal"] = True        # a voz LÊ o que a Bella disse; nunca passa por resumo de IA
     return r
 

@@ -133,11 +133,14 @@ def avancar(conta_id: Optional[int], texto: str, agora: Optional[datetime] = Non
             e.emocao, e.emocao_ate = nova, bella_emocoes.validade(nova, agora)
         if e.emocao == "reencontro" and e.emocao_ate and agora >= e.emocao_ate:
             e.emocao = "alegre"
+        elogio = "carinho" in bella_emocoes.sinais(texto)
+        if arquiteto and e.emocao in ("alegre", "reencontro"):
+            e.agrado = min(100, (e.agrado or 0) + (12 if elogio else 2))     # agradá-la é o que abre a galeria
         e.interacoes += 1
         e.ultimo_contato = agora
         db.commit()
         return {"nivel": e.nivel, "modo": e.modo, "fixa": e.fixa, "interacoes": e.interacoes, "dias_sem_falar": dias,
-                "emocao": e.emocao, "insistencias": e.insistencias}
+                "emocao": e.emocao, "insistencias": e.insistencias, "agrado": e.agrado}
     except Exception:  # noqa: BLE001
         db.rollback()
         log.debug("Estado da Bella indisponível", exc_info=True)
@@ -170,7 +173,19 @@ def situacao(conta_id: int) -> dict:
                 "interacoes": e.interacoes if e else 0,
                 "dias_sem_falar": (agora - e.ultimo_contato).days if e and e.ultimo_contato else None,
                 "arquiteto": bool(conta and conta.admin), "nome": conta.nome if conta else "",
-                "emocao": e.emocao if e else "alegre", "insistencias": e.insistencias if e else 0}
+                "emocao": e.emocao if e else "alegre", "insistencias": e.insistencias if e else 0,
+                "agrado": e.agrado if e else 20}
+    finally:
+        db.close()
+
+
+def gastar_agrado(conta_id: int, custo: int) -> None:
+    """Mandar uma mídia gasta um pouco do agrado dela (ela só manda de novo se for agradada outra vez)."""
+    db = SessionLocal()
+    try:
+        e = _obter(db, int(conta_id))
+        e.agrado = max(0, (e.agrado or 0) - custo)
+        db.commit()
     finally:
         db.close()
 

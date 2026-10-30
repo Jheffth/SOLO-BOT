@@ -293,6 +293,7 @@ class BellaEstado(Base):
     emocao = Column(String(12), default="alegre", nullable=False)     # ver nucleo/bella_emocoes.py
     emocao_ate = Column(DateTime, nullable=True)                      # quando esta emoção esfria sozinha
     insistencias = Column(Integer, default=0, nullable=False)         # vezes que ela pediu para ficar
+    agrado = Column(Integer, default=20, nullable=False)              # 0-100: o quanto ela está agradada (libera fotos e vídeos)
 
 
 def criar_tabelas():
@@ -339,7 +340,8 @@ def _migrar():
             est = {c["name"] for c in insp.get_columns("bella_estados")}
             tipo = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
             for nome, ddl in (("emocao", "VARCHAR(12) DEFAULT 'alegre' NOT NULL"), ("emocao_ate", tipo),
-                              ("insistencias", "INTEGER DEFAULT 0 NOT NULL")):
+                              ("insistencias", "INTEGER DEFAULT 0 NOT NULL"),
+                              ("agrado", "INTEGER DEFAULT 20 NOT NULL")):
                 if nome not in est:
                     con.execute(text(f"ALTER TABLE bella_estados ADD COLUMN {nome} {ddl}"))
         if "bella_memorias" in insp.get_table_names():

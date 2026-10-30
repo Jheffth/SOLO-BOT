@@ -204,12 +204,12 @@ def buscar_noticia(timeout: float = 8.0) -> Optional[str]:
         return None
 
 
-def _gerar(conta_id: int, tipo: str, dados: dict, noticia: Optional[str] = None, foto: bool = False,
+def _gerar(conta_id: int, tipo: str, dados: dict, noticia: Optional[str] = None, foto: Optional[str] = None,
            intensidade: str = "suave") -> Optional[str]:
     from nucleo import bella_conversa, bella_estado, grok
     angulo = random.choice(ANGULOS_PROVOCACAO)
     pedido = INSTRUCAO_TIPO[tipo].format(angulo=angulo, noticia=noticia or "",
-                                         foto="Você está mandando junto uma foto sua; pode aludir a ela. " if foto else "",
+                                         foto=("Você está mandando junto " + ("um vídeo seu" if foto == "video" else "uma foto sua") + "; pode aludir a isso. ") if foto else "",
                                          tom=TONS_BOM_DIA.get(intensidade, ""))
     evitar = ""
     if dados.get("recentes"):
@@ -278,10 +278,10 @@ def enviar_agora(db, conta: Conta, dados: dict, tipo: Optional[str] = None) -> O
     if tipo == "bom_dia":
         from nucleo import bella_galeria
         intensidade = intensidade_bom_dia(conta.id, config.BELLA_CONTEUDO_ADULTO)
-        midia = bella_galeria.escolher("bella", NIVEIS_BOM_DIA[intensidade], so_imagem=True)   # sem foto, vai só o texto
+        midia = bella_galeria.escolher("bella", NIVEIS_BOM_DIA[intensidade])        # foto ou vídeo; sem nada, vai só o texto
         if not midia and intensidade != "suave":
-            midia = bella_galeria.escolher("bella", NIVEIS_BOM_DIA["suave"], so_imagem=True)
-    texto = _gerar(conta.id, tipo, dados, noticia, foto=bool(midia) and tipo == "bom_dia", intensidade=intensidade)
+            midia = bella_galeria.escolher("bella", NIVEIS_BOM_DIA["suave"])
+    texto = _gerar(conta.id, tipo, dados, noticia, foto=(midia or {}).get("tipo") if tipo == "bom_dia" else None, intensidade=intensidade)
     if not texto:
         return None
     r = roteador.Resposta().diz(texto, midia=midia)

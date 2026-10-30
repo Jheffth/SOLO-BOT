@@ -625,3 +625,14 @@ Código: `backend/nucleo/bella_galeria.py` (primeira versão, em pastas; o soDel
 - **Comandos:** `/galeria` (quantos arquivos por nível; `/galeria ver normal` mostra um) e `/iniciativa bomdia ligar|desligar|hora 08:00|testar`.
 - **Vídeos nas mensagens espontâneas:** a galeria se registra como provedor de mídia; o tipo "vídeo/foto" passa a ser sorteado assim que houver arquivos em `normal` ou `sensual`.
 
+### Pedir foto ou vídeo para a Bella (o agrado)
+
+Quando o **Arquiteto** pede ("me manda um vídeo", "manda uma fotinha", "mostra uma selfie"), quem decide é o código (`bella_galeria.decidir`), nunca o modelo:
+
+- **Agrado (0 a 100):** começa em 20, sobe 2 a cada mensagem e 12 a cada elogio ou carinho ("linda", "gostosa", "te amo", "meu amor"…) enquanto ela está bem, e cada mídia enviada gasta (vídeo 20, foto 10). `/sentimentos` mostra o agrado.
+- **Cada nível pede agrado e grau do termômetro mínimos:** `normal` 5/0, `sensual` 25/0, `lingerie` 30/1, `topless` 60/2, `nu` 85/3. Os níveis íntimos só entram se estiverem em `BELLA_GALERIA_NIVEIS`; topless e nu vão com spoiler.
+- **Humor:** se ela está com ciúme, raiva, medo de perder ou triste, não manda (responde no clima e diz que ele precisa ganhá-la de volta).
+- **Ordem firme** ("é uma ordem", "eu mando") dispensa o agrado e o humor; os níveis desligados continuam desligados.
+- **Aleatório:** sorteia, entre os níveis liberados, um arquivo do tipo pedido (vídeo ou foto), sem repetir os últimos.
+- **Sem agrado suficiente:** ela provoca e diz o que ele pode fazer para agradá-la, sem recusar com aviso. **Sem arquivo na galeria:** promete mandar quando tiver.
+- Só vale na conversa do Arquiteto pelo WhatsApp e Telegram; Bella.exe e o atalho não recebem mídia. O **bom dia das 08:00** também pode ir com vídeo, não só com foto.

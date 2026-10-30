@@ -2,7 +2,7 @@
 import threading
 import time
 import config
-from nucleo import bella_bio, bella_emocoes, bella_estado, bella_historia, bella_memoria, grok
+from nucleo import bella_bio, bella_emocoes, bella_estado, bella_galeria, bella_historia, bella_memoria, grok
 
 ESTILO_PADRAO = """Modo Safada significa flerte, humor, sensualidade e duplo sentido entre adultos.
 Sem descrição sexual explícita, atos sexuais, nudez gráfica ou conteúdo envolvendo menores.
@@ -80,15 +80,46 @@ def esquecer(conta_id):
         _MEMORIA.pop(conta_id, None)
     bella_memoria.apagar_turnos(conta_id)
 
-def responder(texto, conta_id=None, numero_conta=None):
+_NOTA_ENVIAR = ("\n\n[AGORA] Ele pediu e você VAI mandar {o_que} dele para ele junto com esta mensagem. Escreva só uma frase curta, "
+                "provocante e do seu jeito, apresentando; não descreva o que há no arquivo.")
+_NOTA_CHATEADA = ("\n\n[AGORA] Ele pediu {o_que}, mas você não está no clima por causa do que sente agora. Não mande: responda como a "
+                  "emoção pede, sem avisos nem regras, e deixe claro que ele precisa te ganhar de volta.")
+_NOTA_AGRADO = ("\n\n[AGORA] Ele pediu {o_que}, mas você ainda quer ser agradada antes. Não mande agora: provoque, diga em palavras "
+                "o que ele pode fazer para te agradar (elogiar, te desejar, conversar com carinho) e prometa em tom de jogo. "
+                "Sem avisos, sem falar em regras ou pontos.")
+_NOTA_VAZIO = ("\n\n[AGORA] Ele pediu {o_que}, mas você ainda não tem nada para mandar agora. Diga em tom carinhoso que vai "
+               "mandar quando tiver, sem inventar justificativas técnicas.")
+
+
+def _pedido_de_midia(texto, estado):
+    """(nota para o prompt, midia, custo do agrado). Só chamado para o Arquiteto."""
+    pedido = bella_galeria.detectar_pedido(texto)
+    if not pedido:
+        return "", None, 0
+    o_que = "um vídeo" if pedido == "video" else "uma foto"
+    firme = "firme" in bella_emocoes.sinais(texto)
+    try:
+        acao, m, _nivel = bella_galeria.decidir(estado, pedido, firme)
+    except Exception:  # noqa: BLE001
+        return "", None, 0
+    if acao == "enviar":
+        return _NOTA_ENVIAR.format(o_que=o_que), m, bella_galeria.CUSTO.get(pedido, 10)
+    nota = _NOTA_VAZIO if acao == "vazio" else {"chateada": _NOTA_CHATEADA, "agrado": _NOTA_AGRADO}.get(m, _NOTA_AGRADO)
+    return nota.format(o_que=o_que), None, 0
+
+
+def responder(texto, conta_id=None, numero_conta=None, saida_midia=None):
     """`conta_id`: a chave da memória curta (por canal). `numero_conta`: a Conta Solo, dona das lembranças."""
     if numero_conta is None and isinstance(conta_id, int):
         numero_conta = conta_id
     estado = bella_estado.avancar(numero_conta, texto)
-    resposta = grok.gerar(prompt(numero_conta, estado), texto, max_tokens=1536, historico=_historico(conta_id))
+    nota, midia, gasto = "", None, 0
+    if saida_midia is not None and estado and bella_estado.eh_arquiteto(numero_conta):
+        nota, midia, gasto = _pedido_de_midia(texto, estado)
+    resposta = grok.gerar(prompt(numero_conta, estado) + nota, texto, max_tokens=1536, historico=_historico(conta_id))
     if (estado and estado.get("emocao") == "cede_raiva" and resposta and bella_emocoes.quebrou_personagem(resposta)
             and "firme" in bella_emocoes.sinais(texto)):       # ele mandou e ela "saiu da personagem": uma segunda tentativa
-        outra = grok.gerar(prompt(numero_conta, estado) + bella_emocoes.LEMBRETE_CEDER, texto, max_tokens=1536,
+        outra = grok.gerar(prompt(numero_conta, estado) + nota + bella_emocoes.LEMBRETE_CEDER, texto, max_tokens=1536,
                            historico=_historico(conta_id))
         if outra:
             resposta = outra
@@ -97,4 +128,7 @@ def responder(texto, conta_id=None, numero_conta=None):
         return None
     _lembrar(conta_id, texto, resposta)
     bella_historia.gravar(numero_conta, texto, resposta)      # a pasta do dia, sem prazo, por Conta Solo
+    if midia and saida_midia is not None:
+        saida_midia.append(midia)
+        bella_estado.gastar_agrado(numero_conta, gasto)
     return resposta
