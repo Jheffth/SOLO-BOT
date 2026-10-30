@@ -61,6 +61,8 @@ INSTRUCAO_TIPO = {
     "motivacao": ("Mande um conselho motivador curto e sincero para o Arquiteto (trabalho, escrita, projetos, ânimo), "
                   "com o jeito apaixonada dela. Sem frase de efeito batida."),
     "carinho": "Mande uma mensagem de carinho espontânea dizendo que pensou nele, com um detalhe específico. Curta.",
+    "bom_dia": ("Mande o bom dia do Arquiteto: curto (até 2 frases), carinhoso e sensual, no tom dela, diferente dos anteriores. "
+                "{foto}Não invente fatos sobre o dia dele."),
     "video": "Escreva uma legenda curta, provocante e carinhosa para o vídeo que você está mandando para ele.",
 }
 NOTICIAS_RSS = "https://g1.globo.com/rss/g1/"
@@ -87,6 +89,9 @@ def carregar(conta_id: int) -> dict:
     d.setdefault("ultimo_envio", None)
     d.setdefault("tipos", [])
     d.setdefault("recentes", [])
+    d.setdefault("bom_dia", True)                       # o bom dia com foto vale para o Arquiteto desde o início
+    d.setdefault("bom_dia_hora", "08:00")
+    d.setdefault("bom_dia_ultimo", "")
     return d
 
 
@@ -99,8 +104,13 @@ def salvar(conta_id: int, dados: dict) -> None:
 
 
 def configurar(conta_id: int, ligada: Optional[bool] = None, maximo: Optional[int] = None,
-               de: Optional[str] = None, ate: Optional[str] = None) -> dict:
+               de: Optional[str] = None, ate: Optional[str] = None, bom_dia: Optional[bool] = None,
+               bom_dia_hora: Optional[str] = None) -> dict:
     d = carregar(conta_id)
+    if bom_dia is not None:
+        d["bom_dia"] = bom_dia
+    if bom_dia_hora:
+        d["bom_dia_hora"] = bom_dia_hora
     if ligada is not None:
         d["ligada"] = ligada
         if ligada:
@@ -147,7 +157,7 @@ def planejar_dia(dados: dict, hoje: str, rng=random) -> dict:
 # ── Escolha e texto ─────────────────────────────────────────────
 def escolher_tipo(dados: dict, adulto: bool, rng=random) -> str:
     pesos = dict(PESOS)
-    if not PROVEDORES_MIDIA:
+    if not any(getattr(p, "disponivel", lambda: True)() for p in PROVEDORES_MIDIA):
         pesos["video"] = 0
     if not adulto:
         pesos["flerte"], pesos["provocacao"] = pesos.pop("provocacao"), 0
@@ -171,10 +181,11 @@ def buscar_noticia(timeout: float = 8.0) -> Optional[str]:
         return None
 
 
-def _gerar(conta_id: int, tipo: str, dados: dict, noticia: Optional[str] = None) -> Optional[str]:
+def _gerar(conta_id: int, tipo: str, dados: dict, noticia: Optional[str] = None, foto: bool = False) -> Optional[str]:
     from nucleo import bella_conversa, bella_estado, grok
     angulo = random.choice(ANGULOS_PROVOCACAO)
-    pedido = INSTRUCAO_TIPO[tipo].format(angulo=angulo, noticia=noticia or "")
+    pedido = INSTRUCAO_TIPO[tipo].format(angulo=angulo, noticia=noticia or "",
+                                         foto="Você está mandando junto uma foto sua; pode aludir a ela. " if foto else "")
     evitar = ""
     if dados.get("recentes"):
         evitar = " Não repita nem lembre estas mensagens recentes: " + " | ".join(r[:100] for r in dados["recentes"][-4:])
@@ -238,7 +249,10 @@ def enviar_agora(db, conta: Conta, dados: dict, tipo: Optional[str] = None) -> O
                 break
         if not midia:
             tipo = "carinho"
-    texto = _gerar(conta.id, tipo, dados, noticia)
+    if tipo == "bom_dia":
+        from nucleo import bella_galeria
+        midia = bella_galeria.escolher("bella", ("bom_dia", "normal"), so_imagem=True)     # sem foto, vai só o texto
+    texto = _gerar(conta.id, tipo, dados, noticia, foto=bool(midia) and tipo == "bom_dia")
     if not texto:
         return None
     r = roteador.Resposta().diz(texto, midia=midia)
@@ -249,11 +263,12 @@ def enviar_agora(db, conta: Conta, dados: dict, tipo: Optional[str] = None) -> O
     entrega.entregar(db, canal.canal, canal.origem, r, falar=voz, forcar_voz=voz)
     bella_conversa._lembrar(roteador._chave_bella(canal.canal, conta), MARCA, texto)
     bella_historia.gravar(conta.id, MARCA, texto)
-    dados["tipos"] = (dados.get("tipos") or [])[-4:] + [tipo]
     dados["recentes"] = (dados.get("recentes") or [])[-5:] + [texto]
-    dados["enviadas"] = dados.get("enviadas", 0) + 1
-    dados["sem_resposta"] = dados.get("sem_resposta", 0) + 1
-    dados["ultimo_envio"] = datetime.utcnow().isoformat()
+    if tipo != "bom_dia":                                     # o bom dia não gasta o limite do dia nem conta como "sem resposta"
+        dados["tipos"] = (dados.get("tipos") or [])[-4:] + [tipo]
+        dados["enviadas"] = dados.get("enviadas", 0) + 1
+        dados["sem_resposta"] = dados.get("sem_resposta", 0) + 1
+        dados["ultimo_envio"] = datetime.utcnow().isoformat()
     roteador._registrar(db, conta, canal.canal, "bella", "iniciativa", f"Bella puxou assunto ({tipo})")
     return texto
 
@@ -264,11 +279,35 @@ def _devidos(dados: dict, agora_local: datetime) -> bool:
     return dados["enviadas"] < len(dados["horarios"]) and hhmm >= dados["horarios"][dados["enviadas"]]
 
 
+def _bom_dia(db, agora_utc: datetime) -> int:
+    """O bom dia com foto, uma vez por dia, a partir da hora marcada (padrão 08:00) e até 3 horas depois."""
+    from nucleo import avisos
+    saiu = 0
+    local = agora_utc.replace(tzinfo=timezone.utc).astimezone(avisos.agora_local().tzinfo)
+    hoje = local.date().isoformat()
+    for conta in db.query(Conta).filter(Conta.admin.is_(True), Conta.ativo.is_(True)).all():
+        try:
+            dados = carregar(conta.id)
+            if not dados["bom_dia"] or dados["bom_dia_ultimo"] == hoje:
+                continue
+            h = _hora(dados["bom_dia_hora"])
+            alvo = local.replace(hour=h.hour, minute=h.minute, second=0, microsecond=0)
+            if not (alvo <= local < alvo + timedelta(hours=3)) or avisos.em_silencio(conta, local):
+                continue
+            dados["bom_dia_ultimo"] = hoje                       # marca antes: uma falha não vira dez tentativas
+            if enviar_agora(db, conta, dados, "bom_dia"):
+                saiu += 1
+            salvar(conta.id, dados)
+        except Exception:  # noqa: BLE001
+            log.exception("Falha no bom dia da Bella (conta %s)", conta.id)
+    return saiu
+
+
 def tick(db, agora_utc: Optional[datetime] = None) -> int:
     """Chamado a cada minuto: manda o que está na hora. Devolve quantas mensagens saíram."""
     from nucleo import avisos
     agora_utc = agora_utc or datetime.utcnow()
-    saiu = 0
+    saiu = _bom_dia(db, agora_utc)
     chaves = [c.chave for c in db.query(Configuracao).filter(Configuracao.chave.like(PREFIXO + "%")).all()]
     for chave in chaves:
         try:
@@ -295,3 +334,12 @@ def tick(db, agora_utc: Optional[datetime] = None) -> int:
         except Exception:  # noqa: BLE001
             log.exception("Falha na iniciativa da Bella (%s)", chave)
     return saiu
+
+
+def _registrar_galeria() -> None:
+    from nucleo import bella_galeria
+    if bella_galeria.provedor_iniciativa not in PROVEDORES_MIDIA:
+        PROVEDORES_MIDIA.append(bella_galeria.provedor_iniciativa)
+
+
+_registrar_galeria()

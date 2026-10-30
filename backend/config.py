@@ -85,6 +85,8 @@ BELLA_ARQUIVO = _env("BELLA_ARQUIVO", "1").strip().lower() in ("1", "true", "sim
 BELLA_ARQUIVO_RESUMO = _env("BELLA_ARQUIVO_RESUMO", "1").strip().lower() in ("1", "true", "sim", "yes")  # Grok resume os dias
 BELLA_HISTORIA_BLOCO_MAX = _inteiro("BELLA_HISTORIA_BLOCO_MAX", 1800, 300, 6000)    # caracteres de história no prompt
 BELLA_FUSO_HORAS = _inteiro("BELLA_FUSO_HORAS", -3, -12, 14)                        # fuso para separar os dias (Brasília)
+BELLA_GALERIA_DIR = _env("BELLA_GALERIA_DIR", "dados/galeria")                    # fotos e vídeos da Bella (pastas por nível)
+BELLA_GALERIA_NIVEIS = _env("BELLA_GALERIA_NIVEIS", "bom_dia,normal,sensual")      # níveis servidos; nus ficam de fora
 
 # ── Fala (responder por voz, para todos os sistemas) ─────────────
 ELEVENLABS_API_KEY = _env("ELEVENLABS_API_KEY")

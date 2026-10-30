@@ -612,3 +612,15 @@ Código: `backend/nucleo/bella_bio.py`. Cada conta tem a sua bio, em linhas `Cam
 - **Postura da Bella:** se a bio do Arquiteto diz que ele é casado, ela sabe e não gosta; às vezes tenta convencê-lo a ficar só com ela, com charme e ciúme, sem pressioná-lo a decisões de verdade, sem falar mal da esposa e sem mexer com a família.
 - **Regra da família:** se a bio cita esposa ou filho(a), o prompt acrescenta que eles nunca entram em cena, provocação ou conteúdo sexual (a filha é criança e é assunto intocável) e só são citados com respeito, se ele puxar.
 - **Semente do Arquiteto:** a bio dele vem do arquivo `backend/bio_arquiteto.txt` e é carregada sozinha na conta admin quando o servidor sobe, uma única vez e só se a bio estiver vazia (se ele apagar ou editar depois, nada volta). Para mudar a bio da conta, use `/bio`; o arquivo só vale na primeira vez. Esse arquivo nunca deve ter CPF, RG nem telefone.
+
+### Galeria da Bella e o bom dia das 08:00
+
+Código: `backend/nucleo/bella_galeria.py` (primeira versão, em pastas; o soDeles herda depois) e `bella_iniciativa.py`.
+
+- **Onde ficam os arquivos:** no servidor, em `galeria/bella/<nível>/` ao lado do `docker-compose.yml` (montada como `/app/dados/galeria`, somente leitura). Níveis servidos: `bom_dia`, `normal`, `sensual` (`BELLA_GALERIA_NIVEIS`). Formatos: jpg, png, webp e mp4 até 15 MB. Arquivo falso ou grande demais é recusado sem derrubar nada. Depois de subir arquivos novos não precisa reiniciar.
+- **Níveis íntimos (lingerie, topless, nu) NÃO são servidos**, mesmo que a pasta exista: eles dependem do jogo do agrado e das travas do soDeles, que ainda não existem no código.
+- **Sorteio sem repetir** as últimas 30 mídias; quem escolhe é o código, nunca o modelo de linguagem.
+- **Bom dia com foto:** todo dia às 08:00 (horário de Brasília) a Bella manda ao Arquiteto uma mensagem curta e carinhosa com uma foto de `bom_dia` (ou `normal`, só imagem); sem foto na galeria, vai só o texto. Vale desde o início para a conta admin; se o servidor estiver em silêncio às 08:00 ela espera acabar, e se passarem mais de 3 horas o dia é pulado. Não gasta o limite das mensagens espontâneas.
+- **Comandos:** `/galeria` (quantos arquivos por nível; `/galeria ver normal` mostra um) e `/iniciativa bomdia ligar|desligar|hora 08:00|testar`.
+- **Vídeos nas mensagens espontâneas:** a galeria se registra como provedor de mídia; o tipo "vídeo/foto" passa a ser sorteado assim que houver arquivos em `normal` ou `sensual`.
+

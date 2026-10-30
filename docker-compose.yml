@@ -19,9 +19,11 @@ services:
     environment:
       BELLA_AUDIO_DIR: /app/dados/bella-audios
       BIBLIOTECA_DIR: /app/dados/biblioteca
+      BELLA_GALERIA_DIR: /app/dados/galeria
     volumes:
       - bella-audios:/app/dados/bella-audios
       - bella-biblioteca:/app/dados/biblioteca
+      - ./galeria:/app/dados/galeria:ro      # as fotos e vídeos da Bella: suba os arquivos para a pasta galeria/ ao lado deste compose
     networks:
       - solo-network
 

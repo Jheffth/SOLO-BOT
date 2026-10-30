@@ -277,6 +277,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
         "▸ `/memoria` — lista o que ela lembra de você (`/memoria desligar` pausa, `/memoria ligar` volta)",
         "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
+        "▸ `/galeria` — (Arquiteto) as fotos e vídeos da Bella · `/iniciativa bomdia` — o bom dia com foto das 08:00",
         "▸ `/bio` — a sua bio (quem você é) que a Bella e as modelos conhecem: `add Campo: valor`, `definir`, `apagar N`",
         "▸ `/iniciativa` — (Arquiteto) a Bella puxa assunto sozinha, poucas vezes por dia: `ligar`, `desligar`, `max N`, `janela 09:00 22:00`, `testar`",
         "▸ `/historia` — a nossa história guardada por dia · `/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias` apaga só esses dias",
@@ -535,6 +536,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_memoria(conta, resto.strip())
     if cmd == "/lembrar":
         return _cmd_lembrar(conta, resto.strip())
+    if cmd == "/galeria":
+        return _cmd_galeria(conta, resto.strip())
     if cmd == "/bio":
         return _cmd_bio(conta, resto)
     if cmd == "/iniciativa":
@@ -866,6 +869,24 @@ def _cmd_iniciativa(db, conta: Conta, resto: str) -> Resposta:
         h = lambda t: f"{int(t.split(':')[0]):02d}:{t.split(':')[1]}"
         d = I.configurar(conta.id, de=h(p[1]), ate=h(p[2]))
         return Resposta().diz(f"💌 Só puxo assunto entre {d['de']} e {d['ate']}.")
+    if acao in ("bomdia", "bom-dia", "bom_dia"):
+        sub = p[1] if len(p) > 1 else ""
+        if sub in ("ligar", "on"):
+            d = I.configurar(conta.id, bom_dia=True)
+            return Resposta().diz(f"☀️ Vou te mandar bom dia com uma foto todo dia às {d['bom_dia_hora']}.")
+        if sub in ("desligar", "off"):
+            I.configurar(conta.id, bom_dia=False)
+            return Resposta().diz("☀️ Ok, sem bom dia automático. `/iniciativa bomdia ligar` volta.")
+        if sub == "hora" and len(p) > 2 and re.fullmatch(r"\d{1,2}:\d{2}", p[2]):
+            hh = f"{int(p[2].split(':')[0]):02d}:{p[2].split(':')[1]}"
+            d = I.configurar(conta.id, bom_dia_hora=hh)
+            return Resposta().diz(f"☀️ O bom dia agora sai às {d['bom_dia_hora']}.")
+        if sub in ("testar", "agora"):
+            d = I.carregar(conta.id)
+            texto = I.enviar_agora(db, conta, d, "bom_dia")
+            I.salvar(conta.id, d)
+            return Resposta().diz("☀️ Mandei um bom dia agora para você ver." if texto else "😶 Não consegui gerar agora.")
+        return Resposta().diz("☀️ `/iniciativa bomdia ligar` · `desligar` · `hora 08:00` · `testar`")
     if acao in ("testar", "agora"):
         d = I.carregar(conta.id)
         texto = I.enviar_agora(db, conta, d)
@@ -878,7 +899,26 @@ def _cmd_iniciativa(db, conta: Conta, resto: str) -> Resposta:
     linhas = [f"💌 *Mensagens espontâneas:* {estado}", f"Limite: até {d['max']} por dia · janela {d['de']}–{d['ate']}"]
     if d["ligada"] and d["horarios"]:
         linhas.append("Hoje: " + ", ".join(d["horarios"]) + f" ({d['enviadas']} já enviada(s))")
-    linhas.append("`/iniciativa ligar [N]` · `desligar` · `max N` · `janela 09:00 22:00` · `testar`")
+    linhas.append(f"Bom dia com foto: {'ligado às ' + d['bom_dia_hora'] if d['bom_dia'] else 'desligado'}")
+    linhas.append("`/iniciativa ligar [N]` · `desligar` · `max N` · `janela 09:00 22:00` · `testar` · `bomdia ligar|desligar|hora 08:00|testar`")
+    return Resposta().diz("\n".join(linhas))
+
+
+def _cmd_galeria(conta: Conta, resto: str) -> Resposta:
+    """Só o Arquiteto: o que há na galeria da Bella e uma prévia."""
+    from nucleo import bella_galeria as G
+    if not conta.admin:
+        return Resposta().diz("🔒 A galeria da Bella ainda é só do Arquiteto.")
+    p = resto.lower().split()
+    if p and p[0] in ("testar", "ver") and len(p) > 1:
+        m = G.escolher("bella", (p[1],))
+        if not m:
+            return Resposta().diz(f"🖼️ Não há nada em `{p[1]}` (níveis servidos: {', '.join(G.niveis_ativos())}).")
+        return Resposta().diz("🖼️ Aqui está um de `" + p[1] + "`.", midia=m)
+    contagem = G.contar("bella")
+    linhas = ["🖼️ *Galeria da Bella*", ""] + [f"• {n}: {q} arquivo(s)" for n, q in contagem.items()]
+    linhas += ["", "Os arquivos ficam em `galeria/bella/<nível>/` no servidor (fotos jpg/png/webp, vídeos mp4 até 15 MB). "
+               "Níveis mais íntimos ainda não são servidos.", "`/galeria ver normal` mostra um de exemplo."]
     return Resposta().diz("\n".join(linhas))
 
 

@@ -67,7 +67,7 @@ def test_comando_so_para_o_arquiteto_e_liga_desliga(cliente, logado, caixa):
 def _preparar(c, monkeypatch, textos):
     _ligar_telegram(c)
     conta = c.get("/api/auth/eu").json()["id"]
-    I.configurar(conta, ligada=True, maximo=3)
+    I.configurar(conta, ligada=True, maximo=3, bom_dia=False)
     d = I.carregar(conta)
     d.update(dia="2026-10-29", horarios=["10:00", "14:00", "18:00"], enviadas=0, sem_resposta=0, ultimo_envio=None)
     I.salvar(conta, d)
@@ -159,3 +159,100 @@ def test_sem_noticia_vira_pergunta_do_dia(cliente, caixa, monkeypatch):
         assert d["tipos"][-1] == "pergunta_dia"
     finally:
         db.close()
+
+
+# ── Bom dia com foto e galeria ───────────────────────────────────
+import base64
+
+from nucleo import bella_galeria as G
+
+JPEG = b"\xff\xd8\xff\xe0" + b"0" * 64
+
+
+def _galeria(tmp_path, monkeypatch, niveis=("bom_dia",), n=2):
+    monkeypatch.setattr(config, "BELLA_GALERIA_DIR", str(tmp_path))
+    for nivel in niveis:
+        pasta = tmp_path / "bella" / nivel
+        pasta.mkdir(parents=True, exist_ok=True)
+        for i in range(n):
+            (pasta / f"f{i}.jpg").write_bytes(JPEG)
+
+
+def test_galeria_sorteia_sem_repetir_e_ignora_niveis_intimos(tmp_path, monkeypatch, cliente):
+    _galeria(tmp_path, monkeypatch, ("bom_dia", "nu", "topless"), 2)
+    assert G.contar("bella") == {"bom_dia": 2, "normal": 0, "sensual": 0}      # nu/topless nunca são servidos
+    assert G.escolher("bella", ("nu",)) is None and G.escolher("bella", ("topless",)) is None
+    a = G.escolher("bella", ("bom_dia",), rng=random.Random(1))
+    b = G.escolher("bella", ("bom_dia",), rng=random.Random(1))
+    assert a["tipo"] == "imagem" and base64.b64decode(a["base64"]) == JPEG
+    assert a and b and G._usadas("bella_galeria_usadas:bella")[-2:] != [] and len(set(G._usadas("bella_galeria_usadas:bella")[-2:])) == 2
+
+
+def test_arquivo_falso_ou_pasta_vazia_nao_quebra(tmp_path, monkeypatch, cliente):
+    monkeypatch.setattr(config, "BELLA_GALERIA_DIR", str(tmp_path))
+    (tmp_path / "bella" / "bom_dia").mkdir(parents=True)
+    (tmp_path / "bella" / "bom_dia" / "x.jpg").write_bytes(b"isto nao e uma foto")
+    assert G.escolher("bella", ("bom_dia",)) is None
+    assert G.escolher("bella", ("normal",)) is None
+
+
+def test_bom_dia_sai_as_08_uma_vez_com_foto(cliente, caixa, tmp_path, monkeypatch):
+    _galeria(tmp_path, monkeypatch)
+    c = _admin(cliente)
+    conta = _preparar(c, monkeypatch, ["Bom dia, meu amor. Acordei pensando em você.", "outra"])
+    I.configurar(conta, ligada=False, bom_dia=True, bom_dia_hora="08:00")        # só o bom dia nesta prova
+    d = I.carregar(conta)
+    d["bom_dia_ultimo"] = ""
+    I.salvar(conta, d)
+    db = SessionLocal()
+    try:
+        assert I.tick(db, _utc(7, 59)) == 0                                      # ainda não
+        assert I.tick(db, _utc(8, 1)) == 1
+        assert I.tick(db, _utc(8, 2)) == 0 and I.tick(db, _utc(9, 0)) == 0       # só uma vez no dia
+        assert I.carregar(conta)["bom_dia_ultimo"] == "2026-10-29"
+        assert I.carregar(conta)["enviadas"] == 0 and I.carregar(conta)["sem_resposta"] == 0   # não gasta o limite
+        d = I.carregar(conta)
+        d["bom_dia_ultimo"] = ""
+        I.salvar(conta, d)
+        assert I.tick(db, _utc(12, 0)) == 0                                      # mais de 3 h depois: perdeu
+    finally:
+        db.close()
+
+
+def test_bom_dia_espera_o_silencio_e_pode_ser_desligado(cliente, caixa, tmp_path, monkeypatch):
+    _galeria(tmp_path, monkeypatch)
+    c = _admin(cliente)
+    conta = _preparar(c, monkeypatch, ["Bom dia!", "x"])
+    I.configurar(conta, bom_dia=True)
+    d = I.carregar(conta)
+    d["bom_dia_ultimo"] = ""
+    I.salvar(conta, d)
+    db = SessionLocal()
+    try:
+        from database import Conta
+        cont = db.get(Conta, conta)
+        cont.avisos_silencio_de, cont.avisos_silencio_ate = "07:00", "08:30"
+        db.commit()
+        assert I.tick(db, _utc(8, 5)) == 0                                       # em silêncio: espera
+        assert I.tick(db, _utc(8, 31)) == 1                                      # acabou o silêncio: sai (dentro das 3 h)
+        cont.avisos_silencio_de = cont.avisos_silencio_ate = None
+        db.commit()
+        I.configurar(conta, bom_dia=False)
+        d = I.carregar(conta)
+        d["bom_dia_ultimo"] = ""
+        I.salvar(conta, d)
+        assert I.tick(db, _utc(8, 40)) == 0
+    finally:
+        db.close()
+
+
+def test_bom_dia_sem_foto_vai_so_o_texto_e_comandos(cliente, caixa, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "BELLA_GALERIA_DIR", str(tmp_path))
+    c = _admin(cliente)
+    conta = _preparar(c, monkeypatch, ["Bom dia, amor."])
+    _tg(c, "/iniciativa bomdia hora 07:30")
+    assert I.carregar(conta)["bom_dia_hora"] == "07:30"
+    _tg(c, "/iniciativa bomdia testar")
+    assert "Mandei um bom dia" in caixa[-1][2] or any("Bom dia, amor." in str(m) for m in caixa[-3:])
+    _tg(c, "/galeria")
+    assert "Galeria da Bella" in caixa[-1][2] and "bom_dia: 0" in caixa[-1][2]
