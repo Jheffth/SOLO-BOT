@@ -18,3 +18,10 @@ up_bot.py
 test-runs/
 .claude/
 dados/
+
+# fotos e vídeos da galeria da Bella ficam só no servidor e no seu PC, nunca no git
+galeria/**/*.jpg
+galeria/**/*.jpeg
+galeria/**/*.png
+galeria/**/*.webp
+galeria/**/*.mp4
