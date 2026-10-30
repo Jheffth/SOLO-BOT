@@ -87,3 +87,25 @@ def test_comandos_pelo_chat(cliente, caixa):
     assert "confirmo" in caixa[-1][2] and B.listar(conta)
     _tg(c, "/bio limpar confirmo")
     assert B.listar(conta) == []
+
+
+def test_semente_da_bio_entra_uma_vez_so_e_nao_volta_depois_de_apagada(cliente, tmp_path):
+    conta = _admin(cliente).get("/api/auth/eu").json()["id"]
+    B.limpar(conta)
+    from database import SessionLocal, gravar_config
+    db = SessionLocal()
+    gravar_config(db, f"bella_bio_semeada:{conta}", "0")
+    db.close()
+    arq = tmp_path / "bio.txt"
+    arq.write_text("Cidade: Brasília\nCPF 01034388150\nEstado civil: Casado com Gizele\n", encoding="utf-8")
+    assert B.semear_arquiteto(str(arq)) == 2 and len(B.listar(conta)) == 2        # o CPF não entra
+    B.limpar(conta)
+    assert B.semear_arquiteto(str(arq)) == 0 and B.listar(conta) == []             # apagou: não volta
+    assert B.semear_arquiteto(str(tmp_path / "nao_existe.txt")) == 0
+
+
+def test_arquivo_de_semente_do_projeto_nao_tem_dado_proibido():
+    import os
+    arq = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "bio_arquiteto.txt")
+    linhas = [l for l in open(arq, encoding="utf-8").read().splitlines() if l.strip()]
+    assert linhas and all(B.validar(l)[0] for l in linhas)

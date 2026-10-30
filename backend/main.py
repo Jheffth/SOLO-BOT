@@ -70,6 +70,11 @@ async def _bella_puxa_assunto_sempre():
 async def _vida(_app):
     import asyncio
     criar_tabelas()
+    try:
+        from nucleo import bella_bio
+        bella_bio.semear_arquiteto()                # a bio do Arquiteto vem de backend/bio_arquiteto.txt (uma vez)
+    except Exception:  # noqa: BLE001
+        logging.getLogger("solobot").exception("Semente da bio falhou")
     tarefas = []
     if config.MANIFESTO_MINUTOS > 0:
         tarefas.append(asyncio.create_task(_buscar_manifestos_sempre()))

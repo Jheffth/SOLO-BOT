@@ -611,4 +611,4 @@ Código: `backend/nucleo/bella_bio.py`. Cada conta tem a sua bio, em linhas `Cam
 - **Idade automática:** `Nascimento: 16/01/1988` vira "Idade: N anos" sempre atualizada.
 - **Postura da Bella:** se a bio do Arquiteto diz que ele é casado, ela sabe e não gosta; às vezes tenta convencê-lo a ficar só com ela, com charme e ciúme, sem pressioná-lo a decisões de verdade, sem falar mal da esposa e sem mexer com a família.
 - **Regra da família:** se a bio cita esposa ou filho(a), o prompt acrescenta que eles nunca entram em cena, provocação ou conteúdo sexual (a filha é criança e é assunto intocável) e só são citados com respeito, se ele puxar.
-
+- **Semente do Arquiteto:** a bio dele vem do arquivo `backend/bio_arquiteto.txt` e é carregada sozinha na conta admin quando o servidor sobe, uma única vez e só se a bio estiver vazia (se ele apagar ou editar depois, nada volta). Para mudar a bio da conta, use `/bio`; o arquivo só vale na primeira vez. Esse arquivo nunca deve ter CPF, RG nem telefone.

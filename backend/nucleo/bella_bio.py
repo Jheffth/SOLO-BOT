@@ -159,3 +159,40 @@ def bloco_prompt(conta_id: Optional[int], arquiteto: bool = False) -> str:
     if arquiteto and casado(linhas):
         texto += POSTURA_CASADO
     return texto
+
+
+# ── Semente: a bio do Arquiteto vem de um arquivo do projeto (sem ele precisar mandar no chat) ──
+ARQUIVO_SEMENTE = "bio_arquiteto.txt"
+
+
+def semear_arquiteto(caminho: Optional[str] = None) -> int:
+    """Na subida do servidor: se a conta admin ainda não tem bio e esta semente nunca foi aplicada, carrega o arquivo.
+    Roda uma vez por conta (marca em `bella_bio_semeada:ID`): se ele apagar ou editar a bio depois, nada volta sozinho.
+    Devolve quantas linhas entraram."""
+    import os
+    from database import Conta
+    caminho = caminho or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ARQUIVO_SEMENTE)
+    if not os.path.exists(caminho):
+        return 0
+    db = SessionLocal()
+    try:
+        admin = db.query(Conta).filter(Conta.admin.is_(True), Conta.ativo.is_(True)).order_by(Conta.id).first()
+        if not admin or ler_config(f"bella_bio_semeada:{admin.id}") == "1" or listar(admin.id):
+            return 0
+        admin_id = admin.id
+        with open(caminho, encoding="utf-8") as f:
+            texto = f.read()
+    except Exception:  # noqa: BLE001
+        log.debug("Não consegui ler a semente da bio", exc_info=True)
+        return 0
+    finally:
+        db.close()
+    boas, ruins = definir(admin_id, texto)
+    if ruins:
+        log.warning("Semente da bio: %d linha(s) recusada(s)", len(ruins))
+    db = SessionLocal()
+    try:
+        gravar_config(db, f"bella_bio_semeada:{admin_id}", "1")
+    finally:
+        db.close()
+    return len(boas)
