@@ -477,9 +477,15 @@ def test_charactersheet_reconhece_pedido_e_modos():
     assert pb.modo_ficha("só a modelo, ruiva") == ("personagem", "ruiva")
     assert pb.modo_ficha("com cenário praia ao entardecer") == ("cenario", "praia ao entardecer")
     assert pb.modo_ficha("vestido vermelho") == ("padrao", "vestido vermelho")
+    assert pb.modo_ficha("roupa") == ("roupa", "")
+    assert pb.modo_ficha("tudo") == ("tudo", "")
+    assert pb.modo_ficha("personagem") == ("personagem", "")
+    assert pb.modo_ficha("cenário") == ("cenario", "")
+    assert pb.modo_ficha("") == ("padrao", "")
+    assert pb.solicitacao("/charactersheet roupa") == ("ficha", "roupa")
 
 
-@pytest.mark.parametrize("modo", ["padrao", "roupa", "personagem", "cenario"])
+@pytest.mark.parametrize("modo", ["padrao", "roupa", "personagem", "cenario", "tudo"])
 def test_charactersheet_cria_prancha_realista_em_cada_modo(monkeypatch, modo):
     from nucleo import grok, prompts_bella as pb
     pb._REFERENCIAS.clear()
@@ -487,13 +493,12 @@ def test_charactersheet_cria_prancha_realista_em_cada_modo(monkeypatch, modo):
     pronto = pb.modelo_ficha(modo)
     assert "16:9" in pronto and "poros visíveis" in pronto and "Evite aparência de IA" in pronto
     monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or pronto)
-    pedido = {"padrao": "vestido vermelho", "roupa": "só a roupa vestido vermelho", "personagem": "só o personagem",
-              "cenario": "com cenário praia"}[modo]
+    pedido = {"padrao": "", "roupa": "roupa", "personagem": "personagem", "cenario": "cenário", "tudo": "tudo"}[modo]
     texto = pb.criar(pedido, "f1", "ficha")
     instr, entrada, kw = vistos[0]
     assert texto == pronto and "Spicy mode" not in texto and "9:16" not in texto
     assert pb._FICHA_MODOS[modo] in instr
-    assert "só a roupa" not in entrada.lower() and "com cenário" not in entrada.lower()
+    assert "Pedido: roupa" not in entrada and "Pedido: tudo" not in entrada
     assert pb._recente("f1") == "ficha"
 
 
@@ -520,7 +525,7 @@ def test_charactersheet_com_referencia_e_recusa(monkeypatch):
     monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or pronto)
     pb.criar("", "f3", "ficha")
     assert vistos[0][2]["imagens"] == [("image/png", "YWJj")] and "REFERÊNCIA ANEXADA" in vistos[0][0]
-    assert "características e a roupa da imagem" in vistos[0][1]
+    assert "Use da imagem de referência: as características da modelo e a roupa" in vistos[0][1]
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: "texto qualquer que não começa pelo modelo " * 40)
     assert pb.criar("x", "f3", "ficha") is None
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: "RECUSA: uniforme escolar")

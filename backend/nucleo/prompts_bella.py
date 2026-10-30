@@ -337,11 +337,13 @@ _FICHA_MODOS = {
     "padrao": "FICHA PADRÃO: personagem com roupa. Três vistas de corpo inteiro, closes do rosto e detalhes da roupa, em fundo neutro.",
     "roupa": "SÓ A ROUPA: o foco é a roupa e os acessórios, descritos peça por peça (tecido, costuras, fecho). O rosto não é o foco e não há cenário.",
     "personagem": "SÓ O PERSONAGEM: rosto, corpo, cabelo e detalhes da pele. A roupa é básica e neutra, sem detalhes de roupa e sem cenário.",
+    "tudo": "TUDO DA IMAGEM: a prancha traz a modelo, a roupa e o cenário, todos extraídos fielmente da imagem anexa.",
     "cenario": "PERSONAGEM, ROUPA E CENÁRIO: além das vistas da modelo vestida, a prancha traz o cenário sozinho e a modelo dentro dele.",
 }
 
 
 def modelo_ficha(modo="padrao"):
+    modo = "cenario" if modo == "tudo" else modo
     return _FICHA_ABERTURA + "\n\n" + _FICHA_LAYOUT.get(modo, _FICHA_LAYOUT["padrao"]) + "\n\n" + _FICHA_REALISMO
 
 
@@ -378,6 +380,16 @@ REFERÊNCIA ANEXADA: junto do pedido há uma imagem.
   uma pessoa utilizável, responda somente com uma linha começando por "RECUSA:" e o motivo curto, sem prompt."""
 
 
+INSTRUCAO_FICHA_TUDO = """
+
+MODO TUDO (vale acima das regras da referência anteriores, exceto idade, recusa e anonimato): extraia TUDO da imagem
+anexa e descreva com o máximo de fidelidade: rosto, pele, cabelo, corpo, pintas, tatuagens (desenho, lado e local exato),
+piercings, joias, unhas, maquiagem, roupa peça por peça (cor, tecido, corte, acessórios, calçados) e o CENÁRIO da imagem
+(local, objetos, materiais, luz, paleta, hora do dia). Coloque cada informação no campo certo e amplie os campos quanto
+for preciso, sem apagar o texto fixo. Só descreva o que se vê; nunca invente tatuagens ou piercings. Um pedido escrito
+junto manda sobre a imagem."""
+
+
 def instrucao_ficha(modo="padrao"):
     return (INSTRUCAO_FICHA + "\nMODO DESTA FICHA: " + _FICHA_MODOS.get(modo, _FICHA_MODOS["padrao"])
             + "\n\nMODELO:\n" + modelo_ficha(modo))
@@ -389,6 +401,11 @@ _PEDIDO_FICHA = re.compile(
     r"(?:character\s*sheet|ficha\s+de\s+personagem|folha\s+de\s+personagem)\b)"
     r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
 _MODOS_FICHA = (
+    # com a imagem anexa, basta a palavra: /charactersheet roupa | personagem | cenario | tudo
+    ("tudo", re.compile(r"^\s*(?:tudo|completo|extrair\s+tudo|extra[ií]\s+tudo)\b[\s:,\-–]*|\b(?:extrair|extraia)\s+tudo\b", re.I)),
+    ("roupa", re.compile(r"^\s*(?:roupas?|look|figurino)\b[\s:,\-–]*", re.I)),
+    ("personagem", re.compile(r"^\s*(?:personagem|modelo|pessoa)\b[\s:,\-–]*", re.I)),
+    ("cenario", re.compile(r"^\s*cen[aá]rio\b[\s:,\-–]*", re.I)),
     ("roupa", re.compile(r"\b(?:s[oó]|apenas|somente)\s+(?:a\s+|as\s+)?(?:roupas?|looks?|figurinos?|vestimentas?)\b|\bficha\s+de\s+roupas?\b", re.I)),
     ("personagem", re.compile(r"\b(?:s[oó]|apenas|somente)\s+(?:(?:a|o|as|os)\s+)?(?:personagem|modelo|pessoa)\b", re.I)),
     ("cenario", re.compile(r"\b(?:com|tamb[eé]m|mais|incluindo)\s+(?:(?:o|um|os)\s+)?(?:cen[aá]rios?|ambientes?)\b", re.I)),
@@ -646,10 +663,16 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
     elif ref and not pedido:
         entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
     if ficha:
-        entrada = ("Pedido: " + pedido[:600]) if pedido else (
-            "Pedido: aleatório. Sorteie " + ("a roupa e o cenário" if modo == "cenario" else "a roupa" if modo != "personagem" else "a modelo e a roupa básica")
-            + ", diferentes dos últimos." if not ref else "Pedido: use as características e a roupa da imagem de referência.")
-        base = instrucao_ficha(modo) + (INSTRUCAO_REFERENCIA_FICHA if ref else "")
+        from_img = {"padrao": "as características da modelo e a roupa", "roupa": "a roupa, copiada fielmente peça por peça",
+                    "personagem": "as características da modelo (rosto, cabelo, corpo, detalhes)",
+                    "cenario": "as características da modelo, a roupa e o cenário", "tudo": "TUDO (modelo, roupa e cenário)"}[modo]
+        if ref:
+            entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + f"Use da imagem de referência: {from_img}."
+        else:
+            entrada = ("Pedido: " + pedido[:600]) if pedido else (
+                "Pedido: aleatório. Sorteie " + ("a roupa e o cenário" if modo in ("cenario", "tudo") else "a roupa" if modo != "personagem" else "a modelo e a roupa básica")
+                + ", diferentes dos últimos.")
+        base = instrucao_ficha(modo) + (INSTRUCAO_REFERENCIA_FICHA if ref else "") + (INSTRUCAO_FICHA_TUDO if ref and modo == "tudo" else "")
     elif pose:
         base = INSTRUCAO_POSE + (INSTRUCAO_REFERENCIA_POSE if ref else "")
         if ref and not pedido:
@@ -666,9 +689,9 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         if pose:
             base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (INSTRUCAO_REFERENCIA_POSE if ref else "")
         base = suavizar(base) + (REGRAS_SUAVES.replace("o formato, o 9:16 e", "o formato e") if ficha else REGRAS_SUAVES)
-    orcamento = 70 if tudo else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
+    orcamento = 70 if (tudo or (ficha and modo == "tudo")) else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
     inicio = time.monotonic()
-    tokens = 8000 if tudo else 4096 if (ref or ficha) else 2048      # o raciocínio do modelo também conta nesse limite
+    tokens = 8000 if (tudo or (ficha and modo == 'tudo')) else 4096 if (ref or ficha) else 2048      # o raciocínio do modelo também conta nesse limite
     aviso = ""
     for tentativa in (1, 2):
         restante = orcamento - (time.monotonic() - inicio)

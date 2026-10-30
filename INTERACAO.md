@@ -459,14 +459,15 @@ Um sistema pode devolver, ao lado de `texto` e `audio`, o campo opcional `midia`
 
 ## Character sheet em foto real (`/charactersheet`)
 
-Prancha de personagem 16:9 em fotografia real, com o mesmo realismo do `/prompt` (pele com poros, sem cara de IA, mesmos "evite/não criar"). Também vale em português: "crie um prompt de character sheet ...". Quatro modos, escolhidos pelo que você escreve:
+Prancha de personagem 16:9 em fotografia real, com o mesmo realismo do `/prompt` (pele com poros, sem cara de IA, mesmos "evite/não criar"). O uso normal é **com a imagem anexa** (vale 15 min, ou legenda `/charactersheet ...` na foto): o Grok tira dela o que o modo pede. Basta uma palavra:
 
-- `/charactersheet vestido vermelho`: **padrão**, personagem com roupa (frente, lado, costas, closes do rosto, detalhes da roupa).
-- `/charactersheet só a roupa vestido vermelho`: **só a roupa**, com grade de detalhes (tecido, costuras, fecho, joias).
-- `/charactersheet só o personagem`: **só o personagem**, rosto, corpo, cabelo e detalhes da pele, com roupa básica neutra.
-- `/charactersheet com cenário praia ao entardecer`: **personagem, roupa e cenário**, com o cenário sozinho e a modelo dentro dele.
+- `/charactersheet`: **padrão**, personagem com a roupa do anexo (frente, lado, costas, closes do rosto, detalhes da roupa).
+- `/charactersheet roupa`: **só a roupa** do anexo, copiada peça por peça, com grade de detalhes (tecido, costuras, fecho, joias).
+- `/charactersheet personagem`: **só o personagem**, rosto, corpo, cabelo e detalhes da pele, com roupa básica neutra.
+- `/charactersheet cenario`: personagem, roupa **e cenário** do anexo (o cenário sozinho e a modelo dentro dele).
+- `/charactersheet tudo`: **extrai tudo** do anexo (rosto, pele, tatuagens, joias, roupa, cenário e luz), no mesmo modo de extração total do `/promptmodelo`.
 
-Com imagem anexa (referência de 15 min), o Grok tira da foto os traços fixos e a roupa. O mesmo prompt vem pelo Bella.exe, WhatsApp e Telegram, na caixa de copiar. "Sem sensualização" na conta troca o texto sensual por equivalentes casuais e recusa saída que ainda tenha termos sensuais. Tem alias `/fichapersonagem`.
+Texto depois da palavra ajusta o resultado (`/charactersheet roupa mais curta e preta`). Sem imagem, o texto descreve o que se quer e o resto é sorteado. Também vale em português ("crie um prompt de character sheet"). O prompt vem na caixa de copiar do Bella.exe, WhatsApp e Telegram. "Sem sensualização" na conta troca o texto sensual por casual e recusa saída ainda sensual. Alias `/fichapersonagem`.
 
 ## Imagens pelo Grok
 

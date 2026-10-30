@@ -291,7 +291,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/promptroupa` — descreve uma roupa (da foto ou do pedido) para vestir em outra imagem: `/promptroupa lingerie preta de renda`",
         "▸ `/posehot` — pose sensual de uma pessoa para aplicar em outra imagem: `/posehot de bruços olhando para trás`",
         "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",
-        "▸ `/charactersheet` — prancha de personagem em foto real (frente, lado, costas, rosto): `/charactersheet vestido vermelho`. Modos: `só a roupa`, `só o personagem`, `com cenário praia`",
+        "▸ `/charactersheet` — prancha de personagem em foto real, com a imagem anexa: `roupa` (só a roupa do anexo), `personagem`, `cenario` ou `tudo` (extrai tudo). Sem palavra: personagem com roupa",
         "    _Mande a foto junto para usar de referência. A opção *Sem sensualização* (prompts neutros) fica no painel do Solo Bot._",
     ])
     bloco("🔊 VOZ DAS RESPOSTAS", [
