@@ -917,7 +917,7 @@ def _cmd_galeria(conta: Conta, resto: str) -> Resposta:
         return Resposta().diz("🖼️ Aqui está um de `" + p[1] + "`.", midia=m)
     contagem = G.contar("bella")
     linhas = ["🖼️ *Galeria da Bella*", ""] + [f"• {n}: {q} arquivo(s)" for n, q in contagem.items()]
-    linhas += ["", "Os arquivos ficam em `galeria/bella/<nível>/` no servidor (fotos jpg/png/webp, vídeos mp4 até 15 MB). "
+    linhas += ["", "Os arquivos ficam em `galeria/bella/<nível>/` no servidor (fotos jpg/png/webp, vídeos mp4 até 50 MB). "
                "Níveis mais íntimos ainda não são servidos.", "`/galeria ver normal` mostra um de exemplo."]
     return Resposta().diz("\n".join(linhas))
 

@@ -9,6 +9,6 @@ Coloque aqui as fotos e vídeos da Bella. O Solo Bot lê esta pasta (montada com
     galeria/bella/topless/    ├ NÃO são servidos até você incluí-los em BELLA_GALERIA_NIVEIS no .env
     galeria/bella/nu/         ┘
 
-Formatos: jpg, png, webp e mp4 (até 15 MB). As mídias NÃO vão para o git (veja o .gitignore): suba-as direto na VPS
+Formatos: jpg, png, webp e mp4 (até 50 MB). As mídias NÃO vão para o git (veja o .gitignore): suba-as direto na VPS
 (`scp`/`rsync` para a pasta `galeria/` ao lado do `docker-compose.yml`).
 Detalhes: seção "Galeria da Bella" em INTERACAO.md.

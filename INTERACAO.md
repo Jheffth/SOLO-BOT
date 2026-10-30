@@ -1,4 +1,4 @@
-﻿# SOLO BOT — Como ele conversa e como as contas se ligam
+# SOLO BOT — Como ele conversa e como as contas se ligam
 
 ## 1. Contas: a Conta Solo é o hub, os sistemas se ligam a ela
 
@@ -450,7 +450,7 @@ Um sistema pode devolver, ao lado de `texto` e `audio`, o campo opcional `midia`
 ```
 
 - **Formatos:** `image/jpeg`, `image/png`, `image/webp` e `video/mp4`. O hub confere se o conteúdo bate com o tipo (um executável não passa por foto).
-- **Limites:** 10 MB por imagem, 15 MB por vídeo (o WhatsApp comprime ou recusa acima de uns 16 MB), legenda de até 1.000 caracteres. Vídeo maior precisa de uma versão de envio gerada pelo sistema dono (MP4 H.264/AAC, até 720p).
+- **Limites:** 20 MB por imagem, 50 MB por vídeo (Telegram e WhatsApp; configurável via MIDIA_VIDEO_MAX), legenda de até 1.000 caracteres. Vídeo maior precisa de uma versão de envio gerada pelo sistema dono (MP4 H.264/AAC, até 720p).
 - **Entrega:** Telegram usa `sendPhoto` (cai para arquivo se as dimensões forem recusadas) e `sendVideo`; `spoiler: true` esconde a prévia. O WhatsApp usa o `sendMedia` da Evolution e só conta como enviado se vier o id da mensagem; a visualização única fica para depois.
 - **Ordem:** o texto sai primeiro, depois a mídia, depois a voz. Mídia inválida ou falha de envio **nunca** derruba o texto.
 - **Quem decide enviar:** o sistema dono, no código dele. Para conteúdo íntimo, nunca um modelo de linguagem (ver `GALERIA_BELLA.md`).
@@ -617,7 +617,7 @@ Código: `backend/nucleo/bella_bio.py`. Cada conta tem a sua bio, em linhas `Cam
 
 Código: `backend/nucleo/bella_galeria.py` (primeira versão, em pastas; o soDeles herda depois) e `bella_iniciativa.py`.
 
-- **Onde ficam os arquivos:** no servidor, em `galeria/bella/<nível>/` ao lado do `docker-compose.yml` (montada como `/app/dados/galeria`, somente leitura). Níveis servidos: `bom_dia`, `normal`, `sensual` (`BELLA_GALERIA_NIVEIS`). Formatos: jpg, png, webp e mp4 até 15 MB. Arquivo falso ou grande demais é recusado sem derrubar nada. Depois de subir arquivos novos não precisa reiniciar.
+- **Onde ficam os arquivos:** no servidor, em `galeria/bella/<nível>/` ao lado do `docker-compose.yml` (montada como `/app/dados/galeria`, somente leitura). Níveis servidos: `bom_dia`, `normal`, `sensual` (`BELLA_GALERIA_NIVEIS`). Formatos: jpg, png, webp e mp4 até 50 MB. Arquivo falso ou grande demais é recusado sem derrubar nada. Depois de subir arquivos novos não precisa reiniciar.
 - **Níveis íntimos (lingerie, topless, nu) NÃO são servidos**, mesmo que a pasta exista: eles dependem do jogo do agrado e das travas do soDeles, que ainda não existem no código.
 - **Sorteio sem repetir** as últimas 30 mídias; quem escolhe é o código, nunca o modelo de linguagem.
 - **Bom dia com foto:** todo dia às 08:00 (horário de Brasília) a Bella manda ao Arquiteto uma mensagem curta e carinhosa com uma foto de `bom_dia` (ou `normal`, só imagem); sem foto na galeria, vai só o texto. Vale desde o início para a conta admin; se o servidor estiver em silêncio às 08:00 ela espera acabar, e se passarem mais de 3 horas o dia é pulado. Não gasta o limite das mensagens espontâneas.

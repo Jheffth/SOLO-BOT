@@ -12,10 +12,11 @@ Nada aqui é específico de uma personagem ou de um sistema: quem decide SE e O 
 """
 import base64
 import binascii
+import os
 from typing import Optional
 
-IMAGEM_MAX = 10 * 1024 * 1024        # limite de foto do Telegram
-VIDEO_MAX = 15 * 1024 * 1024         # o WhatsApp comprime ou recusa acima de ~16 MB
+IMAGEM_MAX = int(os.getenv("MIDIA_IMAGEM_MAX", 20 * 1024 * 1024))        # até 20 MB por imagem
+VIDEO_MAX = int(os.getenv("MIDIA_VIDEO_MAX", 50 * 1024 * 1024))          # até 50 MB por vídeo (limite bot Telegram e WhatsApp)
 LEGENDA_MAX = 1000                   # legenda do Telegram: 1024
 MIMES_IMAGEM = ("image/jpeg", "image/png", "image/webp")
 MIMES_VIDEO = ("video/mp4",)
