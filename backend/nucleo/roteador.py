@@ -651,6 +651,8 @@ def _prompt_responder(db, conta: Conta, canal: str, pedido: str, categoria: str 
         motivo = _grok.motivo()
         return Resposta().diz("😶 Não consegui criar o prompt agora" + (f": {motivo}." if motivo else ".") + " Tente de novo em instantes.")
     _registrar(db, conta, canal, None, "bella", "prompt")
+    from nucleo import acervo_prompts
+    acervo_prompts.salvar_em_segundo_plano(conta, categoria, pedido, texto)     # guarda no Solo Prompts, se a conta estiver ligada
     r = Resposta().diz(texto)
     r.mensagens[-1]["falado"] = prompts_bella.FALADO
     r.mensagens[-1]["prompt"] = True        # o Bella.exe mostra numa caixa de texto para copiar

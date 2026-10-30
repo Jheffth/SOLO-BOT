@@ -119,6 +119,9 @@ MODULOS_PADRAO = [
     {"chave": "rot", "nome": "Solo Rotinas", "emoji": "⚔️", "cor": "#a78bfa",
      "descricao": "Missões do dia, dungeons e avisos.",
      "url": "http://solo_routines:8000", "token": "", "painel": ""},
+    {"chave": "prompts", "nome": "Solo Prompts", "emoji": "📚", "cor": "#c9a45c",
+     "descricao": "Sua biblioteca de prompts.",
+     "url": "http://solo_prompts:8000", "token": "", "painel": ""},
 ]
 
 

@@ -1,0 +1,67 @@
+"""O prompt gerado pela Bella vai sozinho para o Solo Prompts, sem nunca atrapalhar a resposta."""
+from types import SimpleNamespace
+import threading
+from nucleo import acervo_prompts, modulos, roteador
+
+
+MOD = modulos.Modulo(chave="prompts", nome="Solo Prompts", emoji="📚", cor="#fff", descricao="", url="http://solo_prompts:8000", token="t", painel="")
+
+
+def _sincrono(monkeypatch):
+    class Fio:
+        def __init__(self, target, args=(), **k):
+            self.alvo, self.args = target, args
+        def start(self):
+            self.alvo(*self.args)
+    monkeypatch.setattr(acervo_prompts.threading, "Thread", Fio)
+
+
+def _conta(vinculado=True):
+    sistemas = [SimpleNamespace(app="prompts", usuario_id="7")] if vinculado else []
+    return SimpleNamespace(id=1, sistemas=sistemas, prompt_suave=False)
+
+
+def test_monta_corpo_com_categoria_titulo_e_limites():
+    c = acervo_prompts.montar("roupa", "vestido preto", "x" * 9000, "7")
+    assert c["categoria"] == "roupa" and c["origem"] == "bella" and c["usuario_id"] == "7"
+    assert c["titulo"].startswith("Roupa · vestido preto") and len(c["texto"]) == 8000
+    assert acervo_prompts.montar("ficha", "", "Crie uma prancha\nmais", "7")["categoria"] == "outro"
+
+
+def test_salva_quando_conta_esta_ligada(monkeypatch):
+    _sincrono(monkeypatch)
+    enviados = []
+    monkeypatch.setattr(modulos, "por_chave", lambda k: MOD)
+    monkeypatch.setattr(modulos, "chamar", lambda mod, rota, corpo: enviados.append((rota, corpo)) or {})
+    assert acervo_prompts.salvar_em_segundo_plano(_conta(), "modelo", "morena", "texto do prompt") is True
+    assert enviados[0][0] == "prompts" and enviados[0][1]["categoria"] == "modelo" and enviados[0][1]["usuario_id"] == "7"
+
+
+def test_nao_envia_sem_vinculo_sem_modulo_ou_sem_texto(monkeypatch):
+    _sincrono(monkeypatch)
+    monkeypatch.setattr(modulos, "chamar", lambda *a: (_ for _ in ()).throw(AssertionError("não devia enviar")))
+    monkeypatch.setattr(modulos, "por_chave", lambda k: MOD)
+    assert acervo_prompts.salvar_em_segundo_plano(_conta(False), "realismo", "x", "texto") is False
+    assert acervo_prompts.salvar_em_segundo_plano(_conta(), "realismo", "x", "  ") is False
+    monkeypatch.setattr(modulos, "por_chave", lambda k: None)
+    assert acervo_prompts.salvar_em_segundo_plano(_conta(), "realismo", "x", "texto") is False
+    assert acervo_prompts.salvar_em_segundo_plano(SimpleNamespace(id=1), "realismo", "x", "texto") is False
+
+
+def test_falha_do_solo_prompts_nao_derruba_a_bella(monkeypatch):
+    _sincrono(monkeypatch)
+    monkeypatch.setattr(modulos, "por_chave", lambda k: MOD)
+    def falha(*a):
+        raise modulos.ErroModulo("fora do ar")
+    monkeypatch.setattr(modulos, "chamar", falha)
+    assert acervo_prompts.salvar_em_segundo_plano(_conta(), "realismo", "x", "texto") is True
+
+
+def test_prompt_responder_salva_o_que_entregou(monkeypatch):
+    from nucleo import prompts_bella
+    chamadas = []
+    monkeypatch.setattr(prompts_bella, "criar", lambda *a, **k: "PROMPT PRONTO")
+    monkeypatch.setattr(roteador, "_registrar", lambda *a, **k: None)
+    monkeypatch.setattr(acervo_prompts, "salvar_em_segundo_plano", lambda conta, cat, pedido, texto: chamadas.append((cat, pedido, texto)))
+    r = roteador._prompt_responder(None, _conta(), "telegram", "bar à noite", "pose")
+    assert chamadas == [("pose", "bar à noite", "PROMPT PRONTO")] and r.mensagens[-1]["prompt"] is True
