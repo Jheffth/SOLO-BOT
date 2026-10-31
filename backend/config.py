@@ -121,7 +121,7 @@ MODULOS_PADRAO = [
      "url": "http://solo_routines:8000", "token": "", "painel": ""},
     {"chave": "prompts", "nome": "Solo Prompts", "emoji": "📚", "cor": "#c9a45c",
      "descricao": "Sua biblioteca de prompts.",
-     "url": "http://solo_prompts:8000", "token": "", "painel": ""},
+     "url": "http://solo-prompts_app:8000", "token": "", "painel": ""},
 ]
 
 

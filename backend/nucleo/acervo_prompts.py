@@ -44,7 +44,9 @@ def _enviar(mod, corpo: dict):
     try:
         modulos.chamar(mod, "prompts", corpo)
     except Exception as erro:       # nunca derruba a Bella
-        log.warning("Não salvei o prompt no Solo Prompts: %s", erro)
+        log.warning("Não salvei o prompt no Solo Prompts (%s): %s", mod.url, erro)
+    else:
+        log.info("Prompt salvo no Solo Prompts: %s", corpo.get("titulo"))
 
 
 def salvar_em_segundo_plano(conta, categoria: str, pedido: str, texto: str) -> bool:
@@ -52,9 +54,11 @@ def salvar_em_segundo_plano(conta, categoria: str, pedido: str, texto: str) -> b
     try:
         mod: Optional[modulos.Modulo] = modulos.por_chave(APP)
         if not mod or not mod.token or not texto or not texto.strip():
+            log.info("Prompt não salvo: módulo %r sem registro ou sem token em SOLO_MODULOS", APP)
             return False
         vinculo = next((v for v in conta.sistemas if v.app == APP), None)
         if not vinculo:
+            log.info("Prompt não salvo: a Conta Solo não está conectada ao Solo Prompts (conecte na aba Bots)")
             return False
         corpo = montar(categoria, pedido, texto, vinculo.usuario_id)
     except Exception:
