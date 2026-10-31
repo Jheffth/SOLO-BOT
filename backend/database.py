@@ -244,6 +244,19 @@ class BellaMemoria(Base):
     criado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class BellaLore(Base):
+    """Uma história do passado da Bella, desenvolvida pelo Grok a partir da ideia do dono (`/memoria ...`).
+    Fica sob o nome do personagem (Ricardo) para ver, editar ou apagar de uma vez (nucleo/bella_lore.py)."""
+    __tablename__ = "bella_lores"
+
+    id = Column(Integer, primary_key=True)
+    conta_id = Column(Integer, ForeignKey("contas.id", ondelete="CASCADE"), nullable=False, index=True)
+    nome = Column(String(40), nullable=False)
+    semente = Column(String(700), nullable=True)        # a ideia original
+    texto = Column(Text, nullable=False)                 # a história desenvolvida
+    criado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class BellaArquivo(Base):
     """Toda troca com a Bella, sem prazo, na pasta do dia (nucleo/bella_historia.py)."""
     __tablename__ = "bella_arquivo"

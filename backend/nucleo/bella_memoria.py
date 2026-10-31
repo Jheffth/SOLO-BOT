@@ -117,6 +117,28 @@ def apagar(conta_id: int, numero: int) -> Optional[str]:
         db.close()
 
 
+def editar(conta_id: int, numero: int, texto: str) -> Tuple[bool, str]:
+    """Troca o texto da lembrança de número `numero` (como em `/memoria`). (ok, texto novo ou motivo)."""
+    texto = re.sub(r"\s+", " ", (texto or "")).strip()
+    if len(texto) < MIN_TEXTO:
+        return False, "Diga o novo texto: `/memoria editar 3 gosto de café com açúcar`."
+    if len(texto) > MAX_TEXTO:
+        return False, f"Muito longo: guardo até {MAX_TEXTO} caracteres por lembrança."
+    if _SENSIVEL.search(texto):
+        return False, "Não guardo senhas, documentos nem números de cartão ou conta."
+    db = SessionLocal()
+    try:
+        linhas = (db.query(BellaMemoria).filter(BellaMemoria.conta_id == conta_id)
+                  .order_by(BellaMemoria.id).all())
+        if not 1 <= numero <= len(linhas):
+            return False, "Não achei essa lembrança. Veja os números em `/memoria`."
+        linhas[numero - 1].texto = texto
+        db.commit()
+        return True, texto
+    finally:
+        db.close()
+
+
 def apagar_tudo(conta_id: int) -> int:
     db = SessionLocal()
     try:

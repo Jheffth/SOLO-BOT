@@ -275,7 +275,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/bella` (ou `/safada`) — conversa com a Bella: flerte, humor e, se estiver liberado, conteúdo adulto. "
         "Fica nesse modo até você mandar `/sair`",
         "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
-        "▸ `/memoria` — lista o que ela lembra de você (`/memoria desligar` pausa, `/memoria ligar` volta)",
+        "▸ `/memoria` — lista o que ela lembra de você e as histórias dela; com texto cria o passado dela: `/memoria Bella tinha um ficante na faculdade, o Ricardo` (veja, edite ou apague por nome)",
         "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
         "▸ `/galeria` — (Arquiteto) as fotos e vídeos da Bella · `/iniciativa bomdia` — o bom dia com foto das 08:00",
         "▸ `/bio` — a sua bio (quem você é) que a Bella e as modelos conhecem: `add Campo: valor`, `definir`, `apagar N`",
@@ -503,6 +503,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     # 3. comandos do hub
     cabeca, _, resto = txt.partition(" ")
     cmd = cabeca.lower().split("@")[0]
+    if cmd == "/memória":
+        cmd = "/memoria"          # com acento também
     simples = _sem_acento(txt.lower()).strip("!.?")
 
     if cmd in ("/start", "/menu") or simples in {_sem_acento(x) for x in SAUDACOES}:
@@ -678,26 +680,94 @@ def _cmd_lembrar(conta: Conta, texto: str) -> Resposta:
     return Resposta().diz(f"🧠 Guardei: _{msg}_{aviso}\n`/memoria` mostra tudo, `/esquecer N` apaga uma.")
 
 
+_AJUDA_MEMORIA = (
+    "`/memoria` lista tudo · `/memoria ver Ricardo` mostra uma história · `/memoria editar Ricardo o que mudar` (a Bella reescreve) · "
+    "`/memoria texto Ricardo novo texto` troca o texto · `/memoria editar 3 novo texto` troca a lembrança 3 · "
+    "`/memoria apagar Ricardo` (ou o número) · `/memoria desligar` pausa"
+)
+
+
+def _lista_historias(historias: list) -> str:
+    return "\n".join(f"• *{nome}* — {texto[:90].rstrip()}…" for nome, texto in historias)
+
+
+def _cmd_memoria_historia(conta: Conta, ideia: str) -> Resposta:
+    from nucleo import bella_lore
+    erro = bella_lore.validar_pedido(ideia)
+    if erro:
+        return Resposta().diz(f"🧠 {erro}\n{_AJUDA_MEMORIA}")
+    try:
+        ok, nome, texto = bella_lore.criar(conta.id, ideia)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao criar a história da Bella")
+        return Resposta().diz("😶 Não consegui criar a história agora. Tente de novo em instantes.")
+    if not ok:
+        return Resposta().diz(f"🧠 Não guardei: {texto}")
+    return Resposta().diz(f"🧠 Guardei a história de *{nome}* na memória da Bella:\n\n{texto}\n\n"
+                          f"Para mudar: `/memoria editar {nome} o que mudar` · para apagar: `/memoria apagar {nome}`")
+
+
 def _cmd_memoria(conta: Conta, resto: str) -> Resposta:
-    from nucleo import bella_memoria
-    pedido = resto.lower()
+    from nucleo import bella_lore, bella_memoria
+    pedido = resto.lower().strip()
     if pedido in ("desligar", "desliga", "off"):
         bella_memoria.definir_ativa(conta.id, False)
-        return Resposta().diz("🧠 Memória desligada: a Bella não usa mais suas lembranças (elas continuam guardadas). `/memoria ligar` volta.")
+        return Resposta().diz("🧠 Memória desligada: a Bella não usa mais suas lembranças nem as histórias dela (continuam guardadas). `/memoria ligar` volta.")
     if pedido in ("ligar", "liga", "on"):
         bella_memoria.definir_ativa(conta.id, True)
-        return Resposta().diz("🧠 Memória ligada. A Bella volta a usar suas lembranças.")
+        return Resposta().diz("🧠 Memória ligada. A Bella volta a usar suas lembranças e as histórias dela.")
+    verbo, _, args = resto.strip().partition(" ")
+    verbo, args = verbo.lower(), args.strip()
+    try:
+        if verbo in ("ver", "mostrar", "abrir") and args:
+            h = bella_lore.ver(conta.id, args)
+            return Resposta().diz(f"🧠 *{h[0]}*\n\n{h[1]}" if h else "🧠 Não achei essa história. Veja os nomes em `/memoria`.")
+        if verbo in ("apagar", "esquecer", "remover", "excluir") and args:
+            if args.lower() in ("tudo", "todas", "todos"):
+                return Resposta().diz("⚠️ Isso apaga TODAS as histórias da Bella. Se for isso mesmo: `/memoria apagar tudo confirmo`.")
+            if args.lower() == "tudo confirmo":
+                return Resposta().diz(f"🧹 Apaguei {bella_lore.apagar_todas(conta.id)} história(s) da Bella.")
+            nome = bella_lore.apagar(conta.id, args)
+            if nome:
+                return Resposta().diz(f"🧹 Apaguei a história de *{nome}*. A Bella não se lembra mais disso.")
+            if args.isdigit():
+                apagada = bella_memoria.apagar(conta.id, int(args))
+                return Resposta().diz(f"🧹 Esqueci: _{apagada}_" if apagada else "🧠 Não achei essa lembrança. Veja os números em `/memoria`.")
+            return Resposta().diz("🧠 Não achei essa história. Veja os nomes em `/memoria`.")
+        if verbo in ("editar", "ajustar", "mudar", "alterar") and args:
+            alvo, _, mudanca = args.partition(" ")
+            if alvo.isdigit() and bella_lore.ver(conta.id, alvo) is None:
+                ok, msg = bella_memoria.editar(conta.id, int(alvo), mudanca)
+                return Resposta().diz(f"🧠 Lembrança atualizada: _{msg}_" if ok else f"🧠 {msg}")
+            ok, nome, texto = bella_lore.editar(conta.id, alvo, mudanca)
+            return Resposta().diz(f"🧠 Atualizei a história de *{nome}*:\n\n{texto}" if ok else f"🧠 Não alterei: {texto}")
+        if verbo in ("texto", "substituir", "trocar") and args:
+            alvo, _, novo = args.partition(" ")
+            ok, msg = bella_lore.substituir(conta.id, alvo, novo)
+            return Resposta().diz(f"🧠 Troquei o texto da história de *{msg}*." if ok else f"🧠 {msg}")
+    except Exception:  # noqa: BLE001
+        log.exception("Falha no /memoria")
+        return Resposta().diz("😶 Não consegui mexer na memória agora. Tente de novo em instantes.")
+    if pedido and verbo not in ("ver", "apagar", "editar", "texto", "esquecer", "mostrar", "abrir", "remover", "excluir",
+                                "ajustar", "mudar", "alterar", "substituir", "trocar", "lista", "listar"):
+        return _cmd_memoria_historia(conta, resto.strip())          # texto livre = ideia para uma história da Bella
     try:
         fatos = bella_memoria.listar(conta.id)
+        historias = bella_lore.listar(conta.id)
     except Exception:  # noqa: BLE001
         log.exception("Falha ao listar lembranças")
         return Resposta().diz("😶 Não consegui abrir a memória agora. Tente de novo em instantes.")
     estado = "ligada" if bella_memoria.ativa(conta.id) else "desligada"
-    if not fatos:
-        return Resposta().diz(f"🧠 Memória {estado}, ainda vazia. Ensine algo: `/lembrar gosto de café sem açúcar`.")
-    return Resposta().diz(
-        f"🧠 *Memória da Bella* ({estado}) — {len(fatos)} lembrança(s):\n\n{_lista_memoria(fatos)}\n\n"
-        "`/lembrar texto` guarda mais · `/esquecer N` apaga uma · `/memoria desligar` pausa")
+    if not fatos and not historias:
+        return Resposta().diz(f"🧠 Memória {estado}, ainda vazia. Ensine algo: `/lembrar gosto de café sem açúcar`, "
+                              "ou crie o passado dela: `/memoria Bella tinha um ficante na faculdade, o Ricardo`.")
+    partes = [f"🧠 *Memória da Bella* ({estado})"]
+    if fatos:
+        partes.append(f"*Lembranças sobre você* — {len(fatos)} lembrança(s):\n{_lista_memoria(fatos)}")
+    if historias:
+        partes.append(f"*Histórias da Bella* ({len(historias)}):\n{_lista_historias(historias)}")
+    partes.append(_AJUDA_MEMORIA + "\n`/lembrar texto` guarda mais · `/esquecer N` apaga uma lembrança")
+    return Resposta().diz("\n\n".join(partes))
 
 
 def _termometro_texto(sit: dict) -> str:
@@ -836,6 +906,11 @@ def _cmd_esquecer(conta: Conta, canal: str, resto: str) -> Resposta:
             return Resposta().diz(f"🧹 Apaguei toda a nossa história: {t} troca(s) e {f} lembrança(s) automática(s).")
         return Resposta().diz("⚠️ Isso apaga TODA a nossa história por dia. Se for isso mesmo: `/esquecer historia tudo confirmo`. "
                               "Para apagar só uma parte: `/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias`.")
+    from nucleo import bella_lore
+    if not pedido.split()[0] in ("hoje", "ontem", "dia", "ultimos", "últimos", "semana"):
+        nome_lore = bella_lore.apagar(conta.id, pedido)
+        if nome_lore:
+            return Resposta().diz(f"🧹 Apaguei a história de *{nome_lore}*. A Bella não se lembra mais disso.")
     alvo = _dias_para_apagar(pedido)
     if alvo:
         lista, nome = alvo
