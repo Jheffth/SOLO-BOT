@@ -123,7 +123,7 @@ REFERÊNCIA ANEXADA: junto do pedido há uma imagem. Ela é o guia da modelo nov
   características, em texto: não diga quem é a pessoa da imagem nem use nome.
 - Cenário, fundo e luz da imagem: NÃO use, a menos que o pedido peça de forma explícita; sorteie um cenário novo.
 - O que o pedido escrito descrever manda sobre a imagem (por exemplo "cabelo ruivo", "com óculos").
-- A idade segue a regra de adulta (19 por padrão, ou a pedida se for 18+).
+- A idade segue a regra de adulta (25 por padrão, ou a pedida se for 18+).
 - Se a pessoa da imagem parecer menor de idade, ou for uma pessoa famosa que você reconheça, ou a imagem não
   mostrar uma pessoa utilizável, responda somente com uma linha começando por "RECUSA:" e o motivo curto, sem prompt."""
 
@@ -191,7 +191,7 @@ referência anteriores, exceto as de idade, recusa e anonimato:
 - Continue sem dizer quem é a pessoa e sem usar nome. Um pedido escrito junto continua mandando sobre a imagem."""
 
 
-MODELO_NOVA = """Crie uma modelo original com as seguintes características: [SEXO E IDADE: mulher de 19 anos], [TOM DE PELE E ETNIA], [CABELO: cor, comprimento, textura e estilo], [OLHOS: cor e formato], [ROSTO: traços marcantes], [CORPO: altura e porte naturais e proporcionais], [DETALHES: sardas, pintas, piercing discreto ou tatuagem pequena, se houver]. Aparência de pessoa real, natural, com identidade facial consistente em toda a imagem.
+MODELO_NOVA = """Crie uma modelo original com as seguintes características: [SEXO E IDADE: mulher de 25 anos], [TOM DE PELE E ETNIA], [CABELO: cor, comprimento, textura e estilo], [OLHOS: cor e formato], [ROSTO: traços marcantes], [CORPO: altura e porte naturais e proporcionais], [DETALHES: sardas, pintas, piercing discreto ou tatuagem pequena, se houver]. Aparência de pessoa real, natural, com identidade facial consistente em toda a imagem.
 
 Recrie a cena em estilo realista de foto casual tirada com câmera frontal de smartphone.
 Proporção vertical 9:16, enquadramento da cabeça até a parte das coxas, modelo centralizada.
@@ -223,7 +223,7 @@ Categoria: criar uma modelo NOVA do zero, em foto de realismo sensual. Entregue 
 seguindo exatamente o MODELO abaixo.
 
 Regras do trabalho:
-- Padrões: mulher (sexo feminino) de 19 anos. Tudo que o pedido NÃO disser você sorteia, de forma aleatória, variada
+- Padrões: mulher (sexo feminino) de 25 anos. Tudo que o pedido NÃO disser você sorteia, de forma aleatória, variada
   e realista: tom de pele e etnia, cabelo (cor, comprimento, textura, estilo), olhos, rosto, corpo, detalhes,
   roupa, cenário, gesto, expressão, luz e fundo. Evite repetir sempre o mesmo tipo de modelo.
 - O que o pedido descrever MANDA e deve ser seguido literalmente (cor do cabelo, cor da pele, olhos, corpo, roupa,

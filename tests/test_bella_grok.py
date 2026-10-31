@@ -341,11 +341,11 @@ def test_criar_modelo_nova_usa_instrucao_propria(monkeypatch):
     pb._REFERENCIAS.clear()
     pb.guardar_referencia("m2", "image/png", b"abc")
     vistos = []
-    nova = pb.MODELO_NOVA.replace("[SEXO E IDADE: mulher de 19 anos]", "mulher de 19 anos")
+    nova = pb.MODELO_NOVA.replace("[SEXO E IDADE: mulher de 25 anos]", "mulher de 25 anos")
     monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or nova)
     texto = pb.criar("cabelo ruivo", "m2", "modelo")
     instr, entrada, kw = vistos[0]
-    assert "mulher (sexo feminino) de 19 anos" in instr and "SOMENTE a roupa" not in instr
+    assert "mulher (sexo feminino) de 25 anos" in instr and "SOMENTE a roupa" not in instr
     assert kw["imagens"] == [("image/png", "YWJj")] and entrada == "Pedido: cabelo ruivo"
     assert "guia da modelo nova" in instr
     assert texto.endswith(pb.TAG_FINAL) and pb._recente("m2") == "modelo"
