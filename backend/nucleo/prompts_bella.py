@@ -745,9 +745,9 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         if pose:
             base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (INSTRUCAO_REFERENCIA_POSE if ref else "")
         base = suavizar(base) + (REGRAS_SUAVES.replace("o formato, o 9:16 e", "o formato e") if ficha else REGRAS_SUAVES)
-    orcamento = 70 if (tudo or (ficha and modo == "tudo")) else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
+    orcamento = 72 if (tudo or seletivo or (ficha and modo == "tudo")) else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
     inicio = time.monotonic()
-    tokens = 8000 if (tudo or (ficha and modo == 'tudo')) else 4096 if (ref or ficha) else 2048      # o raciocínio do modelo também conta nesse limite
+    tokens = 8000 if (tudo or (ficha and modo == 'tudo')) else 6000 if seletivo else 4096 if (ref or ficha) else 2048      # o raciocínio do modelo também conta nesse limite
     aviso = ""
     for tentativa in (1, 2):
         restante = orcamento - (time.monotonic() - inicio)
