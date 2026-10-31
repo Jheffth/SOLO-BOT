@@ -65,3 +65,21 @@ def test_prompt_responder_salva_o_que_entregou(monkeypatch):
     monkeypatch.setattr(acervo_prompts, "salvar_em_segundo_plano", lambda conta, cat, pedido, texto: chamadas.append((cat, pedido, texto)))
     r = roteador._prompt_responder(None, _conta(), "telegram", "bar à noite", "pose")
     assert chamadas == [("pose", "bar à noite", "PROMPT PRONTO")] and r.mensagens[-1]["prompt"] is True
+
+
+def test_bella_exe_conversa_salva_o_prompt_no_acervo(monkeypatch):
+    """O Bella.exe usa /api/bella/conversa, não o roteador: o salvamento também tem que valer aqui."""
+    from nucleo import prompts_bella as pb
+    from routers import bella
+    monkeypatch.setattr(pb, "criar", lambda pedido, chave=None, categoria="realismo", **k: "PROMPT:" + pedido)
+    monkeypatch.setattr(bella, "_autenticar", lambda db, chave: SimpleNamespace(id=7))
+    monkeypatch.setattr(bella, "_limitar", lambda *a: None)
+    monkeypatch.setattr(bella, "_guardar_fala", lambda *a: "vid")
+    salvos = []
+    monkeypatch.setattr(acervo_prompts, "salvar_em_segundo_plano", lambda conta, cat, pedido, texto: salvos.append((cat, pedido, texto)))
+    r = bella.conversa(bella.PedidoConversa(texto="crie um prompt de bar", modo="safada"), "k", None)
+    assert salvos == [("realismo", "de bar", "PROMPT:de bar")] and r["texto"].startswith(pb.MARCA_PROMPT)
+    salvos.clear()
+    monkeypatch.setattr("nucleo.bella_conversa.responder", lambda texto, conta_id: "oi, amor")
+    bella.conversa(bella.PedidoConversa(texto="oi bella", modo="safada"), "k", None)
+    assert salvos == []            # conversa comum não vira prompt

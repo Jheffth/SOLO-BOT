@@ -368,6 +368,8 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
         raise HTTPException(503, "O Grok não respondeu" + (f": {motivo}." if motivo else ". Confira a chave e o modelo de texto no servidor."))
     mensagens = [{"texto": texto, "falado": falar}]
     if pedido is not None:
+        from nucleo import acervo_prompts
+        acervo_prompts.salvar_em_segundo_plano(conta, categoria, pedido, texto)     # guarda no Solo Prompts, se a conta estiver ligada
         texto = prompts_bella.MARCA_PROMPT + "\n" + texto       # a tela abre a caixa de copiar
     saida = {"texto": texto, "falar": falar, "opcoes": []}
     if p.voz_separada:
