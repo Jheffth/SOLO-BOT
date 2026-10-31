@@ -643,6 +643,7 @@ def _prompt_responder(db, conta: Conta, canal: str, pedido: str, categoria: str 
     from nucleo import prompts_bella
     try:
         extra = {"suave": True} if getattr(conta, "prompt_suave", False) else {}      # "Sem sensualização" da conta
+        extra["espera"] = 130          # Telegram, WhatsApp e Bella.exe (que espera 145 s) aguentam um Grok lento
         texto = prompts_bella.criar(pedido, _chave_bella(canal, conta), categoria, **extra)
     except prompts_bella.Recusa as erro:
         return Resposta().diz(f"🖼️ Não criei o prompt: {erro}.")

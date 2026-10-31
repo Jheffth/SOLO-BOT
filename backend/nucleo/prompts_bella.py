@@ -662,7 +662,7 @@ def pedido_da_legenda(legenda, chave=None):
     return pedido if pedido is not None else legenda
 
 
-def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave=False):
+def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave=False, espera=None):
     """O prompt pronto (texto simples), ou None se o Grok não respondeu ou a resposta não serve.
     Levanta Recusa se o Grok recusar a referência."""
     pedido = pedido or ""
@@ -746,6 +746,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
             base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (INSTRUCAO_REFERENCIA_POSE if ref else "")
         base = suavizar(base) + (REGRAS_SUAVES.replace("o formato, o 9:16 e", "o formato e") if ficha else REGRAS_SUAVES)
     orcamento = 72 if (tudo or seletivo or (ficha and modo == "tudo")) else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
+    if espera:
+        orcamento = max(orcamento, espera)      # quem chama sabe quanto o cliente aguenta esperar
     inicio = time.monotonic()
     tokens = 8000 if (tudo or (ficha and modo == 'tudo')) else 6000 if seletivo else 4096 if (ref or ficha) else 2048      # o raciocínio do modelo também conta nesse limite
     aviso = ""

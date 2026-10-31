@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Web.Script.Serialization;
@@ -125,7 +126,7 @@ namespace Bella {
         }
         public Task<Reply> Conversar(string text,string imagem=null) {
             var body=new Dictionary<string,object> {{"texto",text},{"modo","safada"},{"voz_separada",true}};
-            int segundos=25;
+            int segundos=Regex.IsMatch(text ?? "",@"prompt|character\s*sheet|ficha\s+de\s+personagem|posehot",RegexOptions.IgnoreCase) ? 145 : 25;      // um prompt com o Grok lento pode levar mais de 1 min
             // Referência de roupa para o prompt: "data:image/jpeg;base64,...". O servidor valida tipo e tamanho.
             const string marca=";base64,";
             if(imagem!=null && imagem.StartsWith("data:image/") && imagem.Length<8000000) {
@@ -133,7 +134,7 @@ namespace Bella {
                 if(i>11) {
                     body["imagem_mime"]=imagem.Substring(5,i-5);
                     body["imagem_base64"]=imagem.Substring(i+marca.Length);
-                    segundos=75;
+                    segundos=145;
                 }
             }
             return Request<Reply>(HttpMethod.Post,"/api/bella/conversa",body,segundos);

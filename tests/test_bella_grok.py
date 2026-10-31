@@ -311,7 +311,7 @@ def test_criar_prompt_usa_grok_e_valida(monkeypatch):
 
 def test_rota_conversa_cria_prompt_e_fala_curto(monkeypatch):
     from nucleo import prompts_bella as pb
-    monkeypatch.setattr(pb, "criar", lambda pedido, chave=None, categoria="realismo": "PROMPT:" + pedido)
+    monkeypatch.setattr(pb, "criar", lambda pedido, chave=None, categoria="realismo", **k: "PROMPT:" + pedido)
     conta = SimpleNamespace(id=7)
     monkeypatch.setattr(bella, "_autenticar", lambda db, chave: conta)
     monkeypatch.setattr(bella, "_limitar", lambda *a: None)
@@ -715,7 +715,7 @@ def test_sem_sensualizacao_recusa_resposta_ainda_sensual(monkeypatch):
 def test_conta_guarda_sem_sensualizacao_e_o_roteador_usa(monkeypatch):
     from nucleo import prompts_bella as pb, roteador
     vistos = []
-    monkeypatch.setattr(pb, "criar", lambda pedido, chave=None, categoria="realismo", **k: vistos.append(k) or "texto")
+    monkeypatch.setattr(pb, "criar", lambda pedido, chave=None, categoria="realismo", **k: vistos.append({a: b for a, b in k.items() if a != "espera"}) or "texto")
     monkeypatch.setattr(roteador, "_registrar", lambda *a, **k: None)
     roteador._prompt_responder(None, SimpleNamespace(id=1, prompt_suave=True), "whatsapp", "x", "realismo")
     roteador._prompt_responder(None, SimpleNamespace(id=1, prompt_suave=False), "telegram", "x", "realismo")

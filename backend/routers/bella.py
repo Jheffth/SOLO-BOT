@@ -352,6 +352,7 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
     if pedido is not None:
         try:
             extra = {"suave": True} if getattr(conta, "prompt_suave", False) else {}      # "Sem sensualização" da conta
+            extra["espera"] = 135          # o Bella.exe espera até 145 s por um prompt
             if referencia_anexa:
                 texto = prompts_bella.criar(pedido, chave, categoria, referencia_anexa=referencia_anexa, **extra)
             else:
