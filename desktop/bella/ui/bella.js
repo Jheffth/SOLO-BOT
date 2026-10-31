@@ -464,7 +464,7 @@
         const img = anexo; if (!t) t = "crie um prompt com essa referência";
         // caixinhas "Extrair ..." marcadas no painel de ferramentas: viram um /promptmodelo com o que copiar da imagem
         let exibir = t;
-        if (!t.startsWith("/") || /^\/(promptmodelo|prompt)(\s|$)/i.test(t)) {
+        if ((!t.startsWith("/") || /^\/(promptmodelo|prompt)(\s|$)/i.test(t)) && !/\[\[\s*extrair|extrair tudo/i.test(t)) {      // o painel de ferramentas já põe o marcador
           const tudo = $("extrair-tudo") && $("extrair-tudo").checked;
           const itens = Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
           if (tudo || itens.length) {
