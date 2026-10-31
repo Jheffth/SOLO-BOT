@@ -83,3 +83,41 @@ def test_a_bella_usa_as_historias_no_prompt_e_pausar_a_memoria_as_esconde(logado
     assert "confirmo" in caixa[-1][2] and bella_lore.listar(conta_id)
     _tg(logado, "/memoria apagar tudo confirmo")
     assert not bella_lore.listar(conta_id)
+
+
+def test_modo_adulto_do_servidor_pede_historia_explicita(logado, caixa, monkeypatch):
+    import config
+    _ligar_telegram(logado)
+    chamadas = _grok(monkeypatch)
+    monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", True)
+    _tg(logado, "/memoria Bella tinha um ficante na faculdade chamado Ricardo")
+    instr = chamadas[0][0]
+    assert "explícita, sensual e detalhada" in instr and "consensual" in instr and "ADULTOS" in instr
+    monkeypatch.setattr(config, "BELLA_CONTEUDO_ADULTO", False)
+    _tg(logado, "/memoria Bella tinha outro ficante na faculdade chamado Pedro")
+    assert "sem descrição sexual explícita" in chamadas[-1][0]
+
+
+def test_limites_so_valem_fora_do_arquiteto(logado, caixa, monkeypatch):
+    _ligar_telegram(logado)
+    conta_id = logado.get("/api/auth/eu").json()["id"]
+    chamadas = _grok(monkeypatch)
+    monkeypatch.setattr(bella_lore, "MAX_HISTORIAS", 1)
+    monkeypatch.setattr(bella_lore, "MAX_PEDIDO", 80)
+    monkeypatch.setattr(bella_lore, "livre", lambda c: False)
+    _tg(logado, "/memoria Bella tinha um ficante na faculdade chamado Ricardo")
+    assert "história de *Ricardo*" in caixa[-1][2] and "no máximo 1500 caracteres" in chamadas[0][0]      # com teto
+    _grok(monkeypatch, HISTORIA.replace("Ricardo", "Pedro"))
+    _tg(logado, "/memoria Bella tinha outro ficante na faculdade chamado Pedro")
+    assert "Já são 1 histórias" in caixa[-1][2]
+    _tg(logado, "/memoria " + "ideia muito longa sobre a faculdade " * 3)
+    assert "Muito longo" in caixa[-1][2]
+    # Arquiteto: sem limite de histórias, de pedido nem de tamanho do texto
+    monkeypatch.setattr(bella_lore, "livre", lambda c: True)
+    longa = HISTORIA + " " + ("E mais uma lembrança bem detalhada daquela época. " * 80)
+    chamadas = _grok(monkeypatch, longa.replace("Ricardo", "Pedro"))
+    _tg(logado, "/memoria " + "ideia muito longa sobre a faculdade e o Pedro " * 3)
+    assert "história de *Pedro*" in caixa[-1][2]
+    assert "tão longo quanto a história pedir" in chamadas[0][0] and chamadas[0][2]["max_tokens"] == 7000
+    assert len(bella_lore.ver(conta_id, "Pedro")[1]) > bella_lore.MAX_TEXTO
+    assert len(bella_lore.listar(conta_id)) == 2

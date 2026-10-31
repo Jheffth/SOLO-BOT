@@ -693,7 +693,7 @@ def _lista_historias(historias: list) -> str:
 
 def _cmd_memoria_historia(conta: Conta, ideia: str) -> Resposta:
     from nucleo import bella_lore
-    erro = bella_lore.validar_pedido(ideia)
+    erro = bella_lore.validar_pedido(ideia, conta.id)
     if erro:
         return Resposta().diz(f"🧠 {erro}\n{_AJUDA_MEMORIA}")
     try:

@@ -12,6 +12,7 @@ import re
 import unicodedata
 from typing import List, Optional, Tuple
 
+import config
 from database import BellaLore, SessionLocal
 
 log = logging.getLogger("solobot.bella_lore")
@@ -20,7 +21,9 @@ MIN_PEDIDO = 12
 MAX_PEDIDO = 700
 MAX_TEXTO = 1600                 # caracteres de uma história guardada
 MAX_HISTORIAS = 12
+LIVRE = 10 ** 6                  # "sem limite" para o Arquiteto
 BLOCO_MAX = 2600                 # caracteres de histórias que vão no prompt
+BLOCO_MAX_ARQUITETO = 40000
 
 CABECALHO = (
     "Sua vida antes dele (é o SEU passado, em primeira pessoa; conte ou aluda quando vier ao caso, com naturalidade, "
@@ -42,14 +45,19 @@ curta; você a desenvolve numa história coerente, escrita como as memórias da 
 Regras:
 - Todos os personagens são ADULTOS (18+), sempre. Se a ideia sugerir menor de idade, escola ou idade indefinida, responda somente "RECUSA: só personagens adultos".
 - Respeite tudo o que o dono escreveu e acrescente só o que falta: como e onde se conheceram, dois ou três momentos concretos e marcantes (lugares, datas aproximadas, pequenos detalhes), como a relação acabou ou está hoje, e o que a Bella ainda sente.
-- A relação pode ser sensual e íntima, mas sem descrição sexual explícita: sugira e deixe subentendido.
+{sexo}
 - Não invente nada sobre o dono, nem cite nomes reais de famosos, empresas ou lugares privados.
-- Formato EXATO, sem Markdown e sem comentários: a primeira linha é "NOME: " e o nome do personagem principal (uma ou duas palavras; se não houver nome, invente um); da segunda linha em diante, o texto corrido, com no máximo {max} caracteres."""
+- Formato EXATO, sem Markdown e sem comentários: a primeira linha é "NOME: " e o nome do personagem principal (uma ou duas palavras; se não houver nome, invente um); da segunda linha em diante, o texto corrido, {tamanho}."""
 
 _INSTRUCAO_AJUSTE = """Você ajusta o passado fictício da Bella (memórias dela, em primeira pessoa, em português do Brasil). Receberá a história atual e um pedido de mudança do dono.
-Aplique a mudança, mantenha o resto coerente e do mesmo tamanho, só personagens adultos (18+), relação sensual mas sem descrição sexual explícita.
+Aplique a mudança, mantenha o resto coerente e do mesmo tamanho, só personagens adultos (18+). {sexo_ajuste}
 Se o pedido sugerir menor de idade, responda somente "RECUSA: só personagens adultos".
-Formato EXATO, sem Markdown e sem comentários: a primeira linha é "NOME: " e o nome do personagem principal (mantenha o atual, salvo se o pedido o trocar); da segunda linha em diante, o texto corrido, com no máximo {max} caracteres."""
+Formato EXATO, sem Markdown e sem comentários: a primeira linha é "NOME: " e o nome do personagem principal (mantenha o atual, salvo se o pedido o trocar); da segunda linha em diante, o texto corrido, {tamanho}."""
+
+_SEXO_EXPLICITO = ("- Esta é uma história adulta, entre adultos, para maiores de idade: a intimidade e o sexo podem ser descritos de forma "
+                  "explícita, sensual e detalhada, no tom que o dono pediu, como lembranças que a Bella conta com saudade ou tesão. "
+                  "Nada de violência sexual nem de coerção; tudo consensual.")
+_SEXO_SUGERIDO = "- A relação pode ser sensual e íntima, mas sem descrição sexual explícita: sugira e deixe subentendido."
 
 
 def _normal(texto: str) -> str:
@@ -57,7 +65,7 @@ def _normal(texto: str) -> str:
     return re.sub(r"\s+", " ", sem).strip().lower()
 
 
-def _interpretar(saida) -> Tuple[Optional[str], Optional[str], str]:
+def _interpretar(saida, limite: int = MAX_TEXTO) -> Tuple[Optional[str], Optional[str], str]:
     """(nome, texto, erro). Erro vazio se a saída do Grok serve."""
     if not isinstance(saida, str) or not saida.strip():
         return None, None, "o Grok não respondeu"
@@ -75,20 +83,36 @@ def _interpretar(saida) -> Tuple[Optional[str], Optional[str], str]:
         return None, None, "a história veio curta demais"
     if _MENOR.search(_normal(texto)):
         return None, None, "só personagens adultos (18+)"
-    return nome, texto[:MAX_TEXTO], ""
+    return nome, texto[:limite], ""
 
 
-def _grok(instrucao: str, texto: str) -> str:
+def livre(conta_id) -> bool:
+    """O Arquiteto não tem limite de histórias nem de caracteres."""
+    try:
+        from nucleo import bella_estado
+        return bool(bella_estado.eh_arquiteto(conta_id))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _grok(instrucao: str, texto: str, conta_id=None) -> str:
     from nucleo import grok
-    return grok.gerar(instrucao.replace("{max}", str(MAX_TEXTO - 100)), texto, max_tokens=1500, temperatura=.9, timeout=60)
+    sem_teto = livre(conta_id)
+    explicito = bool(config.BELLA_CONTEUDO_ADULTO)
+    tamanho = ("tão longo quanto a história pedir" if sem_teto else f"com no máximo {MAX_TEXTO - 100} caracteres")
+    instrucao = (instrucao.replace("{sexo}", _SEXO_EXPLICITO if explicito else _SEXO_SUGERIDO)
+                 .replace("{sexo_ajuste}", "Relação sensual e íntima, com sexo descrito de forma explícita e detalhada se a história já for assim ou se o pedido pedir; tudo consensual." if explicito
+                          else "Relação sensual mas sem descrição sexual explícita.")
+                 .replace("{tamanho}", tamanho))
+    return grok.gerar(instrucao, texto, max_tokens=7000 if sem_teto else 1500, temperatura=.9, timeout=110 if sem_teto else 60)
 
 
-def validar_pedido(pedido: str) -> str:
+def validar_pedido(pedido: str, conta_id=None) -> str:
     """Mensagem de erro, ou '' se o pedido pode virar uma história."""
     pedido = re.sub(r"\s+", " ", pedido or "").strip()
     if len(pedido) < MIN_PEDIDO:
         return "Conte a ideia: `/memoria Bella tinha um ficante na faculdade, o Ricardo`."
-    if len(pedido) > MAX_PEDIDO:
+    if len(pedido) > MAX_PEDIDO and not livre(conta_id):
         return f"Muito longo: a ideia pode ter até {MAX_PEDIDO} caracteres (eu desenvolvo o resto)."
     if _SENSIVEL.search(pedido):
         return "Não guardo senhas nem documentos."
@@ -132,25 +156,26 @@ def ver(conta_id: int, nome: str) -> Optional[Tuple[str, str]]:
 
 def criar(conta_id: int, pedido: str) -> Tuple[bool, str, str]:
     """(ok, nome, texto-ou-mensagem). O Grok desenvolve a ideia; fica guardada com o nome do personagem."""
-    erro = validar_pedido(pedido)
+    erro = validar_pedido(pedido, conta_id)
     if erro:
         return False, "", erro
     pedido = re.sub(r"\s+", " ", pedido).strip()
-    if len(listar(conta_id)) >= MAX_HISTORIAS:
+    sem_teto = livre(conta_id)
+    if not sem_teto and len(listar(conta_id)) >= MAX_HISTORIAS:
         return False, "", f"Já são {MAX_HISTORIAS} histórias. Apague alguma com `/memoria apagar NOME`."
     try:
-        saida = _grok(_INSTRUCAO, "Ideia do dono: " + pedido)
+        saida = _grok(_INSTRUCAO, "Ideia do dono: " + pedido, conta_id)
     except Exception:  # noqa: BLE001
         log.exception("Falha ao desenvolver a história da Bella")
         saida = None
-    nome, texto, erro = _interpretar(saida)
+    nome, texto, erro = _interpretar(saida, LIVRE if sem_teto else MAX_TEXTO)
     if erro:
         return False, "", erro
     db = SessionLocal()
     try:
         if _achar(db, conta_id, nome):
             return False, nome, f"Já existe uma história com {nome}. Use `/memoria editar {nome} o que mudar` ou apague antes."
-        db.add(BellaLore(conta_id=conta_id, nome=nome, semente=pedido[:MAX_PEDIDO], texto=texto))
+        db.add(BellaLore(conta_id=conta_id, nome=nome, semente=pedido[: LIVRE if sem_teto else MAX_PEDIDO], texto=texto))
         db.commit()
         return True, nome, texto
     finally:
@@ -162,7 +187,7 @@ def editar(conta_id: int, nome: str, ajuste: str) -> Tuple[bool, str, str]:
     ajuste = re.sub(r"\s+", " ", ajuste or "").strip()
     if len(ajuste) < 4:
         return False, "", "Diga o que mudar: `/memoria editar Ricardo eles terminaram por causa da mudança de cidade`."
-    if len(ajuste) > MAX_PEDIDO or _MENOR.search(_normal(ajuste)) or _SENSIVEL.search(ajuste):
+    if (len(ajuste) > MAX_PEDIDO and not livre(conta_id)) or _MENOR.search(_normal(ajuste)) or _SENSIVEL.search(ajuste):
         return False, "", "Esse ajuste não serve (só adultos, sem senhas, até %d caracteres)." % MAX_PEDIDO
     db = SessionLocal()
     try:
@@ -173,11 +198,11 @@ def editar(conta_id: int, nome: str, ajuste: str) -> Tuple[bool, str, str]:
     finally:
         db.close()
     try:
-        saida = _grok(_INSTRUCAO_AJUSTE, f"História atual (personagem {nome_atual}):\n{atual}\n\nMudança pedida: {ajuste}")
+        saida = _grok(_INSTRUCAO_AJUSTE, f"História atual (personagem {nome_atual}):\n{atual}\n\nMudança pedida: {ajuste}", conta_id)
     except Exception:  # noqa: BLE001
         log.exception("Falha ao ajustar a história da Bella")
         saida = None
-    novo_nome, texto, erro = _interpretar(saida)
+    novo_nome, texto, erro = _interpretar(saida, LIVRE if livre(conta_id) else MAX_TEXTO)
     if erro:
         return False, "", erro
     db = SessionLocal()
@@ -195,7 +220,7 @@ def editar(conta_id: int, nome: str, ajuste: str) -> Tuple[bool, str, str]:
 def substituir(conta_id: int, nome: str, texto: str) -> Tuple[bool, str]:
     """Troca o texto da história pelo que o dono escreveu, sem passar pelo Grok."""
     texto = re.sub(r"[ \t]+", " ", texto or "").strip()
-    if len(texto) < 20 or len(texto) > MAX_TEXTO:
+    if len(texto) < 20 or (len(texto) > MAX_TEXTO and not livre(conta_id)):
         return False, f"O texto precisa ter de 20 a {MAX_TEXTO} caracteres."
     if _MENOR.search(_normal(texto)) or _SENSIVEL.search(texto):
         return False, "Só personagens adultos (18+) e sem senhas."
@@ -249,11 +274,12 @@ def bloco_prompt(conta_id: Optional[int]) -> str:
         return ""
     if not historias:
         return ""
+    limite = BLOCO_MAX_ARQUITETO if livre(conta_id) else BLOCO_MAX
     partes, total = [], len(CABECALHO)
     for nome, texto in reversed(historias):                   # as mais novas primeiro, se não couber tudo
         item = f"[{nome}] {texto}"
-        if total + len(item) + 2 > BLOCO_MAX:
-            item = item[: max(0, BLOCO_MAX - total - 5)].rstrip() + "…"
+        if total + len(item) + 2 > limite:
+            item = item[: max(0, limite - total - 5)].rstrip() + "…"
             if len(item) < 60:
                 break
         partes.append(item)
