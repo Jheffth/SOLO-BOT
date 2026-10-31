@@ -462,8 +462,19 @@
       if (anexo) {
         // com referência anexa, o texto é o pedido do prompt (vazio = prompt aleatório com as roupas da imagem)
         const img = anexo; if (!t) t = "crie um prompt com essa referência";
+        // caixinhas "Extrair ..." marcadas no painel de ferramentas: viram um /promptmodelo com o que copiar da imagem
+        let exibir = t;
+        if (!t.startsWith("/")) {
+          const tudo = $("extrair-tudo") && $("extrair-tudo").checked;
+          const itens = Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
+          if (tudo || itens.length) {
+            const pedido = t === "crie um prompt com essa referência" ? "" : t;
+            t = ("/promptmodelo " + pedido + (tudo ? " extrair tudo da imagem de referência" : " [[extrair: " + itens.join(", ") + "]]")).replace(/\s+/g, " ").trim();
+            exibir = "/promptmodelo " + (pedido ? pedido + " " : "") + (tudo ? "(extrair tudo)" : "(extrair: " + itens.join(", ") + ")");
+          }
+        }
         $("entrada").value = ""; tirarAnexo();
-        return enviar("enviar", { texto: t, exibir: "🖼️ " + t, imagem: img });
+        return enviar("enviar", { texto: t, exibir: "🖼️ " + exibir, imagem: img });
       }
       $("entrada").value = ""; enviar("enviar", { texto: t });
     };
