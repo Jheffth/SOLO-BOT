@@ -149,6 +149,48 @@ referência anteriores, exceto as de idade, recusa e anonimato:
   ou piercings que não existam. Continue sem dizer quem é a pessoa e sem usar nome.
 - Um pedido escrito junto continua mandando sobre a imagem (por exemplo "mas com cabelo loiro")."""
 
+# Extração SELETIVA (Bella.exe, caixas abaixo de "Extrair tudo"): o dono marca só o que quer copiar da imagem.
+_ELEMENTOS_EXTRAIR = {
+    "modelo": ("Modelo", "o rosto e o corpo: tom de pele e subtom, formato do rosto, sobrancelhas, olhos (cor e formato), nariz, boca e lábios, "
+               "pescoço, porte, ombros, busto, cintura, quadris, pernas, sardas, pintas e marcas (o cabelo e as tatuagens têm opção própria)"),
+    "roupas": ("Roupas", "a roupa peça por peça (cor, tecido, corte, decote, caimento, costuras) e os calçados"),
+    "pose": ("Pose", "a pose e a posição do corpo, dos braços, das mãos, das pernas e da cabeça, e o enquadramento e o ângulo da câmera"),
+    "cenario": ("Cenário", "o cenário, o fundo, a luz e a cor da cena"),
+    "penteado": ("Penteado", "o cabelo: cor exata com reflexos, comprimento, textura, volume, corte, franja, repartição e estado (solto, preso, molhado)"),
+    "acessorios": ("Acessórios (se houver)", "os acessórios que existirem na imagem: brincos, colares, anéis, pulseiras, relógio, óculos, piercings, cinto, bolsa; "
+                   "se não houver nenhum, não invente"),
+    "tatuagens": ("Tatuagens (se houver)", "as tatuagens que existirem (desenho, tamanho, cor, lado e local exato no corpo); "
+                  "se não houver nenhuma, não invente"),
+    "expressao": ("Expressão da face", "a expressão do rosto e a direção do olhar (olhos, sobrancelhas, boca e lábios na expressão)"),
+}
+_EXTRAIR_SELETIVO = re.compile(r"\[\[\s*extrair\s*:\s*([a-z,\s]+?)\s*\]\]", re.I)
+
+
+def elementos_extrair(pedido):
+    """(pedido sem o marcador, lista de elementos válidos na ordem de _ELEMENTOS_EXTRAIR)."""
+    achados = set()
+    def tira(m):
+        achados.update(p.strip().lower() for p in m.group(1).split(","))
+        return " "
+    limpo = re.sub(r"\s{2,}", " ", _EXTRAIR_SELETIVO.sub(tira, pedido or "")).strip(" ,.;:-–")
+    return limpo, [k for k in _ELEMENTOS_EXTRAIR if k in achados]
+
+
+def instrucao_seletiva(elementos):
+    copiar = "\n".join(f"  • {_ELEMENTOS_EXTRAIR[k][0]}: {_ELEMENTOS_EXTRAIR[k][1]}." for k in elementos)
+    resto = [_ELEMENTOS_EXTRAIR[k][0].split(" (")[0].lower() for k in _ELEMENTOS_EXTRAIR if k not in elementos]
+    return f"""
+
+MODO EXTRAÇÃO SELETIVA (o dono marcou só alguns itens para copiar da imagem de referência). Isto vale acima das regras da
+referência anteriores, exceto as de idade, recusa e anonimato:
+- Copie da imagem, de forma concreta e fiel, SOMENTE estes itens:
+{copiar}
+- Todo o resto ({", ".join(resto)}) NÃO deve ser copiado da imagem: invente de forma nova e coerente (ou sorteie), como se a imagem não mostrasse isso.
+- Descreva só o que se vê nos itens marcados. Nunca invente tatuagens, piercings ou acessórios que não existam; se um item marcado "se houver" não aparecer, omita-o.
+- Coloque cada informação no campo certo entre colchetes, sem apagar o texto fixo do modelo, e não deixe colchetes no resultado.
+- Continue sem dizer quem é a pessoa e sem usar nome. Um pedido escrito junto continua mandando sobre a imagem."""
+
+
 MODELO_NOVA = """Crie uma modelo original com as seguintes características: [SEXO E IDADE: mulher de 19 anos], [TOM DE PELE E ETNIA], [CABELO: cor, comprimento, textura e estilo], [OLHOS: cor e formato], [ROSTO: traços marcantes], [CORPO: altura e porte naturais e proporcionais], [DETALHES: sardas, pintas, piercing discreto ou tatuagem pequena, se houver]. Aparência de pessoa real, natural, com identidade facial consistente em toda a imagem.
 
 Recrie a cena em estilo realista de foto casual tirada com câmera frontal de smartphone.
@@ -630,7 +672,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
             limpar_referencia(chave)
         pedido = sem.group(1).strip()
     modelo_novo = categoria == "modelo"
-    tudo = bool(_EXTRAIR_TUDO.search(pedido))
+    pedido, elementos = elementos_extrair(pedido)
+    tudo = bool(_EXTRAIR_TUDO.search(pedido)) or len(elementos) == len(_ELEMENTOS_EXTRAIR)
     if tudo:
         pedido = re.sub(r"\s{2,}", " ", _EXTRAIR_TUDO.sub("", pedido)).strip(" ,.;:-–")
     roupa = categoria == "roupa"
@@ -659,10 +702,15 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
     if modelo_novo and not pedido:
         entrada = "Pedido: tudo aleatório. Sorteie uma modelo nova (pele, cabelo, rosto, corpo), roupa e cenário diferentes dos últimos."
     tudo = tudo and modelo_novo and bool(ref)
+    seletivo = bool(elementos) and modelo_novo and bool(ref) and not tudo
     if tudo:
         entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
             "Modo extração total: extraia TUDO da imagem de referência (rosto, cabelo, pele, corpo, tatuagens, piercings, joias, "
             "roupa, expressão, pose, cenário, fundo e luz) e descreva a modelo e a cena com o máximo de fidelidade.")
+    elif seletivo:
+        entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
+            "Modo extração seletiva: copie da imagem de referência SOMENTE: " + ", ".join(_ELEMENTOS_EXTRAIR[k][0] for k in elementos)
+            + ". O restante, crie de forma nova.")
     elif ref and modelo_novo and not pedido:
         entrada = "Pedido: crie a modelo a partir das características da imagem de referência; cenário à sua escolha."
     elif ref and not pedido:
@@ -687,7 +735,7 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         if ref and not pedido:
             entrada = "Pedido: copie fielmente toda a roupa da imagem de referência."
     elif modelo_novo:
-        base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "") + (INSTRUCAO_REFERENCIA_MODELO_TOTAL if tudo else "")
+        base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "") + (INSTRUCAO_REFERENCIA_MODELO_TOTAL if tudo else "") + (instrucao_seletiva(elementos) if seletivo else "")
     else:
         base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "")
     if suave:

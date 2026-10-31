@@ -287,7 +287,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
     bloco("🖼️ BELLA · PROMPTS DE IMAGEM", [
         "▸ `/prompt` — realismo sensual: `/prompt cozinha, cosplay de odalisca`",
         "▸ `/promptmodelo` — modelo nova do zero (19 anos, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`. "
-        "Com uma foto junto, escreva *extrair tudo da imagem* para copiar penteado, rosto, tatuagens, joias e roupas",
+        "Com uma foto junto, escreva *extrair tudo da imagem* para copiar penteado, rosto, tatuagens, joias e roupas, ou `[[extrair: pose, cenario]]` para copiar só alguns itens (modelo, roupas, pose, cenario, penteado, acessorios, tatuagens, expressao)",
         "▸ `/promptroupa` — descreve uma roupa (da foto ou do pedido) para vestir em outra imagem: `/promptroupa lingerie preta de renda`",
         "▸ `/posehot` — pose sensual de uma pessoa para aplicar em outra imagem: `/posehot de bruços olhando para trás`",
         "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",

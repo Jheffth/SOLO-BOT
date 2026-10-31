@@ -148,14 +148,25 @@
     if (api.ocupada()) return aviso("Espere eu terminar o pedido anterior.");
     const tudo = $("extrair-tudo") && $("extrair-tudo").checked && cmd === "/promptmodelo";
     if (tudo && !api.temAnexo()) return aviso("Anexe a imagem de referência para extrair tudo dela.");
+    const itensExtrair = tudo || cmd !== "/promptmodelo" ? [] : Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
+    if (itensExtrair.length && !api.temAnexo()) return aviso("Anexe a imagem de referência para copiar os itens marcados dela.");
     if (cmd === "/charactersheet" && MODOS_FICHA.test(corpo || "") && !api.temAnexo()) return aviso("Anexe a imagem de referência: a ficha usa o que está nela.");
-    const t = (cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "")).trim();
+    const t = (cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "") + (itensExtrair.length ? " [[extrair: " + itensExtrair.join(", ") + "]]" : "")).trim();
     if (t.length > LIMITE + 40) return aviso("O pedido ficou muito grande. Tire alguns itens.");
     api.fechar(); api.enviar(t);
   }
 
+  // "Extrair tudo" liga e desliga os oito itens juntos; mexer em um item solta o "tudo".
+  function ligarExtracao() {
+    const tudo = $("extrair-tudo"), itens8 = Array.from(document.querySelectorAll(".extrair-item"));
+    if (!tudo || !itens8.length) return;
+    tudo.addEventListener("change", () => itens8.forEach(c => { c.checked = tudo.checked; }));
+    itens8.forEach(c => c.addEventListener("change", () => { tudo.checked = itens8.every(x => x.checked); }));
+  }
+
   function iniciar() {
     if (!$("montar-grupos")) return;
+    ligarExtracao();
     const atalhos = $("atalhos");
     COMANDOS.forEach(c => {
       const b = el("button", "btn atalho", c.cmd + (c.modo ? " " + c.modo : "")); b.type = "button"; b.title = c.dica + " — envia agora ao chat";

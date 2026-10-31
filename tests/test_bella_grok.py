@@ -721,3 +721,33 @@ def test_conta_guarda_sem_sensualizacao_e_o_roteador_usa(monkeypatch):
     roteador._prompt_responder(None, SimpleNamespace(id=1, prompt_suave=False), "telegram", "x", "realismo")
     roteador._prompt_responder(None, SimpleNamespace(id=1), "telegram", "x", "realismo")
     assert vistos == [{"suave": True}, {}, {}]
+
+
+def test_modelo_extracao_seletiva_so_copia_o_que_foi_marcado(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or _prompt_valido())
+    ref = ("image/jpeg", "abc")
+    assert pb.criar("[[extrair: pose, cenario, tatuagens]]", "c", "modelo", referencia_anexa=ref)
+    instr, entrada, kw = vistos[0]
+    assert "MODO EXTRAÇÃO SELETIVA" in instr and "MODO EXTRAÇÃO TOTAL" not in instr
+    assert "Pose:" in instr and "Cenário:" in instr and "Tatuagens (se houver):" in instr and "se não houver nenhuma, não invente" in instr
+    assert "Penteado:" not in instr.split("SOMENTE estes itens:")[1].split("Todo o resto")[0]          # o que não foi marcado não é copiado
+    assert "penteado" in instr.split("Todo o resto")[1] and "roupas" in instr.split("Todo o resto")[1]
+    assert entrada == "Modo extração seletiva: copie da imagem de referência SOMENTE: Pose, Cenário, Tatuagens (se houver). O restante, crie de forma nova."
+    assert "[[" not in entrada and kw["imagens"] == [ref]
+    # com pedido escrito, em qualquer ordem e com acento ignorado nas chaves válidas
+    assert pb.criar("cabelo ruivo [[extrair: expressao,acessorios]]", "c", "modelo", referencia_anexa=ref)
+    assert vistos[1][1].startswith("Pedido: cabelo ruivo\n") and "SOMENTE: Acessórios (se houver), Expressão da face." in vistos[1][1]
+    # todos os oito itens = extrair tudo
+    todos = "[[extrair: modelo, roupas, pose, cenario, penteado, acessorios, tatuagens, expressao]]"
+    assert pb.criar(todos, "c", "modelo", referencia_anexa=ref)
+    assert "MODO EXTRAÇÃO TOTAL" in vistos[2][0] and "SELETIVA" not in vistos[2][0] and vistos[2][2]["max_tokens"] == 8000
+    # sem imagem, ou fora do /promptmodelo, o marcador some e o modo não liga
+    assert pb.criar("ruiva [[extrair: pose]]", "c", "modelo")
+    assert "SELETIVA" not in vistos[3][0] and vistos[3][1] == "Pedido: ruiva"
+    pb.criar("[[extrair: pose]]", "c", "roupa", referencia_anexa=ref)          # o resultado do Grok de mentira não importa aqui
+    assert "SELETIVA" not in vistos[4][0] and "[[" not in vistos[4][1]
+    # chaves inválidas são ignoradas
+    assert pb.elementos_extrair("x [[extrair: pose, banana]]") == ("x", ["pose"])

@@ -101,6 +101,8 @@
       </div>
       <input type="file" id="ref-arquivo" accept="image/png,image/jpeg,image/webp" hidden>
       <label class="marcar"><input type="checkbox" id="extrair-tudo"> Extrair tudo da imagem (no /promptmodelo)</label>
+      <div class="extrair-itens" id="extrair-itens" role="group" aria-label="Extrair só estes itens da imagem"><label class="marcar"><input type="checkbox" class="extrair-item" data-el="modelo"> Modelo</label><label class="marcar"><input type="checkbox" class="extrair-item" data-el="roupas"> Roupas</label><label class="marcar"><input type="checkbox" class="extrair-item" data-el="pose"> Pose</label><label class="marcar"><input type="checkbox" class="extrair-item" data-el="cenario"> Cenário</label><label class="marcar"><input type="checkbox" class="extrair-item" data-el="penteado"> Penteado</label><label class="marcar"><input type="checkbox" class="extrair-item" data-el="acessorios"> Acessórios (se houver)</label><label class="marcar"><input type="checkbox" class="extrair-item" data-el="tatuagens"> Tatuagens (se houver)</label><label class="marcar"><input type="checkbox" class="extrair-item" data-el="expressao"> Expressão da face</label></div>
+      <small class="montar-dica">Ou marque só o que quer copiar da imagem (o resto a Bella cria novo). Vale para o /promptmodelo com a imagem anexa.</small>
       <small class="montar-dica">Com a caixa marcada, o /promptmodelo copia da imagem o penteado, a cor e o formato do cabelo, olhos, rosto, boca, pele, corpo, tatuagens, piercings, anéis e joias, roupas, expressão, pose, cenário e luz.</small>
     </section>
     <section class="ferramenta" id="ferr-frames">
