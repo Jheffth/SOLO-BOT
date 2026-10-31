@@ -31,7 +31,7 @@ def test_monta_corpo_com_categoria_titulo_e_limites():
     c = acervo_prompts.montar("roupa", "vestido preto", "x" * 9000, "7")
     assert c["categoria"] == "roupa" and c["origem"] == "bella" and c["usuario_id"] == "7"
     assert c["titulo"].startswith("Roupa · vestido preto") and len(c["texto"]) == 8000
-    assert acervo_prompts.montar("ficha", "", "Crie uma prancha\nmais", "7")["categoria"] == "outro"
+    assert acervo_prompts.montar("ficha", "", "Crie uma prancha\nmais", "7")["categoria"] == "ficha"
 
 
 def test_salva_quando_conta_esta_ligada(monkeypatch):
@@ -123,3 +123,10 @@ def test_sem_titulo_do_grok_nao_copia_o_comeco_do_pedido(monkeypatch):
     longo = "Use a imagem da nova modelo como referência principal para manter o mesmo rosto"
     acervo_prompts.salvar_em_segundo_plano(_conta(), "realismo", longo, "texto do prompt completo")
     assert "Use a imagem" not in enviados[0]["titulo"] and enviados[0]["titulo"].startswith("Prompt da Bella")
+
+
+def test_ficha_vai_para_categoria_propria_e_texto_nao_trava_no_filtro_de_adultos():
+    assert acervo_prompts.montar("ficha", "", "texto", "1")["categoria"] == "ficha"
+    from nucleo import prompts_bella
+    for modo in ("padrao", "roupa", "personagem", "cenario"):      # o Solo Prompts barra a palavra "menores"
+        assert "menores" not in prompts_bella.modelo_ficha(modo).lower()

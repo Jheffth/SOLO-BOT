@@ -344,7 +344,7 @@ de nada da lista "Já usados". Mantenha todo o texto fixo do modelo; só as part
 # (personagem, roupa e cenário). O texto fixo é montado aqui; o Grok só preenche os colchetes. Respeita "Sem sensualização".
 _FICHA_ABERTURA = """Crie uma prancha de personagem (character sheet) em estilo de fotografia real, de uma única mulher adulta, com a mesma identidade em todos os painéis. Use a imagem da modelo como referência principal para manter o mesmo rosto, identidade facial, proporções naturais, cor de pele, cabelo e aparência geral da pessoa original. Nunca altere a cor do cabelo, não adicione perucas nem mude o estilo natural do cabelo da referência.
 
-Proporção vertical 2:3, em formato de colagem de character sheet de design de personagem: um painel principal grande e vários painéis menores de tamanhos diferentes encaixados na mesma imagem, sem molduras decorativas.
+Proporção vertical 2:3, em formato de colagem de character sheet de design de personagem: um painel principal grande e vários painéis pequenos de tamanhos diferentes encaixados na mesma imagem, sem molduras decorativas.
 Características que se mantêm em todos os painéis: [CARACTERÍSTICAS: só o que o pedido ou a imagem mostrarem (cabelo, olhos, pintas, tatuagens, piercings, óculos, joias fixas); se nada foi informado, escreva "as mesmas da imagem de referência"]."""
 
 _FICHA_FUNDO = """Fundo neutro cinza-claro liso de estúdio nos painéis de corpo, sem cenário, com luz suave e difusa, igual em todos os painéis e sem sombras duras."""

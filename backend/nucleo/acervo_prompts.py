@@ -16,7 +16,7 @@ from nucleo import modulos
 log = logging.getLogger("solobot.acervo")
 
 APP = "prompts"
-_CATEGORIAS = {"realismo": "realismo", "modelo": "modelo", "roupa": "roupa", "pose": "pose", "criativo": "criativo"}
+_CATEGORIAS = {"realismo": "realismo", "modelo": "modelo", "roupa": "roupa", "pose": "pose", "criativo": "criativo", "ficha": "ficha"}
 _ROTULOS = {"realismo": "Prompt", "modelo": "Modelo", "roupa": "Roupa", "pose": "Pose", "criativo": "Criativo", "ficha": "Character sheet"}
 
 
