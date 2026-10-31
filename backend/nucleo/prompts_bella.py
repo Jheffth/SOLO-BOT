@@ -701,8 +701,11 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
                        + jaque)
     if modelo_novo and not pedido:
         entrada = "Pedido: tudo aleatório. Sorteie uma modelo nova (pele, cabelo, rosto, corpo), roupa e cenário diferentes dos últimos."
+    realista = categoria == "realismo"          # /prompt também copia da imagem só o que foi marcado
+    if tudo and realista and ref:
+        tudo, elementos = False, list(_ELEMENTOS_EXTRAIR)
     tudo = tudo and modelo_novo and bool(ref)
-    seletivo = bool(elementos) and modelo_novo and bool(ref) and not tudo
+    seletivo = bool(elementos) and (modelo_novo or realista) and bool(ref) and not tudo
     if tudo:
         entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
             "Modo extração total: extraia TUDO da imagem de referência (rosto, cabelo, pele, corpo, tatuagens, piercings, joias, "
@@ -737,7 +740,7 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
     elif modelo_novo:
         base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "") + (INSTRUCAO_REFERENCIA_MODELO_TOTAL if tudo else "") + (instrucao_seletiva(elementos) if seletivo else "")
     else:
-        base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "")
+        base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "") + (instrucao_seletiva(elementos) if seletivo else "")
     if suave:
         if pose:
             base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (INSTRUCAO_REFERENCIA_POSE if ref else "")

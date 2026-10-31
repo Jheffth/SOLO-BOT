@@ -751,3 +751,21 @@ def test_modelo_extracao_seletiva_so_copia_o_que_foi_marcado(monkeypatch):
     assert "SELETIVA" not in vistos[4][0] and "[[" not in vistos[4][1]
     # chaves inválidas são ignoradas
     assert pb.elementos_extrair("x [[extrair: pose, banana]]") == ("x", ["pose"])
+
+
+def test_prompt_comum_tambem_extrai_so_o_marcado(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or _prompt_valido())
+    ref = ("image/jpeg", "abc")
+    assert pb.criar("[[extrair: pose, cenario]]", "c", "realismo", referencia_anexa=ref)
+    instr, entrada, kw = vistos[0]
+    assert "MODO EXTRAÇÃO SELETIVA" in instr and entrada.startswith("Modo extração seletiva") and "Pose, Cenário" in entrada
+    assert "[[" not in entrada and kw["imagens"] == [ref]
+    # sem imagem o marcador some e o modo não liga
+    assert pb.criar("ruiva [[extrair: pose]]", "c", "realismo")
+    assert "SELETIVA" not in vistos[1][0] and vistos[1][1] == "Pedido: ruiva"
+    # "extrair tudo" no /prompt = os oito itens
+    assert pb.criar("extrair tudo da imagem de referência", "c", "realismo", referencia_anexa=ref)
+    assert "SELETIVA" in vistos[2][0] and "Expressão da face" in vistos[2][1]

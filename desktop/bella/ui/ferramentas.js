@@ -146,9 +146,10 @@
   function enviar(cmd, corpo) {
     const api = window.bellaApi; if (!api) return;
     if (api.ocupada()) return aviso("Espere eu terminar o pedido anterior.");
-    const tudo = $("extrair-tudo") && $("extrair-tudo").checked && cmd === "/promptmodelo";
+    const comExtracao = cmd === "/promptmodelo" || cmd === "/prompt";
+    const tudo = $("extrair-tudo") && $("extrair-tudo").checked && comExtracao;
     if (tudo && !api.temAnexo()) return aviso("Anexe a imagem de referência para extrair tudo dela.");
-    const itensExtrair = tudo || cmd !== "/promptmodelo" ? [] : Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
+    const itensExtrair = tudo || !comExtracao ? [] : Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
     if (itensExtrair.length && !api.temAnexo()) return aviso("Anexe a imagem de referência para copiar os itens marcados dela.");
     if (cmd === "/charactersheet" && MODOS_FICHA.test(corpo || "") && !api.temAnexo()) return aviso("Anexe a imagem de referência: a ficha usa o que está nela.");
     const t = (cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "") + (itensExtrair.length ? " [[extrair: " + itensExtrair.join(", ") + "]]" : "")).trim();

@@ -464,13 +464,15 @@
         const img = anexo; if (!t) t = "crie um prompt com essa referência";
         // caixinhas "Extrair ..." marcadas no painel de ferramentas: viram um /promptmodelo com o que copiar da imagem
         let exibir = t;
-        if (!t.startsWith("/")) {
+        if (!t.startsWith("/") || /^\/(promptmodelo|prompt)(\s|$)/i.test(t)) {
           const tudo = $("extrair-tudo") && $("extrair-tudo").checked;
           const itens = Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
           if (tudo || itens.length) {
-            const pedido = t === "crie um prompt com essa referência" ? "" : t;
-            t = ("/promptmodelo " + pedido + (tudo ? " extrair tudo da imagem de referência" : " [[extrair: " + itens.join(", ") + "]]")).replace(/\s+/g, " ").trim();
-            exibir = "/promptmodelo " + (pedido ? pedido + " " : "") + (tudo ? "(extrair tudo)" : "(extrair: " + itens.join(", ") + ")");
+            let pedido = t === "crie um prompt com essa referência" ? "" : t;
+            const cmd = /^\/prompt(?!modelo)(\s|$)/i.test(t) ? "/prompt" : "/promptmodelo";
+            if (t.startsWith("/")) pedido = t.replace(/^\/\S+\s*/, "");
+            t = (cmd + " " + pedido + (tudo ? " extrair tudo da imagem de referência" : " [[extrair: " + itens.join(", ") + "]]")).replace(/\s+/g, " ").trim();
+            exibir = cmd + " " + (pedido ? pedido + " " : "") + (tudo ? "(extrair tudo)" : "(extrair: " + itens.join(", ") + ")");
           }
         }
         $("entrada").value = ""; tirarAnexo();
