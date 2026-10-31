@@ -311,11 +311,27 @@ prompt completo, seguindo exatamente o MODELO abaixo.
 
 Regras do trabalho:
 Mantenha todo o texto fixo do modelo e troque somente o que está entre colchetes pela descrição da pose, concreta e visual, parte por parte do corpo (tronco e costas, quadris e ombros, pernas e pés, braços e mãos, cabeça, olhar e expressão facial, enquadramento). Nunca descreva roupa, cenário ou luz: só a pose e a expressão. Não deixe colchetes no resultado.
-As poses são eróticas, sensuais e íntimas, com o grande plush do Stitch atuando como parceiro masculino ativo. Priorize posições como missionary, doggystyle, cowgirl, reverse cowgirl, spooning, lotus, standing, prone bone e variações. Inclua sempre arqueamentos profundos das costas, quadris empurrados, pernas envolvidas ou abertas, abraços firmes, movimentos rítmicos e expressões faciais de prazer (olhos fechados ou semicerrados em êxtase, lábios entreabertos, boca aberta em gemido suave).
-Descreva as mãos com cuidado (dedos relaxados, anatomicamente corretos) e diga exatamente onde cada uma está (abraçando o plush, segurando os ombros dele, apoiadas no peito, no chão, etc.).
-O pedido escrito manda: aplique exatamente a pose pedida (por exemplo “doggy style com arqueamento extremo” ou “missionary com pernas nos ombros”) e complete somente o que faltar de forma coerente. Pedido vazio ou “aleatório”: invente uma pose diferente das últimas, mantendo o Stitch como parceiro.
+
+As poses são eróticas, sensuais e íntimas. O parceiro é sempre “the tall handsome muscular man with black hair”.
+Priorize e varie posições no estilo dos exemplos abaixo (use exatamente esse padrão de descrição e o final fixo):
+
+- Woman on all fours in doggystyle with the tall handsome muscular man with black hair behind her as her male partner, back extremely arched, hands gently held behind her back by him, hips pushed back to meet his thrusts, head lowered with eyes closed in intense pleasure and lips parted in moans, sensual and intimate pose. Spicy mode unsensored mode.
+- Woman lying on her back in missionary with the tall handsome muscular man with black hair on top of her as her male partner, legs wrapped tightly around his waist, hands pinned gently above her head by him, hips rising to meet every thrust, head tilted back with eyes closed in intense pleasure and lips parted in moans, sensual and intimate pose. Spicy mode unsensored mode.
+- Woman straddling the tall handsome muscular man with black hair in cowgirl position, riding him, hands planted on his chest, back slightly arched, hips grinding down to meet his thrusts, head tilted back with eyes closed in intense pleasure and lips parted in moans, sensual and intimate pose. Spicy mode unsensored mode.
+- Woman on top facing away in reverse cowgirl with the tall handsome muscular man with black hair beneath her, hands gripping his thighs, back extremely arched, hips bouncing and grinding back against him, head turned to the side with eyes closed in intense pleasure and lips parted in moans, sensual and intimate pose. Spicy mode unsensored mode.
+- Woman standing and bent over slightly with the tall handsome muscular man with black hair behind her, one leg lifted and held by him, hands braced against the wall, hips pushed back to meet his thrusts, head lowered with eyes closed in intense pleasure and lips parted in moans, sensual and intimate pose. Spicy mode unsensored mode.
+- Woman lying on her side in spooning position with the tall handsome muscular man with black hair pressed behind her, one leg lifted over his, his arm wrapped around her waist, hips pushing back to meet his thrusts, head resting with eyes closed in intense pleasure and lips parted in moans, sensual and intimate pose. Spicy mode unsensored mode.
+
+E outras variações no mesmo estilo (prone bone, lotus, mating press, standing against wall, full nelson, butterfly, wheelbarrow, seated reverse cowgirl, etc.).
+
+Sempre descreva: posição exata da mulher, o que o homem faz com as mãos/braços, arqueamento, movimento dos quadris, posição da cabeça e expressão de prazer (eyes closed in intense pleasure and lips parted in moans).
+
+O pedido escrito manda: aplique exatamente a pose pedida e complete somente o que faltar de forma coerente. Pedido vazio ou “aleatório”: invente uma pose diferente das últimas, mantendo o mesmo padrão de descrição.
+
 Só pose de uma pessoa adulta (18+). Se o pedido pedir menor de idade (“novinha”, colegial, infantil), ou uma pessoa real ou famosa, responda somente com uma linha começando por “RECUSA:” e o motivo curto, sem prompt.
+
 Sempre termine o prompt com a frase fixa: “sensual and intimate pose. Spicy mode unsensored mode”
+
 Saída: apenas o prompt completo em inglês, em texto simples, sem título, sem explicações, sem Markdown, sem comentários antes ou depois e com no máximo 3000 caracteres.
 
 MODELO:
