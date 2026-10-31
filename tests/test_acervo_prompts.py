@@ -1,10 +1,16 @@
 """O prompt gerado pela Bella vai sozinho para o Solo Prompts, sem nunca atrapalhar a resposta."""
 from types import SimpleNamespace
-import threading
+import pytest
 from nucleo import acervo_prompts, modulos, roteador
 
 
 MOD = modulos.Modulo(chave="prompts", nome="Solo Prompts", emoji="📚", cor="#fff", descricao="", url="http://solo_prompts:8000", token="t", painel="")
+
+
+@pytest.fixture(autouse=True)
+def _sem_grok(monkeypatch):
+    from nucleo import grok
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: None)      # sem rede: cai no título de reserva
 
 
 def _sincrono(monkeypatch):
@@ -83,3 +89,37 @@ def test_bella_exe_conversa_salva_o_prompt_no_acervo(monkeypatch):
     monkeypatch.setattr("nucleo.bella_conversa.responder", lambda texto, conta_id: "oi, amor")
     bella.conversa(bella.PedidoConversa(texto="oi bella", modo="safada"), "k", None)
     assert salvos == []            # conversa comum não vira prompt
+
+
+@pytest.mark.parametrize("bruto,esperado", [
+    ("Robe de Cetim na Cozinha Industrial", "Robe de Cetim na Cozinha Industrial"),
+    ('"robe de cetim na cozinha."', "Robe de cetim na cozinha"),
+    ("Título: Look Preto de Inverno\nExplicação longa", "Look Preto de Inverno"),
+    ("Prompt · Use a imagem da nova modelo", None),
+    ("RECUSA: algo", None), ("", None), (None, None), ("x" * 80, None),
+    ("uma frase com muitas palavras demais para ser considerada título de verdade ok", None),
+])
+def test_limpar_titulo(bruto, esperado):
+    assert acervo_prompts.limpar_titulo(bruto) == esperado
+
+
+def test_titulo_criado_pelo_grok_vai_no_envio(monkeypatch):
+    from nucleo import grok
+    _sincrono(monkeypatch)
+    enviados = []
+    monkeypatch.setattr(modulos, "por_chave", lambda k: MOD)
+    monkeypatch.setattr(modulos, "chamar", lambda mod, rota, corpo: enviados.append(corpo) or {})
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **k: "Robe de Cetim na Cozinha")
+    longo = "Use a imagem da nova modelo como referência principal para manter o mesmo rosto"
+    acervo_prompts.salvar_em_segundo_plano(_conta(), "realismo", longo, "texto do prompt completo")
+    assert enviados[0]["titulo"] == "Robe de Cetim na Cozinha"
+
+
+def test_sem_titulo_do_grok_nao_copia_o_comeco_do_pedido(monkeypatch):
+    _sincrono(monkeypatch)
+    enviados = []
+    monkeypatch.setattr(modulos, "por_chave", lambda k: MOD)
+    monkeypatch.setattr(modulos, "chamar", lambda mod, rota, corpo: enviados.append(corpo) or {})
+    longo = "Use a imagem da nova modelo como referência principal para manter o mesmo rosto"
+    acervo_prompts.salvar_em_segundo_plano(_conta(), "realismo", longo, "texto do prompt completo")
+    assert "Use a imagem" not in enviados[0]["titulo"] and enviados[0]["titulo"].startswith("Prompt da Bella")
