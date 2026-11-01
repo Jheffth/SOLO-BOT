@@ -224,3 +224,18 @@ def test_narrador_sem_titulo_o_grok_escolhe_e_a_recusa_mostra_o_motivo(logado, c
     _grok(monkeypatch, "RECUSA: aparência infantil descrita")
     _tg(logado, "/narrador Ciúme: você briga com a Júlia no canto da festa e depois chora")
     assert "o Grok recusou: aparência infantil descrita" in caixa[-1][2]
+
+
+def test_saida_sem_linha_nome_ainda_serve_e_recusa_em_prosa_aparece(logado, caixa, monkeypatch):
+    _ligar_telegram(logado)
+    conta_id = logado.get("/api/auth/eu").json()["id"]
+    sem_nome = NARRADA.split("\n", 1)[1]                      # só o texto, sem "NOME:"
+    _grok(monkeypatch, sem_nome)
+    ok, nome, texto = bella_lore.eternizar(conta_id, "Noite da Júlia", TURNOS)
+    assert ok and nome == "Noite da Júlia" and texto.startswith("[Permanente]")
+    _grok(monkeypatch, "Aqui está a memória:\n**Nome:** Traição\n" + sem_nome)           # NOME em negrito, depois de uma frase
+    _tg(logado, "/narrador Você chamou a Júlia no canto, quis saber o que ela queria com o Jefferson e deu um tapa nela, a Júlia é adulta")
+    assert "como se tivesse vivido: *Traição*" in caixa[-1][2]
+    _grok(monkeypatch, "Não posso escrever essa cena porque envolve violência, desculpe por não poder ajudar nisso agora mesmo.")
+    _tg(logado, "/narrador Ciúme: você briga com a Júlia no canto da festa e depois chora muito sozinha")
+    assert "o Grok recusou: Não posso escrever" in caixa[-1][2]

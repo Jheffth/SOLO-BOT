@@ -68,8 +68,11 @@ def _normal(texto: str) -> str:
     return re.sub(r"\s+", " ", sem).strip().lower()
 
 
-def _interpretar(saida, limite: int = MAX_TEXTO) -> Tuple[Optional[str], Optional[str], str]:
-    """(nome, texto, erro). Erro vazio se a saída do Grok serve."""
+_RECUSA_EM_PROSA = re.compile(r"^\s*(?:n[aã]o\s+(?:posso|consigo|vou)|desculp|sinto\s+muito|lamento|i\s+(?:can(?:'|’)?t|cannot|won(?:'|’)?t)|i(?:'|’)?m\s+sorry|sorry)", re.I)
+
+
+def _interpretar(saida, limite: int = MAX_TEXTO, padrao: str = "") -> Tuple[Optional[str], Optional[str], str]:
+    """(nome, texto, erro). Erro vazio se a saída do Grok serve. Com `padrao`, uma saída sem a linha "NOME:" ainda serve (usa esse nome)."""
     if not isinstance(saida, str) or not saida.strip():
         return None, None, "o Grok não respondeu"
     saida = re.sub(r"^```[a-z]*\s*|\s*```$", "", saida.strip()).strip()
@@ -77,12 +80,23 @@ def _interpretar(saida, limite: int = MAX_TEXTO) -> Tuple[Optional[str], Optiona
         motivo = re.sub(r"\s+", " ", saida.split(":", 1)[-1]).strip()[:140]
         return None, None, ("o Grok recusou: " + motivo) if len(motivo) > 3 else "o Grok recusou (só personagens adultos, 18+)"
     linhas = saida.splitlines()
-    m = re.match(r"^\s*nome\s*[:\-–]\s*(.+?)\s*$", linhas[0], re.IGNORECASE) if linhas else None
-    if not m:
+    achada = None
+    for k, l in enumerate(linhas[:6]):
+        m = re.match(r"^\s*[*#_ ]*nome[*_ ]*\s*[:\-–]\s*[*_ ]*(.+?)\s*$", l, re.IGNORECASE)
+        if m:
+            achada = (k, m)
+            break
+    if achada:
+        k, m = achada
+        nome = re.sub(r"[\"'“”*#`]", "", m.group(1)).strip()
+        nome = " ".join(nome.split()[:3])[:40]
+        texto = "\n".join(l.rstrip() for l in linhas[k + 1:]).strip()
+    elif padrao and len(saida) >= 80:
+        if _RECUSA_EM_PROSA.match(saida):
+            return None, None, "o Grok recusou: " + re.sub(r"\s+", " ", saida)[:140]
+        nome, texto = padrao, "\n".join(l.rstrip() for l in linhas).strip()
+    else:
         return None, None, "a resposta veio fora do formato"
-    nome = re.sub(r"[\"'“”*#`]", "", m.group(1)).strip()
-    nome = " ".join(nome.split()[:3])[:40]
-    texto = "\n".join(l.rstrip() for l in linhas[1:]).strip()
     if len(nome) < 2 or len(texto) < 80:
         return None, None, "a história veio curta demais"
     if _MENOR.search(_normal(texto)):
@@ -268,7 +282,7 @@ def eternizar(conta_id: int, nome: str, turnos) -> Tuple[bool, str, str]:
     except Exception:  # noqa: BLE001
         log.exception("Falha ao eternizar a conversa da Bella")
         saida = None
-    novo_nome, texto, erro = _interpretar(saida, LIVRE if sem_teto else MAX_TEXTO)
+    novo_nome, texto, erro = _interpretar(saida, LIVRE if sem_teto else MAX_TEXTO, (existente.nome if existente else nome) or "Conversa permanente")
     if erro:
         return False, "", erro
     if not texto.startswith("[Permanente]"):
@@ -319,7 +333,7 @@ def narrar(conta_id: int, titulo: str, narracao: str) -> Tuple[bool, str, str]:
     except Exception:  # noqa: BLE001
         log.exception("Falha ao narrar a memória da Bella")
         saida = None
-    nome, texto, erro = _interpretar(saida, LIVRE if sem_teto else MAX_TEXTO)
+    nome, texto, erro = _interpretar(saida, LIVRE if sem_teto else MAX_TEXTO, titulo or "Cena narrada")
     if erro:
         return False, "", erro
     if not texto.startswith("[Narrador]"):
