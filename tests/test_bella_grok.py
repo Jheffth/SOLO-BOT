@@ -671,3 +671,32 @@ def test_prompt_comum_tambem_extrai_so_o_marcado(monkeypatch):
     assert "SELETIVA" not in vistos[1][0] and vistos[1][1] == "Pedido: ruiva"
     assert pb.criar("extrair tudo da imagem de referência", "c", "realismo", referencia_anexa=ref)
     assert "SELETIVA" in vistos[2][0] and "Expressão da face" in vistos[2][1]
+
+
+def test_posehot_parceiro_escolhido_vai_para_a_instrucao(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos["instr"] = instr
+        return "Recrie a pessoa da imagem " + "x" * 700
+    monkeypatch.setattr(pb.grok, "gerar", falso)
+    pb.criar("/posehot de quatro [[parceiro: moreno, barba cheia, braços tatuados]]", categoria="pose", chave=None)
+    assert "moreno, barba cheia, braços tatuados" in vistos["instr"] and "[[parceiro" not in vistos["instr"]
+    assert "RECUSA" in vistos["instr"] and "18+" in vistos["instr"]
+
+
+def test_posehot_sem_parceiro_mantem_o_padrao(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos["instr"] = instr
+        return "Recrie a pessoa da imagem " + "x" * 700
+    monkeypatch.setattr(pb.grok, "gerar", falso)
+    pb.criar("de quatro", categoria="pose", chave=None)
+    assert "PARCEIRO ESCOLHIDO" not in vistos["instr"]
+
+
+def test_parceiro_so_vale_na_pose():
+    from nucleo import prompts_bella as pb
+    limpo, p = pb.parceiro_pedido("pose [[parceiro: loiro]] x")
+    assert p == "loiro" and "[[" not in limpo

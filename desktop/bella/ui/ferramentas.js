@@ -152,7 +152,9 @@
     const itensExtrair = tudo || !comExtracao ? [] : Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
     if (itensExtrair.length && !api.temAnexo()) return aviso("Anexe a imagem de referência para copiar os itens marcados dela.");
     if (cmd === "/charactersheet" && MODOS_FICHA.test(corpo || "") && !api.temAnexo()) return aviso("Anexe a imagem de referência: a ficha usa o que está nela.");
-    const t = (cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "") + (itensExtrair.length ? " [[extrair: " + itensExtrair.join(", ") + "]]" : "")).trim();
+    const campoParc = $("posehot-parceiro");
+    const parceiro = cmd === "/posehot" && campoParc ? campoParc.value.replace(/\[\[|\]\]/g, " ").replace(/\s+/g, " ").trim() : "";
+    const t = (cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "") + (itensExtrair.length ? " [[extrair: " + itensExtrair.join(", ") + "]]" : "") + (parceiro ? " [[parceiro: " + parceiro + "]]" : "")).trim();
     if (t.length > LIMITE + 40) return aviso("O pedido ficou muito grande. Tire alguns itens.");
     api.fechar(); api.enviar(t);
   }

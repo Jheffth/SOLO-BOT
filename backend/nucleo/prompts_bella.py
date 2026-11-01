@@ -176,6 +176,33 @@ def elementos_extrair(pedido):
     return limpo, [k for k in _ELEMENTOS_EXTRAIR if k in achados]
 
 
+_PARCEIRO_RE = re.compile(r"\[\[\s*parceiro\s*:\s*(.+?)\s*\]\]", re.I | re.S)
+_PARCEIRO_PADRAO = "the tall handsome muscular man with black hair"
+
+
+def parceiro_pedido(pedido):
+    """(pedido sem o marcador, características do parceiro escolhidas ou '')."""
+    achado = []
+    def tira(m):
+        achado.append(re.sub(r"\s+", " ", m.group(1)).strip(" ,.;:-–")[:300])
+        return " "
+    limpo = re.sub(r"\s{2,}", " ", _PARCEIRO_RE.sub(tira, pedido or "")).strip(" ,.;:-–")
+    return limpo, (achado[0] if achado else "")
+
+
+def instrucao_parceiro(carac):
+    return f"""
+
+PARCEIRO ESCOLHIDO PELO DONO (vale no lugar do parceiro padrão acima): características pedidas = "{carac}".
+- Em TODAS as frases, troque “{_PARCEIRO_PADRAO}” por uma descrição curta em inglês do parceiro com exatamente essas
+  características (por exemplo “the tall tanned bearded man with tattooed arms”), sempre a mesma descrição na pose inteira.
+  O que o pedido não disser sobre ele, mantenha como no padrão. Descreva só aparência geral (pele, cabelo, barba, porte,
+  altura, tatuagens), sem rosto detalhado.
+- Ele é sempre um homem adulto (18+), fictício e anônimo. Se as características pedirem menor de idade, aparência infantil
+  ou adolescente, ou uma pessoa real, famosa ou com nome, responda somente com uma linha começando por "RECUSA:" e o
+  motivo curto, sem prompt."""
+
+
 def instrucao_seletiva(elementos):
     copiar = "\n".join(f"  • {_ELEMENTOS_EXTRAIR[k][0]}: {_ELEMENTOS_EXTRAIR[k][1]}." for k in elementos)
     resto = [_ELEMENTOS_EXTRAIR[k][0].split(" (")[0].lower() for k in _ELEMENTOS_EXTRAIR if k not in elementos]
@@ -689,6 +716,7 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         pedido = sem.group(1).strip()
     modelo_novo = categoria == "modelo"
     pedido, elementos = elementos_extrair(pedido)
+    pedido, parceiro = parceiro_pedido(pedido) if categoria == "pose" else (_PARCEIRO_RE.sub(" ", pedido).strip(), "")
     tudo = bool(_EXTRAIR_TUDO.search(pedido)) or len(elementos) == len(_ELEMENTOS_EXTRAIR)
     if tudo:
         pedido = re.sub(r"\s{2,}", " ", _EXTRAIR_TUDO.sub("", pedido)).strip(" ,.;:-–")
@@ -747,6 +775,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         base = instrucao_ficha(modo) + (INSTRUCAO_REFERENCIA_FICHA if ref else "") + (INSTRUCAO_FICHA_TUDO if ref and modo == "tudo" else "")
     elif pose:
         base = INSTRUCAO_POSE + (INSTRUCAO_REFERENCIA_POSE if ref else "")
+        if parceiro:
+            base += instrucao_parceiro(parceiro)
         if ref and not pedido:
             entrada = "Pedido: copie fielmente a pose da imagem de referência."
     elif roupa:
