@@ -167,9 +167,11 @@ def test_comando_eternizar_usa_a_conversa_recente(logado, caixa, monkeypatch):
     from nucleo import bella_memoria
     _ligar_telegram(logado)
     _grok(monkeypatch, PERMANENTE)
-    monkeypatch.setattr(bella_memoria, "turnos_recentes", lambda *a, **k: TURNOS)
+    chaves = []
+    monkeypatch.setattr(bella_memoria, "turnos_recentes", lambda chave, *a, **k: chaves.append(chave) or TURNOS)
     _tg(logado, "/eternizar")
     assert "Conversa guardada como permanente" in caixa[-1][2] and "Noite da Júlia" in caixa[-1][2]
+    assert chaves[0].startswith("telegram:")      # a chave da conversa do canal, a mesma do /esquecer
     _tg(logado, "/esquecer")
     _tg(logado, "/memoria")
     assert "Noite da Júlia" in caixa[-1][2]

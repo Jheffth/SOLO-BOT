@@ -538,7 +538,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if cmd == "/memoria":
         return _cmd_memoria(conta, resto.strip())
     if cmd in ("/eternizar", "/permanente"):
-        return _cmd_eternizar(conta, resto.strip())
+        return _cmd_eternizar(conta, canal, resto.strip())
     if cmd in ("/eliminarmemo", "/eliminarmemoria", "/eliminarmemória"):
         return _cmd_eliminarmemo(conta, resto.strip())
     if cmd == "/narrador":
@@ -714,11 +714,13 @@ def _cmd_memoria_historia(conta: Conta, ideia: str) -> Resposta:
                           f"Para mudar: `/memoria editar {nome} o que mudar` · para apagar: `/memoria apagar {nome}`")
 
 
-def _cmd_eternizar(conta: Conta, nome: str) -> Resposta:
+def _cmd_eternizar(conta: Conta, canal: str, nome: str) -> Resposta:
     """/eternizar [NOME]: guarda a conversa de agora como memória permanente da Bella, com os sentimentos dela e as pessoas que participam."""
     from nucleo import bella_lore, bella_memoria
     try:
-        turnos = bella_memoria.turnos_recentes(conta.id, 60, 24 * 60)
+        turnos = bella_memoria.turnos_recentes(_chave_bella(canal, conta), 60, 24 * 60)      # a conversa deste canal
+        if len(turnos) < 2:
+            turnos = bella_memoria.turnos_recentes(conta.id, 60, 24 * 60)                     # a do Bella.exe
         ok, titulo, texto = bella_lore.eternizar(conta.id, nome, turnos)
     except Exception:  # noqa: BLE001
         log.exception("Falha no /eternizar")
