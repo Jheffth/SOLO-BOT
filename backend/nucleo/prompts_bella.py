@@ -151,8 +151,8 @@ referência anteriores, exceto as de idade, recusa e anonimato:
 
 # Extração SELETIVA (Bella.exe, caixas abaixo de "Extrair tudo"): o dono marca só o que quer copiar da imagem.
 _ELEMENTOS_EXTRAIR = {
-    "modelo": ("Modelo", "o rosto e o corpo: tom de pele e subtom, formato do rosto, sobrancelhas, olhos (cor e formato), nariz, boca e lábios, "
-               "pescoço, porte, ombros, busto, cintura, quadris, pernas, sardas, pintas e marcas (o cabelo e as tatuagens têm opção própria)"),
+    "modelo": ("Modelo", "o rosto e o corpo: tom de pele e subtom, formato do rosto, sobrancelhas, formato dos olhos (a cor tem opção própria), nariz, boca e lábios, "
+               "pescoço, porte, ombros, busto, cintura, quadris, pernas, sardas, pintas e marcas (o cabelo, a cor dos olhos, a maquiagem e as tatuagens têm opção própria)"),
     "roupas": ("Roupas", "a roupa peça por peça (cor, tecido, corte, decote, caimento, costuras) e os calçados"),
     "pose": ("Pose", "a pose e a posição do corpo, dos braços, das mãos, das pernas e da cabeça, e o enquadramento e o ângulo da câmera"),
     "cenario": ("Cenário", "o cenário, o fundo, a luz e a cor da cena"),
@@ -160,6 +160,11 @@ _ELEMENTOS_EXTRAIR = {
                  "(solto, preso, molhado). NÃO copie a cor do cabelo: a cor vem do pedido ou da modelo (ou sorteie), nunca da imagem"),
     "cor": ("Peruca / cor do cabelo", "SOMENTE a cor do cabelo, como se fosse uma peruca dessa cor: tom exato, reflexos, raiz, mechas, degradê e brilho. "
             "NÃO copie o formato (corte, comprimento, textura, franja, repartição, estado): isso vem do penteado ou do pedido"),
+    "olhos": ("Cor dos olhos / lentes de contato", "SOMENTE a cor dos olhos, como se fossem lentes de contato dessa cor: tom exato da íris, anel externo, "
+              "reflexos e brilho. NÃO copie o formato dos olhos, o olhar nem a expressão"),
+    "maquiagem": ("Maquiagem", "só a maquiagem: base e acabamento da pele, blush, contorno, iluminador, sombra (cores e formato), delineado, cílios, "
+                  "sobrancelha marcada, batom ou gloss (cor e acabamento). NÃO copie o rosto, a pele nem o formato das feições; se não houver maquiagem visível, "
+                  "descreva rosto limpo, sem inventar"),
     "acessorios": ("Acessórios (se houver)", "os acessórios que existirem na imagem: brincos, colares, anéis, pulseiras, relógio, óculos, piercings, cinto, bolsa; "
                    "se não houver nenhum, não invente"),
     "tatuagens": ("Tatuagens (se houver)", "as tatuagens que existirem (desenho, tamanho, cor, lado e local exato no corpo); "
