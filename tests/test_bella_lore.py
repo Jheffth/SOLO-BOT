@@ -211,3 +211,16 @@ def test_narrador_primeira_palavra_vira_titulo_e_filtra_menores(logado, caixa, m
     assert "Só personagens adultos" in caixa[-1][2] and len(bella_lore.listar(conta_id)) == 1
     _tg(logado, "/narrador curto")
     assert "Use `/narrador" in caixa[-1][2]
+
+
+def test_narrador_sem_titulo_o_grok_escolhe_e_a_recusa_mostra_o_motivo(logado, caixa, monkeypatch):
+    _ligar_telegram(logado)
+    conta_id = logado.get("/api/auth/eu").json()["id"]
+    chamadas = _grok(monkeypatch, NARRADA)
+    _tg(logado, "/narrador Você chamou a Júlia no canto e quis saber o que ela queria com o Jefferson, e deu um tapa no rosto dela, a Júlia é adulta")
+    assert "como se tivesse vivido: *Traição*" in caixa[-1][2]
+    assert "escolha você" in chamadas[0][0] and "Júlia é adulta" in chamadas[0][1] and chamadas[0][1].startswith("Narração: Você chamou")
+    assert "Júlia é adulta" in chamadas[0][0] and "tapa numa discussão" in chamadas[0][0]
+    _grok(monkeypatch, "RECUSA: aparência infantil descrita")
+    _tg(logado, "/narrador Ciúme: você briga com a Júlia no canto da festa e depois chora")
+    assert "o Grok recusou: aparência infantil descrita" in caixa[-1][2]

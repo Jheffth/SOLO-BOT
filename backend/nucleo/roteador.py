@@ -749,12 +749,19 @@ def _cmd_eliminarmemo(conta: Conta, nome: str) -> Resposta:
     return Resposta().diz(f"🧹 Eliminei a memória *{apagada}*. A Bella não se lembra mais disso.")
 
 
+_NARRADOR_INICIOS = {"voce", "ela", "ele", "eles", "elas", "a", "o", "as", "os", "um", "uma", "eu", "depois", "quando", "entao", "ontem", "hoje", "de", "em", "na", "no", "ao", "nesse", "nessa", "durante", "enquanto"}
+
+
 def _cmd_narrador(conta: Conta, resto: str) -> Resposta:
     """/narrador Título: o que a Bella fez. Um narrador (não você) conta; vira memória dela, em geral um segredo que ela acha que você não sabe."""
     from nucleo import bella_lore
     titulo, sep, texto = resto.partition(":")
     if not sep or len(titulo) > 40 or "\n" in titulo:
-        titulo, _, texto = resto.partition(" ")
+        primeira, _, resta = resto.partition(" ")
+        if _sem_acento(primeira.lower()) in _NARRADOR_INICIOS:      # "Você chamou a Júlia...": sem título, o Grok escolhe
+            titulo, texto = "", resto
+        else:
+            titulo, texto = primeira, resta
     try:
         ok, nome, memoria = bella_lore.narrar(conta.id, titulo.strip(), texto.strip())
     except Exception:  # noqa: BLE001

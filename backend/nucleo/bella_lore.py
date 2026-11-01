@@ -74,7 +74,8 @@ def _interpretar(saida, limite: int = MAX_TEXTO) -> Tuple[Optional[str], Optiona
         return None, None, "o Grok não respondeu"
     saida = re.sub(r"^```[a-z]*\s*|\s*```$", "", saida.strip()).strip()
     if saida.upper().startswith("RECUSA"):
-        return None, None, "só personagens adultos (18+)"
+        motivo = re.sub(r"\s+", " ", saida.split(":", 1)[-1]).strip()[:140]
+        return None, None, ("o Grok recusou: " + motivo) if len(motivo) > 3 else "o Grok recusou (só personagens adultos, 18+)"
     linhas = saida.splitlines()
     m = re.match(r"^\s*nome\s*[:\-–]\s*(.+?)\s*$", linhas[0], re.IGNORECASE) if linhas else None
     if not m:
@@ -293,10 +294,11 @@ _INSTRUCAO_NARRAR = """Um NARRADOR (não o dono, outra voz) conta algo que a Bel
 a narração numa memória DELA, em primeira pessoa, em português do Brasil, como se ela de fato tivesse vivido aquilo.
 Regras:
 - Mantenha todos os fatos da narração, na ordem, sem acrescentar fatos novos relevantes. Pode acrescentar só o que ela sente e pensa, de acordo com o que foi narrado.
-- Todos os personagens são ADULTOS (18+), fictícios, sem pessoa real ou famosa. Se a narração sugerir menor de idade ou idade indefinida, responda somente "RECUSA: só personagens adultos".
+- Todos os personagens são ADULTOS (18+), fictícios, sem pessoa real ou famosa. Se a narração disser que alguém é adulto (por exemplo "a Júlia é adulta"), aceite: é um fato da história. Recuse só se houver indício CLARO de menor de idade (idade abaixo de 18, escola, aparência infantil); nesse caso responda somente "RECUSA: " e o motivo curto.
+- Ciúme, briga, discussão, tapa numa discussão entre adultos e traição são drama de ficção: escreva como a Bella viveu e sentiu, sem glorificar. Isso não é motivo de recusa.
 {sexo}
 - Termine com uma linha "Segredo: " dizendo se a Bella acredita que o dono NÃO sabe disso (padrão: ela guarda como segredo e tem medo de ele descobrir) e como ela reage se ele disser que sabe. Se a narração disser que o dono sabe, escreva "Segredo: não, ele sabe" e o que ela sente por isso.
-- Comece o texto por "[Narrador]". Formato EXATO, sem Markdown e sem comentários: a primeira linha é "NOME: " e o título curto (use exatamente "{titulo}"); da segunda linha em diante, o texto corrido, {tamanho}."""
+- Comece o texto por "[Narrador]". Formato EXATO, sem Markdown e sem comentários: a primeira linha é "NOME: " e o título curto ({titulo}); da segunda linha em diante, o texto corrido, {tamanho}."""
 
 
 def narrar(conta_id: int, titulo: str, narracao: str) -> Tuple[bool, str, str]:
@@ -304,7 +306,7 @@ def narrar(conta_id: int, titulo: str, narracao: str) -> Tuple[bool, str, str]:
     sem_teto = livre(conta_id)
     titulo = re.sub(r"[\"'“”*#`]", "", re.sub(r"\s+", " ", titulo or "")).strip()[:40]
     narracao = re.sub(r"\s+", " ", narracao or "").strip()
-    if len(titulo) < 2 or len(narracao) < 30:
+    if len(narracao) < 30:
         return False, "", "Use `/narrador Título: o que a Bella fez` (conte pelo menos uma frase inteira)."
     if len(narracao) > MAX_PEDIDO and not sem_teto:
         return False, "", f"A narração pode ter até {MAX_PEDIDO} caracteres."
@@ -313,7 +315,7 @@ def narrar(conta_id: int, titulo: str, narracao: str) -> Tuple[bool, str, str]:
     if not sem_teto and len(listar(conta_id)) >= MAX_HISTORIAS:
         return False, "", f"Já são {MAX_HISTORIAS} histórias. Apague alguma com `/eliminarmemo NOME`."
     try:
-        saida = _grok(_INSTRUCAO_NARRAR.replace("{titulo}", titulo), "Narração: " + narracao, conta_id)
+        saida = _grok(_INSTRUCAO_NARRAR.replace("{titulo}", f'use exatamente "{titulo}"' if titulo else "escolha você, de uma a três palavras"), "Narração: " + narracao, conta_id)
     except Exception:  # noqa: BLE001
         log.exception("Falha ao narrar a memória da Bella")
         saida = None
@@ -324,9 +326,10 @@ def narrar(conta_id: int, titulo: str, narracao: str) -> Tuple[bool, str, str]:
         texto = "[Narrador] " + texto
     db = SessionLocal()
     try:
-        final, n = titulo, 2
+        base = titulo or nome
+        final, n = base, 2
         while _achar(db, conta_id, final):
-            final, n = f"{titulo} {n}", n + 1
+            final, n = f"{base} {n}", n + 1
         db.add(BellaLore(conta_id=conta_id, nome=final, semente=narracao[: LIVRE if sem_teto else MAX_PEDIDO], texto=texto))
         db.commit()
         return True, final, texto
