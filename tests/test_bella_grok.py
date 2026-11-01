@@ -649,7 +649,7 @@ def test_modelo_extracao_seletiva_so_copia_o_que_foi_marcado(monkeypatch):
     assert "[[" not in entrada and kw["imagens"] == [ref]
     assert pb.criar("cabelo ruivo [[extrair: expressao,acessorios]]", "c", "modelo", referencia_anexa=ref)
     assert vistos[1][1].startswith("Pedido: cabelo ruivo\n") and "SOMENTE: Acessórios (se houver), Expressão da face." in vistos[1][1]
-    todos = "[[extrair: modelo, roupas, pose, cenario, penteado, acessorios, tatuagens, expressao]]"
+    todos = "[[extrair: modelo, roupas, pose, cenario, penteado, cor, acessorios, tatuagens, expressao]]"
     assert pb.criar(todos, "c", "modelo", referencia_anexa=ref)
     assert "MODO EXTRAÇÃO TOTAL" in vistos[2][0] and "SELETIVA" not in vistos[2][0] and vistos[2][2]["max_tokens"] == 8000
     assert pb.criar("ruiva [[extrair: pose]]", "c", "modelo")
@@ -778,3 +778,15 @@ def test_posehot_suave_com_parceiro_da_imagem(monkeypatch):
     assert 'PARCEIRO EXTRAÍDO DA IMAGEM DE REFERÊNCIA' in vistos['instr']
     assert 'REFERÊNCIA ANEXADA: junto do pedido há uma imagem com a pose que ele quer copiar' not in vistos['instr']
 
+
+
+def test_extracao_penteado_e_cor_do_cabelo_separados():
+    from nucleo import prompts_bella as pb
+    _, el = pb.elementos_extrair("x [[extrair: penteado]]")
+    instr = pb.instrucao_seletiva(el)
+    assert "só o FORMATO" in instr and "NÃO copie a cor" in instr and "COR do cabelo fica nova" in instr
+    _, el = pb.elementos_extrair("x [[extrair: cor]]")
+    instr = pb.instrucao_seletiva(el)
+    assert "peruca" in instr.lower() and "formato do cabelo fica novo" in instr
+    _, el = pb.elementos_extrair("x [[extrair: penteado, cor]]")
+    assert el == ["penteado", "cor"] and "fica nova" not in pb.instrucao_seletiva(el) and "fica novo" not in pb.instrucao_seletiva(el)

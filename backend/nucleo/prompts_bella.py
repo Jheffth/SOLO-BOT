@@ -156,7 +156,10 @@ _ELEMENTOS_EXTRAIR = {
     "roupas": ("Roupas", "a roupa peça por peça (cor, tecido, corte, decote, caimento, costuras) e os calçados"),
     "pose": ("Pose", "a pose e a posição do corpo, dos braços, das mãos, das pernas e da cabeça, e o enquadramento e o ângulo da câmera"),
     "cenario": ("Cenário", "o cenário, o fundo, a luz e a cor da cena"),
-    "penteado": ("Penteado", "o cabelo: cor exata com reflexos, comprimento, textura, volume, corte, franja, repartição e estado (solto, preso, molhado)"),
+    "penteado": ("Penteado (só o formato)", "só o FORMATO do cabelo: comprimento, textura (liso, ondulado, cacheado), volume, corte, franja, repartição e estado "
+                 "(solto, preso, molhado). NÃO copie a cor do cabelo: a cor vem do pedido ou da modelo (ou sorteie), nunca da imagem"),
+    "cor": ("Peruca / cor do cabelo", "SOMENTE a cor do cabelo, como se fosse uma peruca dessa cor: tom exato, reflexos, raiz, mechas, degradê e brilho. "
+            "NÃO copie o formato (corte, comprimento, textura, franja, repartição, estado): isso vem do penteado ou do pedido"),
     "acessorios": ("Acessórios (se houver)", "os acessórios que existirem na imagem: brincos, colares, anéis, pulseiras, relógio, óculos, piercings, cinto, bolsa; "
                    "se não houver nenhum, não invente"),
     "tatuagens": ("Tatuagens (se houver)", "as tatuagens que existirem (desenho, tamanho, cor, lado e local exato no corpo); "
@@ -266,6 +269,7 @@ referência anteriores, exceto as de idade, recusa e anonimato:
 - Copie da imagem, de forma concreta e fiel, SOMENTE estes itens:
 {copiar}
 - Todo o resto ({", ".join(resto)}) NÃO deve ser copiado da imagem: invente de forma nova e coerente (ou sorteie), como se a imagem não mostrasse isso.
+{"- Cabelo: copie só o formato (penteado), e a COR do cabelo fica nova, diferente da imagem." if "penteado" in elementos and "cor" not in elementos else "- Cabelo: copie só a cor (peruca), e o formato do cabelo fica novo, diferente da imagem." if "cor" in elementos and "penteado" not in elementos else ""}
 - Descreva só o que se vê nos itens marcados. Nunca invente tatuagens, piercings ou acessórios que não existam; se um item marcado "se houver" não aparecer, omita-o.
 - Coloque cada informação no campo certo entre colchetes, sem apagar o texto fixo do modelo, e não deixe colchetes no resultado.
 - Continue sem dizer quem é a pessoa e sem usar nome. Um pedido escrito junto continua mandando sobre a imagem."""
