@@ -122,6 +122,9 @@ MODULOS_PADRAO = [
     {"chave": "prompts", "nome": "Solo Prompts", "emoji": "📚", "cor": "#c9a45c",
      "descricao": "Sua biblioteca de prompts.",
      "url": "http://solo-prompts_app:8000", "token": "", "painel": ""},
+    {"chave": "models", "nome": "Solo Models", "emoji": "🎭", "cor": "#9333ea",
+     "descricao": "Catálogo central de modelos e vozes.",
+     "url": "http://solo-models_app:8000", "token": "", "painel": ""},
 ]
 
 

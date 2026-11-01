@@ -66,3 +66,16 @@ def vinculo(usuario_id: str, mod: modulos.Modulo = Depends(_modulo), db: Session
         return {"conectado": False}
     return {"conectado": True, "conta": v.conta.nome, "email": v.conta.email or v.conta.usuario,
             "canais": [c.canal for c in v.conta.canais]}
+
+
+@router.get("/saude")
+def saude_interna(mod: modulos.Modulo = Depends(_modulo)):
+    """Verificação autenticada da integração."""
+    return {"status": "ok", "app": mod.chave, "nome": mod.nome}
+
+
+@router.get("/vozes")
+def vozes_internas(mod: modulos.Modulo = Depends(_modulo)):
+    """Consulta interna autenticada das vozes disponíveis em todos os provedores."""
+    from nucleo import fala
+    return {"vozes": fala.catalogo_todas_vozes()}

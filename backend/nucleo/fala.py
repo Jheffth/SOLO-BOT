@@ -257,6 +257,55 @@ def listar_vozes(chave: Optional[str] = None) -> list:
     return []
 
 
+def catalogo_todas_vozes() -> list:
+    """
+    Retorna o catálogo completo de vozes disponíveis em todos os provedores e contas.
+    Reaproveita os adaptadores da ElevenLabs e VoiceStudio sem depender do motor selecionado.
+    Preserva a identificação da conta de origem de cada voz.
+    Nunca expõe chaves de API, credenciais ou configurações confidenciais.
+    Não realiza síntese de áudio.
+    """
+    itens = []
+
+    # Provedor 1: ElevenLabs (todas as contas cadastradas)
+    for c in contas():
+        try:
+            vozes_el = listar_vozes(chave=c["chave"])
+            for v in vozes_el:
+                itens.append({
+                    "identificador": v["voice_id"],
+                    "nome": v["nome"],
+                    "provedor": "elevenlabs",
+                    "conta": c["id"],
+                    "amostra": v.get("preview_url") or None,
+                    "categoria": v.get("categoria"),
+                    "descricao": v.get("descricao") or None,
+                })
+        except Exception as e:  # noqa: BLE001
+            log.warning("Falha ao consultar vozes da conta ElevenLabs %s: %s", c["id"], e)
+
+    # Provedor 2: VoiceStudio (se configurado no servidor)
+    try:
+        from nucleo import voicestudio
+        if voicestudio.disponivel_servidor():
+            vozes_vs = voicestudio.listar_vozes(forcar=True)
+            for v in vozes_vs:
+                itens.append({
+                    "identificador": v["voice_id"],
+                    "nome": v["nome"],
+                    "provedor": "voicestudio",
+                    "conta": "voicestudio",
+                    "amostra": v.get("preview_url") or None,
+                    "categoria": "cloned",
+                    "descricao": "Clone local VoiceStudio",
+                })
+    except Exception as e:  # noqa: BLE001
+        log.warning("Falha ao consultar vozes do VoiceStudio: %s", e)
+
+    return itens
+
+
+
 def voz() -> Optional[str]:
     """ELEVENLABS_VOICE_ID fixa; senão a escolhida na tela; senão a 1ª da conta (própria antes de premade)."""
     from database import ler_config
