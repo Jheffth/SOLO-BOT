@@ -27,7 +27,8 @@ BLOCO_MAX_ARQUITETO = 40000
 
 CABECALHO = (
     "Sua vida antes dele (é o SEU passado, em primeira pessoa; conte ou aluda quando vier ao caso, com naturalidade, "
-    "sem despejar tudo de uma vez e sem contradizer isto):"
+    "sem despejar tudo de uma vez e sem contradizer isto; as marcadas [Permanente] são conversas que continuam valendo agora, "
+    "com as pessoas e os sentimentos que elas guardam):"
 )
 
 # idade ou escola que não deixam claro que são adultos: não guardamos
@@ -213,6 +214,75 @@ def editar(conta_id: int, nome: str, ajuste: str) -> Tuple[bool, str, str]:
         h.nome, h.texto = novo_nome, texto
         db.commit()
         return True, novo_nome, texto
+    finally:
+        db.close()
+
+
+_INSTRUCAO_ETERNIZAR = """Você guarda uma CONVERSA PERMANENTE da Bella (personagem adulta de um chatbot de companhia) como memória dela, em primeira pessoa,
+em português do Brasil. Receberá a conversa recente entre o dono e a Bella{base}.
+
+Escreva o que a Bella precisa lembrar para continuar essa conversa depois, SEM inventar nada que não esteja na conversa:
+1) O que aconteceu e em que pé a cena ou a relação está agora (fatos, lugar, o que cada um quer).
+2) "Como eu me sinto:" os sentimentos da Bella nessa conversa (por exemplo ciúme, medo de ser trocada, desejo, mágoa, apego), com a intensidade e o motivo de cada um.
+3) "Pessoas que participam:" uma linha por pessoa que apareceu além do dono e da Bella, com nome, aparência que foi descrita, o que a pessoa é para o dono e para a Bella e o que a Bella sente por ela. Essas pessoas são permanentes: a Bella as reconhece e fala delas quando vierem ao caso.
+4) "Como retomar:" uma ou duas frases do tom e do ponto em que a conversa deve continuar.
+Regras:
+- Todos os personagens são ADULTOS (18+), fictícios e sem nome de pessoa real ou famosa. Se alguém na conversa for ou parecer menor de idade, ou for uma pessoa famosa, responda somente "RECUSA: só personagens adultos fictícios".
+{sexo}
+- Tudo consensual. Não guarde senhas, documentos nem dados pessoais reais.
+- Comece o texto por "[Permanente]". Formato EXATO, sem Markdown e sem comentários: a primeira linha é "NOME: " e o título curto da conversa (uma a três palavras{nome}); da segunda linha em diante, o texto corrido com os quatro blocos, {tamanho}."""
+
+
+def eternizar(conta_id: int, nome: str, turnos) -> Tuple[bool, str, str]:
+    """Guarda a conversa recente como memória permanente: sentimentos e pessoas. Se o nome já existe, atualiza.
+    turnos = [(o que ele disse, o que a Bella respondeu)]. Retorna (ok, nome, texto-ou-mensagem)."""
+    sem_teto = livre(conta_id)
+    nome = re.sub(r"\s+", " ", nome or "").strip()[:40]
+    if nome and (_MENOR.search(_normal(nome)) or _SENSIVEL.search(nome)):
+        return False, "", "Só conversas de personagens adultos (18+) e sem senhas."
+    turnos = [(u, b) for u, b in (turnos or []) if (u or "").strip() or (b or "").strip()]
+    if len(turnos) < 2:
+        return False, "", "Ainda não há conversa suficiente para guardar. Converse um pouco com a Bella antes."
+    teto = 40000 if sem_teto else 6000
+    linhas = [f"Dono: {u.strip()}\nBella: {b.strip()}" for u, b in turnos]
+    transcricao = "\n\n".join(linhas)
+    if len(transcricao) > teto:
+        transcricao = transcricao[-teto:]
+    db = SessionLocal()
+    try:
+        existente = _achar(db, conta_id, nome) if nome else None
+        anterior = existente.texto if existente else ""
+        if not existente and not sem_teto and len(listar(conta_id)) >= MAX_HISTORIAS:
+            return False, "", f"Já são {MAX_HISTORIAS} histórias. Apague alguma com `/memoria apagar NOME`."
+    finally:
+        db.close()
+    base = " e a memória permanente que já existe (atualize-a com o que mudou, sem perder as pessoas e os sentimentos que já estavam)" if anterior else ""
+    instr = (_INSTRUCAO_ETERNIZAR.replace("{base}", base)
+             .replace("{nome}", f"; use exatamente \"{existente.nome}\"" if existente else ""))
+    entrada = (("Memória permanente atual:\n" + anterior + "\n\n") if anterior else "") + "Conversa recente:\n" + transcricao
+    try:
+        saida = _grok(instr, entrada, conta_id)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao eternizar a conversa da Bella")
+        saida = None
+    novo_nome, texto, erro = _interpretar(saida, LIVRE if sem_teto else MAX_TEXTO)
+    if erro:
+        return False, "", erro
+    if not texto.startswith("[Permanente]"):
+        texto = "[Permanente] " + texto
+    db = SessionLocal()
+    try:
+        alvo = _achar(db, conta_id, existente.nome if existente else novo_nome) if (existente or nome or novo_nome) else None
+        if alvo:
+            alvo.texto = texto
+            db.commit()
+            return True, alvo.nome, texto
+        if not sem_teto and len(listar(conta_id)) >= MAX_HISTORIAS:
+            return False, "", f"Já são {MAX_HISTORIAS} histórias. Apague alguma com `/memoria apagar NOME`."
+        final = nome or novo_nome
+        db.add(BellaLore(conta_id=conta_id, nome=final, semente="conversa permanente", texto=texto))
+        db.commit()
+        return True, final, texto
     finally:
         db.close()
 

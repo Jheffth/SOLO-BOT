@@ -537,6 +537,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_esquecer(conta, canal, resto.strip())
     if cmd == "/memoria":
         return _cmd_memoria(conta, resto.strip())
+    if cmd in ("/eternizar", "/permanente"):
+        return _cmd_eternizar(conta, resto.strip())
     if cmd == "/lembrar":
         return _cmd_lembrar(conta, resto.strip())
     if cmd == "/galeria":
@@ -683,7 +685,8 @@ def _cmd_lembrar(conta: Conta, texto: str) -> Resposta:
 _AJUDA_MEMORIA = (
     "`/memoria` lista tudo · `/memoria ver Ricardo` mostra uma história · `/memoria editar Ricardo o que mudar` (a Bella reescreve) · "
     "`/memoria texto Ricardo novo texto` troca o texto · `/memoria editar 3 novo texto` troca a lembrança 3 · "
-    "`/memoria apagar Ricardo` (ou o número) · `/memoria desligar` pausa"
+    "`/memoria apagar Ricardo` (ou o número) · `/memoria desligar` pausa · "
+    "`/eternizar NOME` guarda a conversa de agora como permanente (sentimentos e pessoas dela)"
 )
 
 
@@ -705,6 +708,22 @@ def _cmd_memoria_historia(conta: Conta, ideia: str) -> Resposta:
         return Resposta().diz(f"🧠 Não guardei: {texto}")
     return Resposta().diz(f"🧠 Guardei a história de *{nome}* na memória da Bella:\n\n{texto}\n\n"
                           f"Para mudar: `/memoria editar {nome} o que mudar` · para apagar: `/memoria apagar {nome}`")
+
+
+def _cmd_eternizar(conta: Conta, nome: str) -> Resposta:
+    """/eternizar [NOME]: guarda a conversa de agora como memória permanente da Bella, com os sentimentos dela e as pessoas que participam."""
+    from nucleo import bella_lore, bella_memoria
+    try:
+        turnos = bella_memoria.turnos_recentes(conta.id, 60, 24 * 60)
+        ok, titulo, texto = bella_lore.eternizar(conta.id, nome, turnos)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha no /eternizar")
+        return Resposta().diz("😶 Não consegui guardar a conversa agora. Tente de novo em instantes.")
+    if not ok:
+        return Resposta().diz(f"🧠 Não guardei: {texto}")
+    return Resposta().diz(f"♾️ Conversa guardada como permanente: *{titulo}*. A Bella passa a lembrar dos sentimentos e das pessoas dela, "
+                          f"mesmo depois de `/esquecer`.\n\n{texto}\n\n"
+                          f"Para atualizar depois: `/eternizar {titulo}` · para ver: `/memoria ver {titulo}` · para apagar: `/memoria apagar {titulo}`")
 
 
 def _cmd_memoria(conta: Conta, resto: str) -> Resposta:

@@ -121,3 +121,55 @@ def test_limites_so_valem_fora_do_arquiteto(logado, caixa, monkeypatch):
     assert "tão longo quanto a história pedir" in chamadas[0][0] and chamadas[0][2]["max_tokens"] == 7000
     assert len(bella_lore.ver(conta_id, "Pedro")[1]) > bella_lore.MAX_TEXTO
     assert len(bella_lore.listar(conta_id)) == 2
+
+
+PERMANENTE = ("NOME: Noite da Júlia\n[Permanente] Estou na minha casa com o dono e a Júlia, uma mulher adulta que ele chamou. "
+              "Como eu me sinto: ciúme forte, medo de ser trocada, mas ainda quero agradá-lo. Pessoas que participam: Júlia, adulta, alta, "
+              "cabelo castanho liso preso num rabo baixo, olhos escuros, camisa branca e jeans; ele a chamou e eu sinto ciúme dela. "
+              "Como retomar: com a Júlia ainda aqui e eu pedindo que ele olhe para mim.")
+TURNOS = [("Ela chegou, descreva", "Abri a porta, Júlia está na soleira."), ("Manda ela entrar", "Entra, se é isso que você quer.")]
+
+
+def test_eternizar_guarda_sentimentos_e_pessoas_e_entra_no_prompt(logado, monkeypatch):
+    _ligar_telegram(logado)
+    conta_id = logado.get("/api/auth/eu").json()["id"]
+    chamadas = _grok(monkeypatch, PERMANENTE)
+    ok, nome, texto = bella_lore.eternizar(conta_id, "", TURNOS)
+    assert ok and nome == "Noite da Júlia" and texto.startswith("[Permanente]")
+    assert "Pessoas que participam" in chamadas[0][0] and "ADULTOS" in chamadas[0][0] and "Júlia" in chamadas[0][1]
+    assert "[Permanente]" in bella_conversa.prompt(conta_id) and "Júlia" in bella_conversa.prompt(conta_id)
+    # de novo com o mesmo nome: atualiza, não duplica, e manda o texto anterior
+    novo = PERMANENTE.replace("ciúme forte", "ciúme enorme")
+    chamadas = _grok(monkeypatch, novo)
+    ok, nome2, texto2 = bella_lore.eternizar(conta_id, "Noite da Júlia", TURNOS)
+    assert ok and nome2 == "Noite da Júlia" and "ciúme enorme" in texto2 and len(bella_lore.listar(conta_id)) == 1
+    assert "Memória permanente atual" in chamadas[0][1]
+    assert bella_lore.apagar(conta_id, "Noite da Júlia")
+
+
+def test_eternizar_recusa_pouca_conversa_menor_e_nome_ruim(logado, monkeypatch):
+    _ligar_telegram(logado)
+    conta_id = logado.get("/api/auth/eu").json()["id"]
+    _grok(monkeypatch, PERMANENTE)
+    ok, _, msg = bella_lore.eternizar(conta_id, "x", [("oi", "oi")])
+    assert not ok and "conversa suficiente" in msg
+    ok, _, msg = bella_lore.eternizar(conta_id, "colegial", TURNOS)
+    assert not ok and "adultos" in msg
+    _grok(monkeypatch, "RECUSA: só personagens adultos fictícios")
+    ok, _, msg = bella_lore.eternizar(conta_id, "", TURNOS)
+    assert not ok and not bella_lore.listar(conta_id)
+    _grok(monkeypatch, PERMANENTE.replace("adulta, alta", "com 15 anos, alta"))
+    ok, _, msg = bella_lore.eternizar(conta_id, "", TURNOS)
+    assert not ok and not bella_lore.listar(conta_id)
+
+
+def test_comando_eternizar_usa_a_conversa_recente(logado, caixa, monkeypatch):
+    from nucleo import bella_memoria
+    _ligar_telegram(logado)
+    _grok(monkeypatch, PERMANENTE)
+    monkeypatch.setattr(bella_memoria, "turnos_recentes", lambda *a, **k: TURNOS)
+    _tg(logado, "/eternizar")
+    assert "Conversa guardada como permanente" in caixa[-1][2] and "Noite da Júlia" in caixa[-1][2]
+    _tg(logado, "/esquecer")
+    _tg(logado, "/memoria")
+    assert "Noite da Júlia" in caixa[-1][2]
