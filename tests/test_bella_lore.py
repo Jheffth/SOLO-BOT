@@ -173,3 +173,39 @@ def test_comando_eternizar_usa_a_conversa_recente(logado, caixa, monkeypatch):
     _tg(logado, "/esquecer")
     _tg(logado, "/memoria")
     assert "Noite da Júlia" in caixa[-1][2]
+
+
+NARRADA = ("NOME: Traição\n[Narrador] Senti desejo pelo Ricardo de novo, esperei o dono sair e fui ao apartamento dele. Ele me recebeu, "
+           "eu o beijei e o acariciei, e logo me arrependi e voltei correndo para casa, com medo. Segredo: acredito que o dono não sabe; "
+           "se ele disser que sabe, fico pálida, peço perdão e tento explicar.")
+
+
+def test_narrador_vira_memoria_secreta_da_bella(logado, caixa, monkeypatch):
+    _ligar_telegram(logado)
+    conta_id = logado.get("/api/auth/eu").json()["id"]
+    chamadas = _grok(monkeypatch, NARRADA)
+    _tg(logado, "/Narrador Traição: Você sente desejo pelo Ricardo de novo, espera o Jefferson sair e vai ao apartamento dele, e depois se arrepende")
+    assert "como se tivesse vivido: *Traição*" in caixa[-1][2]
+    assert "Segredo" in chamadas[0][0] and "ADULTOS" in chamadas[0][0] and "NARRADOR" in chamadas[0][0]
+    p = bella_conversa.prompt(conta_id)
+    assert "[Traição] [Narrador]" in p and "Segredo" in p and "nunca conte por conta própria" in p
+    _tg(logado, "/Narrador Traição: Você sente desejo pelo Ricardo de novo, espera o Jefferson sair e vai ao apartamento dele, e depois se arrepende")
+    assert "*Traição 2*" in caixa[-1][2]
+    _tg(logado, "/eliminarmemo Traição")
+    assert "Eliminei a memória *Traição*" in caixa[-1][2]
+    _tg(logado, "/eliminarmemo Traição 2")
+    assert not bella_lore.listar(conta_id)
+    _tg(logado, "/eliminarmemo Nada")
+    assert "Não achei essa memória" in caixa[-1][2]
+
+
+def test_narrador_primeira_palavra_vira_titulo_e_filtra_menores(logado, caixa, monkeypatch):
+    _ligar_telegram(logado)
+    conta_id = logado.get("/api/auth/eu").json()["id"]
+    _grok(monkeypatch, NARRADA)
+    _tg(logado, "/narrador Traição Você sente desejo pelo Ricardo de novo e vai ao apartamento dele")
+    assert bella_lore.listar(conta_id)[0][0] == "Traição"
+    _tg(logado, "/narrador Colégio: você beija o Ricardo na escola, ele tem 15 anos")
+    assert "Só personagens adultos" in caixa[-1][2] and len(bella_lore.listar(conta_id)) == 1
+    _tg(logado, "/narrador curto")
+    assert "Use `/narrador" in caixa[-1][2]

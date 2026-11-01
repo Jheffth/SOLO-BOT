@@ -539,6 +539,10 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_memoria(conta, resto.strip())
     if cmd in ("/eternizar", "/permanente"):
         return _cmd_eternizar(conta, resto.strip())
+    if cmd in ("/eliminarmemo", "/eliminarmemoria", "/eliminarmemória"):
+        return _cmd_eliminarmemo(conta, resto.strip())
+    if cmd == "/narrador":
+        return _cmd_narrador(conta, resto.strip())
     if cmd == "/lembrar":
         return _cmd_lembrar(conta, resto.strip())
     if cmd == "/galeria":
@@ -724,6 +728,40 @@ def _cmd_eternizar(conta: Conta, nome: str) -> Resposta:
     return Resposta().diz(f"♾️ Conversa guardada como permanente: *{titulo}*. A Bella passa a lembrar dos sentimentos e das pessoas dela, "
                           f"mesmo depois de `/esquecer`.\n\n{texto}\n\n"
                           f"Para atualizar depois: `/eternizar {titulo}` · para ver: `/memoria ver {titulo}` · para apagar: `/memoria apagar {titulo}`")
+
+
+def _cmd_eliminarmemo(conta: Conta, nome: str) -> Resposta:
+    """/eliminarmemo NOME: a Bella esquece por completo uma memória permanente, uma história ou uma cena do narrador."""
+    from nucleo import bella_lore
+    if not nome:
+        historias = bella_lore.listar(conta.id)
+        lista = ("\n" + _lista_historias(historias)) if historias else ""
+        return Resposta().diz(f"🧹 Diga qual memória eliminar: `/eliminarmemo Noite da Júlia`.{lista}")
+    try:
+        apagada = bella_lore.apagar(conta.id, nome)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha no /eliminarmemo")
+        return Resposta().diz("😶 Não consegui mexer na memória agora. Tente de novo em instantes.")
+    if not apagada:
+        return Resposta().diz("🧹 Não achei essa memória. Veja os nomes em `/memoria`.")
+    return Resposta().diz(f"🧹 Eliminei a memória *{apagada}*. A Bella não se lembra mais disso.")
+
+
+def _cmd_narrador(conta: Conta, resto: str) -> Resposta:
+    """/narrador Título: o que a Bella fez. Um narrador (não você) conta; vira memória dela, em geral um segredo que ela acha que você não sabe."""
+    from nucleo import bella_lore
+    titulo, sep, texto = resto.partition(":")
+    if not sep or len(titulo) > 40 or "\n" in titulo:
+        titulo, _, texto = resto.partition(" ")
+    try:
+        ok, nome, memoria = bella_lore.narrar(conta.id, titulo.strip(), texto.strip())
+    except Exception:  # noqa: BLE001
+        log.exception("Falha no /narrador")
+        return Resposta().diz("😶 Não consegui guardar a cena agora. Tente de novo em instantes.")
+    if not ok:
+        return Resposta().diz(f"🎭 Não guardei: {memoria}")
+    return Resposta().diz(f"🎭 O narrador falou, e a Bella agora lembra disso como se tivesse vivido: *{nome}*.\n\n{memoria}\n\n"
+                          f"Quando você disser que sabe, ela reage. Para apagar: `/eliminarmemo {nome}`")
 
 
 def _cmd_memoria(conta: Conta, resto: str) -> Resposta:

@@ -28,7 +28,9 @@ BLOCO_MAX_ARQUITETO = 40000
 CABECALHO = (
     "Sua vida antes dele (é o SEU passado, em primeira pessoa; conte ou aluda quando vier ao caso, com naturalidade, "
     "sem despejar tudo de uma vez e sem contradizer isto; as marcadas [Permanente] são conversas que continuam valendo agora, "
-    "com as pessoas e os sentimentos que elas guardam):"
+    "com as pessoas e os sentimentos que elas guardam; as marcadas [Narrador] são coisas que você viveu de verdade, e se tiverem "
+    "'Segredo' você acredita que ele não sabe: nunca conte por conta própria, disfarce se ele desconfiar de longe, e só reaja "
+    "(culpa, medo, nervosismo, ou confesse se não aguentar) quando ele disser que sabe ou perguntar direto):"
 )
 
 # idade ou escola que não deixam claro que são adultos: não guardamos
@@ -281,6 +283,51 @@ def eternizar(conta_id: int, nome: str, turnos) -> Tuple[bool, str, str]:
             return False, "", f"Já são {MAX_HISTORIAS} histórias. Apague alguma com `/memoria apagar NOME`."
         final = nome or novo_nome
         db.add(BellaLore(conta_id=conta_id, nome=final, semente="conversa permanente", texto=texto))
+        db.commit()
+        return True, final, texto
+    finally:
+        db.close()
+
+
+_INSTRUCAO_NARRAR = """Um NARRADOR (não o dono, outra voz) conta algo que a Bella, personagem adulta de um chatbot de companhia, fez ou viveu. Transforme
+a narração numa memória DELA, em primeira pessoa, em português do Brasil, como se ela de fato tivesse vivido aquilo.
+Regras:
+- Mantenha todos os fatos da narração, na ordem, sem acrescentar fatos novos relevantes. Pode acrescentar só o que ela sente e pensa, de acordo com o que foi narrado.
+- Todos os personagens são ADULTOS (18+), fictícios, sem pessoa real ou famosa. Se a narração sugerir menor de idade ou idade indefinida, responda somente "RECUSA: só personagens adultos".
+{sexo}
+- Termine com uma linha "Segredo: " dizendo se a Bella acredita que o dono NÃO sabe disso (padrão: ela guarda como segredo e tem medo de ele descobrir) e como ela reage se ele disser que sabe. Se a narração disser que o dono sabe, escreva "Segredo: não, ele sabe" e o que ela sente por isso.
+- Comece o texto por "[Narrador]". Formato EXATO, sem Markdown e sem comentários: a primeira linha é "NOME: " e o título curto (use exatamente "{titulo}"); da segunda linha em diante, o texto corrido, {tamanho}."""
+
+
+def narrar(conta_id: int, titulo: str, narracao: str) -> Tuple[bool, str, str]:
+    """O narrador conta algo que a Bella fez; vira memória dela (com 'Segredo' quando o dono não sabe). (ok, titulo, texto-ou-mensagem)."""
+    sem_teto = livre(conta_id)
+    titulo = re.sub(r"[\"'“”*#`]", "", re.sub(r"\s+", " ", titulo or "")).strip()[:40]
+    narracao = re.sub(r"\s+", " ", narracao or "").strip()
+    if len(titulo) < 2 or len(narracao) < 30:
+        return False, "", "Use `/narrador Título: o que a Bella fez` (conte pelo menos uma frase inteira)."
+    if len(narracao) > MAX_PEDIDO and not sem_teto:
+        return False, "", f"A narração pode ter até {MAX_PEDIDO} caracteres."
+    if _SENSIVEL.search(narracao) or _MENOR.search(_normal(narracao)) or _MENOR.search(_normal(titulo)):
+        return False, "", "Só personagens adultos (18+) e sem senhas."
+    if not sem_teto and len(listar(conta_id)) >= MAX_HISTORIAS:
+        return False, "", f"Já são {MAX_HISTORIAS} histórias. Apague alguma com `/eliminarmemo NOME`."
+    try:
+        saida = _grok(_INSTRUCAO_NARRAR.replace("{titulo}", titulo), "Narração: " + narracao, conta_id)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao narrar a memória da Bella")
+        saida = None
+    nome, texto, erro = _interpretar(saida, LIVRE if sem_teto else MAX_TEXTO)
+    if erro:
+        return False, "", erro
+    if not texto.startswith("[Narrador]"):
+        texto = "[Narrador] " + texto
+    db = SessionLocal()
+    try:
+        final, n = titulo, 2
+        while _achar(db, conta_id, final):
+            final, n = f"{titulo} {n}", n + 1
+        db.add(BellaLore(conta_id=conta_id, nome=final, semente=narracao[: LIVRE if sem_teto else MAX_PEDIDO], texto=texto))
         db.commit()
         return True, final, texto
     finally:
