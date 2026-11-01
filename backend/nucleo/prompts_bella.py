@@ -178,16 +178,49 @@ def elementos_extrair(pedido):
 
 _PARCEIRO_RE = re.compile(r"\[\[\s*parceiro\s*:\s*(.+?)\s*\]\]", re.I | re.S)
 _PARCEIRO_PADRAO = "the tall handsome muscular man with black hair"
+_PARCEIRO_IMG_TERMOS = re.compile(
+    r"^(?:da\s+)?(?:imagem|foto|refer[eê]ncia)(?:\s+de\s+refer[eê]ncia)?(?:$|[\s,;:\-–]+(.*)$)",
+    re.I | re.S,
+)
+_PARCEIRO_TEXTO_IMG_RE = re.compile(
+    r"\b(?:com\s+o\s+|com\s+|usando\s+o\s+|usando\s+|usar\s+o\s+|usar\s+|copiar\s+o\s+|copiar\s+|adicionar\s+o\s+|e\s+o\s+)?"
+    r"(?:parceiro|homem|cara|rapaz)\s+da\s+(?:imagem|foto|refer[eê]ncia)\b",
+    re.I,
+)
 
 
 def parceiro_pedido(pedido):
-    """(pedido sem o marcador, características do parceiro escolhidas ou '')."""
+    """(pedido sem o marcador/menção, características do parceiro escolhidas ou '')."""
     achado = []
     def tira(m):
         achado.append(re.sub(r"\s+", " ", m.group(1)).strip(" ,.;:-–")[:300])
         return " "
     limpo = re.sub(r"\s{2,}", " ", _PARCEIRO_RE.sub(tira, pedido or "")).strip(" ,.;:-–")
-    return limpo, (achado[0] if achado else "")
+    if achado:
+        return limpo, achado[0]
+    m = _PARCEIRO_TEXTO_IMG_RE.search(limpo)
+    if m:
+        limpo = re.sub(r"\s{2,}", " ", _PARCEIRO_TEXTO_IMG_RE.sub(" ", limpo)).strip(" ,.;:-–")
+        return limpo, "da imagem"
+    return limpo, ""
+
+
+def parceiro_da_imagem(parceiro: str) -> tuple[bool, str]:
+    """Retorna (True, ajustes) se o parceiro for indicado da imagem de referência,
+    ou (False, parceiro) caso seja apenas descrição textual."""
+    if not parceiro:
+        return False, ""
+    p = parceiro.strip()
+    m = _PARCEIRO_IMG_TERMOS.match(p)
+    if m:
+        ajustes = (m.group(1) or "").strip(" ,.;:-–")
+        return True, ajustes
+    m2 = re.search(r"\b(?:da\s+)?(?:imagem|foto|refer[eê]ncia)\b", p, re.I)
+    if m2:
+        resto = re.sub(r"\b(?:da\s+)?(?:imagem|foto|refer[eê]ncia)\b", "", p, flags=re.I)
+        resto = re.sub(r"\s{2,}", " ", resto).strip(" ,.;:-–")
+        return True, resto
+    return False, p
 
 
 def instrucao_parceiro(carac):
@@ -201,6 +234,26 @@ PARCEIRO ESCOLHIDO PELO DONO (vale no lugar do parceiro padrão acima): caracter
 - Ele é sempre um homem adulto (18+), fictício e anônimo. Se as características pedirem menor de idade, aparência infantil
   ou adolescente, ou uma pessoa real, famosa ou com nome, responda somente com uma linha começando por "RECUSA:" e o
   motivo curto, sem prompt."""
+
+
+def instrucao_parceiro_referencia(ajustes=""):
+    extra = f' com estes ajustes pedidos: "{ajustes}"' if ajustes else ""
+    return f"""
+
+PARCEIRO EXTRAÍDO DA IMAGEM DE REFERÊNCIA (vale no lugar do parceiro padrão acima):
+- A imagem anexada traz a referência do parceiro masculino que você deve usar na cena{extra}.
+- Analise o homem na imagem de referência e extraia fielmente suas características físicas gerais: tom de pele e etnia,
+  cabelo (cor, corte, estilo), barba/barbicha/bigode (ou se tem rosto barbeado), porte físico, musculatura, tipo de corpo
+  e tatuagens visíveis. Descreva só a aparência geral e porte, sem rosto hiperdetalhado nem marcas de nascença íntimas.
+- Em TODAS as frases, troque “{_PARCEIRO_PADRAO}” por uma descrição curta em inglês do parceiro com as características
+  exatas extraídas da imagem (por exemplo “the athletic tanned man with short black hair and full beard” ou “the muscular
+  heavily tattooed man with dark stubble”), mantendo SEMPRE a mesma descrição na pose inteira.
+- Se o pedido pedir uma pose específica (ex.: de quatro, missionary, cowgirl), aplique a pose pedida com esse parceiro da imagem.
+  Se o pedido de pose for vazio ou aleatório, invente uma pose erótica, sensual e íntima variada conforme as regras do trabalho.
+  Se a imagem mostrar também uma pose erótica, você pode reproduzir a pose usando o parceiro da própria imagem.
+- Ele é SEMPRE um homem adulto (18+), fictício e anônimo. Nunca diga quem é nem use nome de pessoa real ou famosa.
+  Se a pessoa da imagem parecer menor de idade, infantil ou adolescente, responda somente com uma linha começando por
+  "RECUSA:" e o motivo curto, sem prompt."""
 
 
 def instrucao_seletiva(elementos):
@@ -774,11 +827,17 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
                 + ", diferentes dos últimos.")
         base = instrucao_ficha(modo) + (INSTRUCAO_REFERENCIA_FICHA if ref else "") + (INSTRUCAO_FICHA_TUDO if ref and modo == "tudo" else "")
     elif pose:
-        base = INSTRUCAO_POSE + (INSTRUCAO_REFERENCIA_POSE if ref else "")
-        if parceiro:
-            base += instrucao_parceiro(parceiro)
-        if ref and not pedido:
-            entrada = "Pedido: copie fielmente a pose da imagem de referência."
+        parc_img, ajustes_parc = parceiro_da_imagem(parceiro)
+        if parc_img:
+            base = INSTRUCAO_POSE + (instrucao_parceiro_referencia(ajustes_parc) if ref else (instrucao_parceiro(ajustes_parc) if ajustes_parc else ""))
+            if ref and not pedido:
+                entrada = "Pedido: crie a pose com o parceiro da imagem de referência."
+        else:
+            base = INSTRUCAO_POSE + (INSTRUCAO_REFERENCIA_POSE if ref else "")
+            if parceiro:
+                base += instrucao_parceiro(parceiro)
+            if ref and not pedido:
+                entrada = "Pedido: copie fielmente a pose da imagem de referência."
     elif roupa:
         base = INSTRUCAO_ROUPA + (INSTRUCAO_REFERENCIA_ROUPA if ref else "")
         if ref and not pedido:
@@ -789,7 +848,10 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "") + (instrucao_seletiva(elementos) if seletivo else "")
     if suave:
         if pose:
-            base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (INSTRUCAO_REFERENCIA_POSE if ref else "")
+            if parc_img:
+                base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (instrucao_parceiro_referencia(ajustes_parc) if ref else (instrucao_parceiro(ajustes_parc) if ajustes_parc else ""))
+            else:
+                base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (INSTRUCAO_REFERENCIA_POSE if ref else "")
         base = suavizar(base) + (REGRAS_SUAVES.replace("o formato, o 9:16 e", "o formato e") if ficha else REGRAS_SUAVES)
     orcamento = 72 if (tudo or seletivo or (ficha and modo == "tudo")) else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
     if espera:

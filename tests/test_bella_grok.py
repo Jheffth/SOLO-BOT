@@ -700,3 +700,81 @@ def test_parceiro_so_vale_na_pose():
     from nucleo import prompts_bella as pb
     limpo, p = pb.parceiro_pedido("pose [[parceiro: loiro]] x")
     assert p == "loiro" and "[[" not in limpo
+
+def test_parceiro_da_imagem_deteccao():
+    from nucleo import prompts_bella as pb
+    assert pb.parceiro_da_imagem('da imagem') == (True, '')
+    assert pb.parceiro_da_imagem('foto') == (True, '')
+    assert pb.parceiro_da_imagem('da foto, mais forte e barbudo') == (True, 'mais forte e barbudo')
+    assert pb.parceiro_da_imagem('imagem com tatuagem') == (True, 'com tatuagem')
+    assert pb.parceiro_da_imagem('referência') == (True, '')
+    assert pb.parceiro_da_imagem('moreno alto') == (False, 'moreno alto')
+    assert pb.parceiro_da_imagem('') == (False, '')
+
+
+def test_parceiro_pedido_com_imagem():
+    from nucleo import prompts_bella as pb
+    assert pb.parceiro_pedido('pose [[parceiro: da imagem]]') == ('pose', 'da imagem')
+    assert pb.parceiro_pedido('de quatro [[parceiro: da foto, barbudo]]') == ('de quatro', 'da foto, barbudo')
+    assert pb.parceiro_pedido('pose com o parceiro da foto') == ('pose', 'da imagem')
+    assert pb.parceiro_pedido('de pé usando o homem da imagem') == ('de pé', 'da imagem')
+
+
+def test_posehot_com_parceiro_da_imagem_e_referencia(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos['instr'] = instr
+        vistos['entrada'] = entrada
+        vistos['kw'] = k
+        return 'Recrie a pessoa da imagem ' + 'x' * 700
+    monkeypatch.setattr(pb.grok, 'gerar', falso)
+    ref = 'data:image/jpeg;base64,/9j/falso'
+    pb.criar('[[parceiro: da imagem]]', categoria='pose', chave=None, referencia_anexa=ref)
+    assert 'PARCEIRO EXTRAÍDO DA IMAGEM DE REFERÊNCIA' in vistos['instr']
+    assert 'REFERÊNCIA ANEXADA: junto do pedido há uma imagem com a pose que ele quer copiar' not in vistos['instr']
+    assert 'RECUSA' in vistos['instr'] and '18+' in vistos['instr']
+    assert 'crie a pose com o parceiro da imagem de referência' in vistos['entrada']
+    assert vistos['kw'].get('imagens') == [ref]
+
+
+def test_posehot_com_parceiro_da_imagem_e_ajustes(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos['instr'] = instr
+        vistos['entrada'] = entrada
+        vistos['kw'] = k
+        return 'Recrie a pessoa da imagem ' + 'x' * 700
+    monkeypatch.setattr(pb.grok, 'gerar', falso)
+    ref = 'data:image/jpeg;base64,/9j/falso'
+    pb.criar('de quatro [[parceiro: da foto, mais alto e barbudo]]', categoria='pose', chave=None, referencia_anexa=ref)
+    assert 'PARCEIRO EXTRAÍDO DA IMAGEM DE REFERÊNCIA' in vistos['instr']
+    assert 'mais alto e barbudo' in vistos['instr']
+    assert vistos['entrada'] == 'Pedido: de quatro'
+    assert vistos['kw'].get('imagens') == [ref]
+
+
+def test_posehot_com_parceiro_da_imagem_sem_anexo_fallback(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos['instr'] = instr
+        return 'Recrie a pessoa da imagem ' + 'x' * 700
+    monkeypatch.setattr(pb.grok, 'gerar', falso)
+    pb.criar('[[parceiro: da imagem]]', categoria='pose', chave=None, referencia_anexa=None)
+    assert 'PARCEIRO EXTRAÍDO DA IMAGEM DE REFERÊNCIA' not in vistos['instr']
+
+
+def test_posehot_suave_com_parceiro_da_imagem(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos['instr'] = instr
+        return 'Recrie a pessoa da imagem ' + 'x' * 700
+    monkeypatch.setattr(pb.grok, 'gerar', falso)
+    ref = 'data:image/jpeg;base64,/9j/falso'
+    pb.criar('[[parceiro: da imagem]]', categoria='pose', chave=None, referencia_anexa=ref, suave=True)
+    assert 'PARCEIRO EXTRAÍDO DA IMAGEM DE REFERÊNCIA' in vistos['instr']
+    assert 'REFERÊNCIA ANEXADA: junto do pedido há uma imagem com a pose que ele quer copiar' not in vistos['instr']
+

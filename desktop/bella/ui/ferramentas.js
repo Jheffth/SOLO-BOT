@@ -152,8 +152,11 @@
     const itensExtrair = tudo || !comExtracao ? [] : Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
     if (itensExtrair.length && !api.temAnexo()) return aviso("Anexe a imagem de referência para copiar os itens marcados dela.");
     if (cmd === "/charactersheet" && MODOS_FICHA.test(corpo || "") && !api.temAnexo()) return aviso("Anexe a imagem de referência: a ficha usa o que está nela.");
+    const parceiroFoto = $("posehot-parceiro-foto") && $("posehot-parceiro-foto").checked && cmd === "/posehot";
+    if (parceiroFoto && !api.temAnexo()) return aviso("Anexe a imagem de referência para copiar o parceiro dela.");
     const campoParc = $("posehot-parceiro");
-    const parceiro = cmd === "/posehot" && campoParc ? campoParc.value.replace(/\[\[|\]\]/g, " ").replace(/\s+/g, " ").trim() : "";
+    let parceiro = cmd === "/posehot" && campoParc ? campoParc.value.replace(/\[\[|\]\]/g, " ").replace(/\s+/g, " ").trim() : "";
+    if (parceiroFoto) parceiro = parceiro ? ("da imagem, " + parceiro) : "da imagem";
     const t = (cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "") + (itensExtrair.length ? " [[extrair: " + itensExtrair.join(", ") + "]]" : "") + (parceiro ? " [[parceiro: " + parceiro + "]]" : "")).trim();
     if (t.length > LIMITE + 40) return aviso("O pedido ficou muito grande. Tire alguns itens.");
     api.fechar(); api.enviar(t);
@@ -189,7 +192,14 @@
     $("montar-dica").textContent = COMANDOS[0].cmd + " — " + COMANDOS[0].dica;
     $("montar-enviar").onclick = () => { const c = atual(); enviar(c.cmd, corpoDe(c, texto())); };
     $("montar-campo").onclick = () => { if (window.bellaApi) { const c = atual(); window.bellaApi.inserir((c.cmd + " " + corpoDe(c, texto())).trim()); window.bellaApi.fechar(); } };
-    $("montar-limpar").onclick = () => { itens.length = 0; $("montar-extra").value = ""; atualizarResumo(); marcarChips(); };
+    $("montar-limpar").onclick = () => {
+      itens.length = 0;
+      $("montar-extra").value = "";
+      if ($("posehot-parceiro")) $("posehot-parceiro").value = "";
+      if ($("posehot-parceiro-foto")) $("posehot-parceiro-foto").checked = false;
+      atualizarResumo();
+      marcarChips();
+    };
     $("montar-sorte").onclick = surpresa;
     $("montar-extra").addEventListener("input", atualizarResumo);
     $("montar-busca").addEventListener("input", filtrar);
