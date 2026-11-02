@@ -107,3 +107,23 @@ def test_comando_ia_so_para_o_arquiteto_e_troca_o_provedor(cliente, logado, caix
     monkeypatch.setattr(config, "GROK_API_KEY", "gk-falsa")
     _tg(logado, "/ia grok")
     assert grok.provedor_ativo() == "grok"
+
+
+def test_uso_conta_chamadas_tokens_e_custo_por_provedor(cliente, logado, caixa, monkeypatch):
+    _limpar(monkeypatch)
+    monkeypatch.setattr(config, "DEEPSEEK_API_KEY", "ds-falsa")
+    monkeypatch.setattr(config, "LLM_PROVEDOR", "deepseek")
+    vistos = []
+    _cliente(monkeypatch, Resp(200, {"choices": [{"message": {"content": "ok"}}], "usage": {"prompt_tokens": 1000000, "completion_tokens": 500000}}), vistos)
+    assert grok.gerar("s", "t") == "ok" and grok.gerar("s", "t") == "ok"
+    _cliente(monkeypatch, Resp(402), [])
+    assert grok.gerar("s", "t") is None
+    u = grok.uso(30)
+    d = u["hoje"]["deepseek"]
+    assert d["req"] == 3 and d["ok"] == 2 and d["in"] == 2000000 and d["out"] == 1000000 and d["usd"] == 0.9     # 2*0.15 + 1*0.60
+    cliente.post("/api/auth/sair")
+    cliente.post("/api/auth/cadastro", json={"nome": "Arq", "usuario": "arq", "email": "arquiteto@solo.dev", "senha": "12345678"})
+    _ligar_telegram(cliente)
+    _tg(cliente, "/ia uso")
+    t = caixa[-1][2]
+    assert "Uso da IA de texto" in t and "deepseek: 3 chamada(s) (1 falha(s))" in t and "~US$ 0.90" in t and "XAI_MANAGEMENT_KEY" in t

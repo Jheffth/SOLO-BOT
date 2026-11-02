@@ -19,6 +19,70 @@ def motivo():
     return getattr(_ULTIMO, "motivo", "") or ""
 
 
+# Uso por provedor, guardado por dia na tabela de configurações ("llm_uso:AAAA-MM-DD:provedor" = JSON). Preços em US$ por milhão
+# de tokens (entrada, saída); o do DeepSeek é o de fora do pico, então o custo mostrado é uma estimativa.
+PRECOS = {"grok": (2.0, 6.0), "deepseek": (0.15, 0.60), "gemini": (0.0, 0.0)}
+_TRAVA_USO = threading.Lock()
+
+
+def _registrar_uso(entrada, saida):
+    _ULTIMO.uso = (int(entrada or 0), int(saida or 0))
+
+
+def _contar(provedor, ok):
+    entrada, saida = getattr(_ULTIMO, "uso", (0, 0))
+    try:
+        import json as _json
+        from datetime import datetime
+        from database import SessionLocal, gravar_config, ler_config
+        chave = f"llm_uso:{datetime.utcnow():%Y-%m-%d}:{provedor}"
+        with _TRAVA_USO:
+            try:
+                atual = _json.loads(ler_config(chave) or "{}")
+            except ValueError:
+                atual = {}
+            atual = {"req": atual.get("req", 0) + 1, "ok": atual.get("ok", 0) + (1 if ok else 0),
+                     "in": atual.get("in", 0) + entrada, "out": atual.get("out", 0) + saida}
+            db = SessionLocal()
+            try:
+                gravar_config(db, chave, _json.dumps(atual))
+            finally:
+                db.close()
+    except Exception:  # noqa: BLE001
+        log.debug("Não registrei o uso do provedor", exc_info=True)
+
+
+def uso(dias=30):
+    """{"hoje": {provedor: {...}}, "periodo": {provedor: {...}}} com req, ok, in, out e custo estimado em US$."""
+    import json as _json
+    from datetime import datetime, timedelta
+    from database import Configuracao, SessionLocal
+    hoje = f"{datetime.utcnow():%Y-%m-%d}"
+    desde = f"{datetime.utcnow() - timedelta(days=dias - 1):%Y-%m-%d}"
+    saida = {"hoje": {}, "periodo": {}}
+    db = SessionLocal()
+    try:
+        for c in db.query(Configuracao).filter(Configuracao.chave.like("llm_uso:%")).all():
+            _, dia, prov = (c.chave.split(":") + ["", ""])[:3]
+            if dia < desde or prov not in PROVEDORES:
+                continue
+            try:
+                d = _json.loads(c.valor or "{}")
+            except ValueError:
+                continue
+            for escopo in (("periodo",) + (("hoje",) if dia == hoje else ())):
+                t = saida[escopo].setdefault(prov, {"req": 0, "ok": 0, "in": 0, "out": 0})
+                for k in t:
+                    t[k] += int(d.get(k, 0))
+    finally:
+        db.close()
+    for escopo in saida.values():
+        for prov, t in escopo.items():
+            p_in, p_out = PRECOS[prov]
+            t["usd"] = round(t["in"] / 1e6 * p_in + t["out"] / 1e6 * p_out, 4)
+    return saida
+
+
 PROVEDORES = ("grok", "deepseek", "gemini")
 _CACHE = {"t": 0.0, "v": ""}
 
@@ -60,13 +124,15 @@ def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, t
     ativo = provedor_ativo()
     ordem = [ativo] + [p for p in config.LLM_FALLBACK if p in PROVEDORES and p != ativo and tem_chave(p)]
     for p in ordem:
+        _ULTIMO.uso = (0, 0)
         if p == "grok":
             saida = _gerar_grok(instrucao, texto, json_saida, max_tokens, temperatura, timeout, historico, imagens, modelo)
         else:
             from nucleo import llm_provedores
             _ULTIMO.motivo = ""
             saida = getattr(llm_provedores, p)(instrucao, texto, json_saida, max_tokens, temperatura, timeout, historico, imagens,
-                                               registrar_motivo)
+                                               registrar_motivo, _registrar_uso)
+        _contar(p, bool(saida))
         if saida:
             if p != ativo:
                 log.info("Provedor %s falhou; respondeu o reserva %s", ativo, p)
@@ -108,6 +174,8 @@ def _gerar_grok(instrucao, texto, json_saida=False, max_tokens=1536, temperatura
             razao = (dados.get("incomplete_details") or {}).get("reason") or dados.get("status")
             _ULTIMO.motivo = f"a resposta do Grok veio incompleta ({razao}); o limite de tokens pode ter acabado"
             return None
+        _u = dados.get("usage") or {}
+        _registrar_uso(_u.get("input_tokens"), _u.get("output_tokens"))
         saida = "".join(p.get("text", "") for item in dados.get("output", [])
                         if item.get("type") == "message" and item.get("role") == "assistant"
                         for p in item.get("content", []) if p.get("type") == "output_text").strip()

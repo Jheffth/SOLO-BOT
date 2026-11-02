@@ -721,12 +721,35 @@ _NOTAS_IA = {"grok": "Grok (xAI): o padrão, entende imagens.",
              "gemini": "Gemini: tem plano gratuito, mas o filtro dele costuma barrar conteúdo adulto e o plano gratuito pode usar as conversas para treinar."}
 
 
+def _texto_uso(grok) -> str:
+    """O consumo de texto por provedor (contado aqui no Solo Bot) e o saldo da xAI, quando as chaves de gerenciamento existem."""
+    dados = grok.uso(30)
+    linhas = ["📊 *Uso da IA de texto* (custo estimado; a conta oficial de cada provedor manda)"]
+    for titulo, escopo in (("Hoje (UTC)", "hoje"), ("Últimos 30 dias", "periodo")):
+        linhas.append(f"*{titulo}*")
+        if not dados[escopo]:
+            linhas.append("  — nenhuma chamada registrada")
+        for prov in grok.PROVEDORES:
+            t = dados[escopo].get(prov)
+            if t:
+                linhas.append(f"  • {prov}: {t['req']} chamada(s) ({t['req'] - t['ok']} falha(s)) · {t['in'] + t['out']:,} tokens".replace(",", ".")
+                              + (f" · ~US$ {t['usd']:.2f}" if prov != "gemini" else " · grátis"))
+    if grok.saldo_disponivel():
+        s = grok.saldo()
+        linhas.append(f"💳 Saldo na xAI: US$ {s['saldo_usd']:.2f}" if "saldo_usd" in s else f"💳 Saldo na xAI: {s['erro']}")
+    else:
+        linhas.append("💳 Para ver o saldo da xAI aqui, defina XAI_MANAGEMENT_KEY e XAI_TEAM_ID no .env do servidor.")
+    return "\n".join(linhas)
+
+
 def _cmd_ia(db: Session, conta: Conta, escolha: str) -> Resposta:
     """/ia [grok|deepseek|gemini]: o Arquiteto vê ou troca o provedor de texto da Bella e das ferramentas de prompt."""
     from nucleo import grok
     if not conta.admin:
         return Resposta().diz("🔒 Só o Arquiteto troca o provedor de IA.")
     ativo = grok.provedor_ativo()
+    if escolha in ("uso", "usage", "gasto"):
+        return Resposta().diz(_texto_uso(grok))
     if escolha in grok.PROVEDORES:
         if not grok.tem_chave(escolha):
             return Resposta().diz(f"⚠️ Falta a chave do {escolha} no .env do servidor, então não troquei. Continuo no *{ativo}*.")
@@ -735,7 +758,7 @@ def _cmd_ia(db: Session, conta: Conta, escolha: str) -> Resposta:
     linhas = [f"🔀 Provedor de IA agora: *{ativo}*."]
     for p in grok.PROVEDORES:
         linhas.append(f"{'▶️' if p == ativo else '▫️'} `{p}` — {'chave ok' if grok.tem_chave(p) else 'sem chave no .env'} · {_NOTAS_IA[p]}")
-    linhas.append("Troque com `/ia grok`, `/ia deepseek` ou `/ia gemini`.")
+    linhas.append("Troque com `/ia grok`, `/ia deepseek` ou `/ia gemini` · `/ia uso` mostra o consumo de cada um.")
     return Resposta().diz("\n".join(linhas))
 
 

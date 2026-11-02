@@ -27,7 +27,7 @@ def chave(provedor):
     return {"deepseek": config.DEEPSEEK_API_KEY, "gemini": config.GEMINI_API_KEY or config.GEMINI_API_KEY_RESERVA}.get(provedor, "")
 
 
-def deepseek(instrucao, texto, json_saida, max_tokens, temperatura, timeout, historico, imagens, registrar):
+def deepseek(instrucao, texto, json_saida, max_tokens, temperatura, timeout, historico, imagens, registrar, registrar_uso=None):
     if not config.DEEPSEEK_API_KEY:
         registrar("a chave DEEPSEEK_API_KEY não está definida no servidor")
         return None
@@ -60,7 +60,11 @@ def deepseek(instrucao, texto, json_saida, max_tokens, temperatura, timeout, his
             d = _detalhe(r)
             registrar(f"o DeepSeek recusou a chamada (HTTP {r.status_code}){': ' + d if d else ''}")
             return None
-        escolha = (r.json().get("choices") or [{}])[0]
+        corpo_r = r.json()
+        if registrar_uso:
+            u = corpo_r.get("usage") or {}
+            registrar_uso(u.get("prompt_tokens"), u.get("completion_tokens"))
+        escolha = (corpo_r.get("choices") or [{}])[0]
         if escolha.get("finish_reason") == "length":
             registrar("a resposta do DeepSeek veio incompleta (limite de tokens)")
             return None
@@ -74,7 +78,7 @@ def deepseek(instrucao, texto, json_saida, max_tokens, temperatura, timeout, his
         return None
 
 
-def gemini(instrucao, texto, json_saida, max_tokens, temperatura, timeout, historico, imagens, registrar):
+def gemini(instrucao, texto, json_saida, max_tokens, temperatura, timeout, historico, imagens, registrar, registrar_uso=None):
     k = chave("gemini")
     if not k:
         registrar("a chave GEMINI_API_KEY não está definida no servidor")
@@ -106,6 +110,9 @@ def gemini(instrucao, texto, json_saida, max_tokens, temperatura, timeout, histo
             registrar(f"o Gemini recusou a chamada (HTTP {r.status_code}){': ' + d if d else ''}")
             return None
         dados = r.json()
+        if registrar_uso:
+            u = dados.get("usageMetadata") or {}
+            registrar_uso(u.get("promptTokenCount"), u.get("candidatesTokenCount"))
         bloqueio = (dados.get("promptFeedback") or {}).get("blockReason")
         if bloqueio:
             registrar(f"o Gemini bloqueou o pedido por segurança ({bloqueio})")
