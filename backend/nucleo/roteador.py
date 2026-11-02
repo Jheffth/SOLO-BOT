@@ -517,6 +517,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _conta_resumo(db, conta)
     if cmd == "/voz":
         return _cmd_voz(db, conta, resto.strip().lower())
+    if cmd == "/ia":
+        return _cmd_ia(db, conta, resto.strip().lower())
     if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo", "/charactersheet", "/fichapersonagem"):
         padrao = {"/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose", "/promptcriativo": "criativo",
                   "/charactersheet": "ficha", "/fichapersonagem": "ficha"}.get(cmd, "realismo")
@@ -712,6 +714,29 @@ def _cmd_memoria_historia(conta: Conta, ideia: str) -> Resposta:
         return Resposta().diz(f"🧠 Não guardei: {texto}")
     return Resposta().diz(f"🧠 Guardei a história de *{nome}* na memória da Bella:\n\n{texto}\n\n"
                           f"Para mudar: `/memoria editar {nome} o que mudar` · para apagar: `/memoria apagar {nome}`")
+
+
+_NOTAS_IA = {"grok": "Grok (xAI): o padrão, entende imagens.",
+             "deepseek": "DeepSeek: bem mais barato; os servidores ficam na China.",
+             "gemini": "Gemini: tem plano gratuito, mas o filtro dele costuma barrar conteúdo adulto e o plano gratuito pode usar as conversas para treinar."}
+
+
+def _cmd_ia(db: Session, conta: Conta, escolha: str) -> Resposta:
+    """/ia [grok|deepseek|gemini]: o Arquiteto vê ou troca o provedor de texto da Bella e das ferramentas de prompt."""
+    from nucleo import grok
+    if not conta.admin:
+        return Resposta().diz("🔒 Só o Arquiteto troca o provedor de IA.")
+    ativo = grok.provedor_ativo()
+    if escolha in grok.PROVEDORES:
+        if not grok.tem_chave(escolha):
+            return Resposta().diz(f"⚠️ Falta a chave do {escolha} no .env do servidor, então não troquei. Continuo no *{ativo}*.")
+        grok.definir_provedor(escolha)
+        return Resposta().diz(f"🔀 Provedor de IA agora: *{escolha}*. {_NOTAS_IA[escolha]}\nVale para a Bella, as histórias e as ferramentas de prompt.")
+    linhas = [f"🔀 Provedor de IA agora: *{ativo}*."]
+    for p in grok.PROVEDORES:
+        linhas.append(f"{'▶️' if p == ativo else '▫️'} `{p}` — {'chave ok' if grok.tem_chave(p) else 'sem chave no .env'} · {_NOTAS_IA[p]}")
+    linhas.append("Troque com `/ia grok`, `/ia deepseek` ou `/ia gemini`.")
+    return Resposta().diz("\n".join(linhas))
 
 
 def _cmd_eternizar(conta: Conta, canal: str, nome: str) -> Resposta:

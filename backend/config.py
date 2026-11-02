@@ -54,6 +54,14 @@ GEMINI_AUDIO_MODEL = _env("GEMINI_AUDIO_MODEL", GEMINI_MODEL)
 # "nenhum" desliga a alternativa; não troca o modelo da interpretação dos comandos.
 GEMINI_AUDIO_MODEL_RESERVA = _env("GEMINI_AUDIO_MODEL_RESERVA", "gemini-3.1-flash-lite")
 GROK_API_KEY = _env("GROK_API_KEY")
+# Provedor de texto: "grok" (padrão), "deepseek" ou "gemini". O Arquiteto troca com /ia; LLM_FALLBACK (ex.: "deepseek,grok")
+# lista o que tentar se o escolhido falhar (vazio = sem reserva, para não mandar conversa íntima a quem você não escolheu).
+LLM_PROVEDOR = _env("LLM_PROVEDOR", "grok").lower()
+LLM_FALLBACK = [p.strip().lower() for p in _env("LLM_FALLBACK").split(",") if p.strip()]
+DEEPSEEK_API_KEY = _env("DEEPSEEK_API_KEY")
+DEEPSEEK_MODEL = _env("DEEPSEEK_MODEL", "deepseek-flash")
+DEEPSEEK_PENSAR = _env("DEEPSEEK_PENSAR", "0").lower() in ("1", "true", "sim", "yes")
+GEMINI_TEXT_MODEL = _env("GEMINI_TEXT_MODEL") or _env("GEMINI_MODEL") or "gemini-2.5-flash"
 GROK_TEXT_MODEL = _env("GROK_TEXT_MODEL", "grok-4.7")
 GROK_IMAGE_MODEL = _env("GROK_IMAGE_MODEL", "grok-imagine-image-2.0")
 GROK_VISION_MODEL = _env("GROK_VISION_MODEL")        # lê imagens de referência; vazio = o modelo de texto

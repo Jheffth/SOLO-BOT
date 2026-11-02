@@ -19,8 +19,63 @@ def motivo():
     return getattr(_ULTIMO, "motivo", "") or ""
 
 
+PROVEDORES = ("grok", "deepseek", "gemini")
+_CACHE = {"t": 0.0, "v": ""}
+
+
+def provedor_ativo():
+    """O provedor de texto em uso: o que o Arquiteto escolheu com /ia, senão o LLM_PROVEDOR do .env, senão o Grok."""
+    if time.monotonic() - _CACHE["t"] > 15:
+        valor = ""
+        try:
+            from database import ler_config
+            valor = (ler_config("llm_provedor") or "").strip().lower()
+        except Exception:  # noqa: BLE001
+            valor = ""
+        _CACHE.update(t=time.monotonic(), v=valor)
+    for v in (_CACHE["v"], config.LLM_PROVEDOR):
+        if v in PROVEDORES:
+            return v
+    return "grok"
+
+
+def definir_provedor(valor):
+    from database import SessionLocal, gravar_config
+    db = SessionLocal()
+    try:
+        gravar_config(db, "llm_provedor", valor)
+    finally:
+        db.close()
+    _CACHE.update(t=0.0, v=valor)
+
+
+def tem_chave(provedor):
+    from nucleo import llm_provedores
+    return bool(config.GROK_API_KEY) if provedor == "grok" else bool(llm_provedores.chave(provedor))
+
+
 def gerar(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, timeout=18, historico=None,
           imagens=None, modelo=None):
+    """Escolhe o provedor (ver provedor_ativo) e, se ele falhar, tenta os de LLM_FALLBACK que tiverem chave."""
+    ativo = provedor_ativo()
+    ordem = [ativo] + [p for p in config.LLM_FALLBACK if p in PROVEDORES and p != ativo and tem_chave(p)]
+    for p in ordem:
+        if p == "grok":
+            saida = _gerar_grok(instrucao, texto, json_saida, max_tokens, temperatura, timeout, historico, imagens, modelo)
+        else:
+            from nucleo import llm_provedores
+            _ULTIMO.motivo = ""
+            saida = getattr(llm_provedores, p)(instrucao, texto, json_saida, max_tokens, temperatura, timeout, historico, imagens,
+                                               registrar_motivo)
+        if saida:
+            if p != ativo:
+                log.info("Provedor %s falhou; respondeu o reserva %s", ativo, p)
+            return saida
+    return None
+
+
+def _gerar_grok(instrucao, texto, json_saida=False, max_tokens=1536, temperatura=.7, timeout=18, historico=None,
+                imagens=None, modelo=None):
     _ULTIMO.motivo = ""
     if not config.GROK_API_KEY:
         _ULTIMO.motivo = "a chave GROK_API_KEY não está definida no servidor"
