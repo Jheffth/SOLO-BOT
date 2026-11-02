@@ -1008,7 +1008,7 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
             raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
         if roupa or pose or ficha:   # troca de roupa/pose e ficha: sem 9:16 e sem a tag de movimento
             inicios = (("crie uma prancha de personagem",) if ficha else ("vista a pessoa", "dress the person") if roupa
-                       else ("recrie a pessoa", "recreate the person"))
+                       else ("recrie a pessoa", "recrie as pessoas", "recrie a cena", "recrie o casal", "recreate the person", "recreate the scene", "recreate the people"))
             motivo = ("curto demais" if len(saida) < (900 if ficha else 600) else "longo demais" if len(saida) > MAX_PROMPT
                       else "não começa pelo texto fixo do modelo" if not saida.lower().startswith(inicios)
                       else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")

@@ -916,3 +916,14 @@ def test_posehot_extrair_sem_anexo_fallback(monkeypatch):
     assert "MODO EXTRAÇÃO SELETIVA NO /POSEHOT" not in vistos["instr"]
     assert vistos["entrada"] == "Pedido: de quatro"
 
+
+
+def test_posehot_aceita_prompt_que_comeca_com_recrie_a_cena(monkeypatch):
+    # o modelo da pose no modo seletivo começa com "Recrie a cena…" e no de casal com "Recrie as pessoas…"
+    from nucleo import prompts_bella as pb
+    ref = "data:image/jpeg;base64,/9j/falso"
+    for inicio in ("Recrie a cena mantendo da imagem", "Recrie as pessoas (ou o casal) da imagem", "Recrie a pessoa da imagem"):
+        monkeypatch.setattr(pb.grok, "gerar", lambda instr, entrada, _i=inicio, **k: _i + " x" * 400)
+        out = pb.criar("[[extrair: modelo, roupas, pose, cenario, penteado, maquiagem, acessorios, expressao]]",
+                       categoria="pose", chave=None, referencia_anexa=ref)
+        assert out and out.startswith(inicio), inicio
