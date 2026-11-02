@@ -152,7 +152,7 @@ referência anteriores, exceto as de idade, recusa e anonimato:
 # Extração SELETIVA (Bella.exe, caixas abaixo de "Extrair tudo"): o dono marca só o que quer copiar da imagem.
 _ELEMENTOS_EXTRAIR = {
     "modelo": ("Modelo", "o rosto e o corpo: tom de pele e subtom, formato do rosto, sobrancelhas, formato dos olhos (a cor tem opção própria), nariz, boca e lábios, "
-               "pescoço, porte, ombros, busto, cintura, quadris, pernas, sardas, pintas e marcas (o cabelo, a cor dos olhos, a maquiagem e as tatuagens têm opção própria)"),
+               "pescoço, porte, ombros, busto, cintura, quadris, pernas, sardas, pintas e marcas (o cabelo, a cor dos olhos, a maquiagem, a pintura corporal, os efeitos especiais e as tatuagens têm opção própria)"),
     "roupas": ("Roupas", "a roupa peça por peça (cor, tecido, corte, decote, caimento, costuras) e os calçados"),
     "pose": ("Pose", "a pose e a posição do corpo, dos braços, das mãos, das pernas e da cabeça, e o enquadramento e o ângulo da câmera"),
     "cenario": ("Cenário", "o cenário, o fundo, a luz e a cor da cena"),
@@ -165,6 +165,11 @@ _ELEMENTOS_EXTRAIR = {
     "maquiagem": ("Maquiagem", "só a maquiagem: base e acabamento da pele, blush, contorno, iluminador, sombra (cores e formato), delineado, cílios, "
                   "sobrancelha marcada, batom ou gloss (cor e acabamento). NÃO copie o rosto, a pele nem o formato das feições; se não houver maquiagem visível, "
                   "descreva rosto limpo, sem inventar"),
+    "pintura": ("Pintura corporal (se houver)", "só a pintura no corpo e no rosto que existir na imagem (body paint, pintura facial, glitter, strass colado na pele): "
+                "desenho, cores, acabamento, tamanho e local exato no corpo. NÃO é tatuagem nem maquiagem comum; se não houver pintura, não invente"),
+    "efeitos": ("Efeitos especiais (se houver)", "só os efeitos de personagem que existirem na imagem: olhos brilhantes ou de lente, aura, brilho, fumaça, chamas, "
+                "relâmpagos, partículas, névoa, luz mágica, asas, chifres, cauda, garras ou próteses de maquiagem de efeito (cicatriz, pele escamosa, sangue falso); "
+                "descreva cada efeito (cor, intensidade, de onde sai). Se não houver nenhum, não invente"),
     "acessorios": ("Acessórios (se houver)", "os acessórios que existirem na imagem: brincos, colares, anéis, pulseiras, relógio, óculos, piercings, cinto, bolsa; "
                    "se não houver nenhum, não invente"),
     "tatuagens": ("Tatuagens (se houver)", "as tatuagens que existirem (desenho, tamanho, cor, lado e local exato no corpo); "

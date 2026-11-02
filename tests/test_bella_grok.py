@@ -649,7 +649,7 @@ def test_modelo_extracao_seletiva_so_copia_o_que_foi_marcado(monkeypatch):
     assert "[[" not in entrada and kw["imagens"] == [ref]
     assert pb.criar("cabelo ruivo [[extrair: expressao,acessorios]]", "c", "modelo", referencia_anexa=ref)
     assert vistos[1][1].startswith("Pedido: cabelo ruivo\n") and "SOMENTE: Acessórios (se houver), Expressão da face." in vistos[1][1]
-    todos = "[[extrair: modelo, roupas, pose, cenario, penteado, cor, olhos, maquiagem, acessorios, tatuagens, expressao]]"
+    todos = "[[extrair: modelo, roupas, pose, cenario, penteado, cor, olhos, maquiagem, pintura, efeitos, acessorios, tatuagens, expressao]]"
     assert pb.criar(todos, "c", "modelo", referencia_anexa=ref)
     assert "MODO EXTRAÇÃO TOTAL" in vistos[2][0] and "SELETIVA" not in vistos[2][0] and vistos[2][2]["max_tokens"] == 8000
     assert pb.criar("ruiva [[extrair: pose]]", "c", "modelo")
@@ -799,3 +799,13 @@ def test_extracao_olhos_e_maquiagem_separados():
     instr = pb.instrucao_seletiva(el)
     assert "lentes de contato" in instr and "só a maquiagem" in instr
     assert "formato dos olhos (a cor tem opção própria)" in pb._ELEMENTOS_EXTRAIR["modelo"][1]
+
+
+def test_extracao_pintura_corporal_e_efeitos_especiais_separados():
+    from nucleo import prompts_bella as pb
+    _, el = pb.elementos_extrair("x [[extrair: pintura, efeitos]]")
+    assert el == ["pintura", "efeitos"]
+    instr = pb.instrucao_seletiva(el)
+    assert "body paint" in instr and "NÃO é tatuagem" in instr and "aura" in instr and "se não houver pintura, não invente" in instr
+    _, el = pb.elementos_extrair("x [[extrair: tatuagens]]")
+    assert "pintura corporal" in pb.instrucao_seletiva(el).split("Todo o resto")[1] and "efeitos especiais" in pb.instrucao_seletiva(el).split("Todo o resto")[1]
