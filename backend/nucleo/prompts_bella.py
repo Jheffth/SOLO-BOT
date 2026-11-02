@@ -399,7 +399,88 @@ A pose parece espontânea e íntima, não de ensaio fotográfico: peso do corpo 
 
 Não alterar rosto, cabelo, cor da pele, corpo, roupa, cenário, fundo, iluminação nem proporções da imagem original; não adicionar nem remover objetos ou pessoas; não criar aparência de IA, pele plástica, render 3D ou desenho; não distorcer mãos, dedos, pernas, pés, rosto ou proporções corporais; não deixar membros extras, fundidos ou tortos; não adicionar textos, logos ou marcas."""
 
-INSTRUCAO_POSE = """Você é a Bella e está ajudando seu dono a criar prompts de POSE em português para o Grok Imagine:
+def modelo_pose(elementos=None, tudo=False) -> str:
+    if not tudo and not elementos:
+        return MODELO_POSE
+
+    corpo_meio = """A pose é [POSE: postura geral do corpo (em pé, sentada, deitada, de joelhos, apoiada), inclinação do tronco e arqueamento das costas, posição dos quadris e dos ombros, peso do corpo].
+Pernas e pés: [POSIÇÃO DAS PERNAS E PÉS: abertura, dobra, qual perna fica à frente, apoio no chão ou na superfície].
+Braços e mãos: [BRAÇOS E MÃOS: onde cada mão está, sobre o próprio cabelo, cintura, coxa, pescoço, alça da roupa ou apoiada na superfície, sempre de forma sensual e natural, com dedos relaxados e anatomicamente corretos].
+Cabeça e olhar: [CABEÇA, OLHAR E EXPRESSÃO: inclinação da cabeça, direção do olhar, olhos, lábios, expressão provocante e natural].
+Enquadramento: [ENQUADRAMENTO E ÂNGULO: o que aparece das pessoas e o ângulo da câmera, ajustados à pose, mantendo o estilo de foto casual de smartphone da imagem original].
+
+A pose parece espontânea e íntima, não de ensaio fotográfico: peso do corpo coerente, dobras da pele e da roupa naturais, sombras e reflexos coerentes com a mesma luz da cena, sem rigidez e sem simetria perfeita."""
+
+    if tudo:
+        cabecalho = (
+            "Recrie as pessoas (ou o casal) da imagem de referência na pose descrita abaixo. "
+            "Mantenha exatamente as características da modelo feminina e do parceiro masculino (se houver casal na foto), "
+            "cabelos, maquiagem, tom de pele, corpos, roupas, acessórios, tatuagens, cenário, fundo, iluminação, cores e qualidade da foto original. "
+            "Nada além da pose e do que ela exige (posição dos corpos, dos braços, das pernas e das cabeças) muda."
+        )
+        regras_nao = (
+            "Não alterar rostos, cabelos, cor da pele, corpos, roupas, acessórios, tatuagens, cenário, fundo nem iluminação da imagem original; "
+            "não adicionar nem remover objetos ou pessoas (além do parceiro se a imagem tiver só a modelo); "
+            "não criar aparência de IA, pele plástica, render 3D ou desenho; não distorcer mãos, dedos, pernas, pés, rostos ou proporções corporais; "
+            "não deixar membros extras, fundidos ou tortos; não adicionar textos, logos ou marcas."
+        )
+        return cabecalho + "\n\n" + corpo_meio + "\n\n" + regras_nao
+
+    nomes_copiar = [_ELEMENTOS_EXTRAIR[k][0] for k in elementos if k in _ELEMENTOS_EXTRAIR]
+    itens_str = ", ".join(nomes_copiar) if nomes_copiar else "os itens selecionados"
+    cabecalho = (
+        f"Recrie a cena mantendo da imagem de referência SOMENTE: {itens_str}. "
+        "Aplique a pose descrita abaixo. O que não foi listado acima não deve ser copiado da imagem original, "
+        "sendo criado de forma nova, espontânea e sensual."
+    )
+    regras_nao = (
+        f"Não alterar os itens mantidos da imagem original ({itens_str}); "
+        "não criar aparência de IA, pele plástica, render 3D ou desenho; não distorcer mãos, dedos, pernas, pés, rostos ou proporções corporais; "
+        "não deixar membros extras, fundidos ou tortos; não adicionar textos, logos ou marcas."
+    )
+    return cabecalho + "\n\n" + corpo_meio + "\n\n" + regras_nao
+
+
+INSTRUCAO_POSE_TUDO = """
+
+MODO EXTRAÇÃO TOTAL NO /POSEHOT:
+- O dono quer extrair TUDO da imagem de referência (casal/pessoas, roupas, acessórios, tatuagens, expressão, pose, cenário, fundo e luz).
+- Se houver um CASAL na imagem de referência:
+  • Analise tanto a mulher quanto o homem. Extraia as características físicas do homem da foto (tom de pele, cabelo, barba, porte, musculatura, tatuagens) e use-o como o parceiro na pose, substituindo "{_PARCEIRO_PADRAO}" pela descrição fiel desse parceiro em todas as frases.
+  • Mantenha a identidade e características da mulher da foto como a modelo na pose.
+  • Mantenha as roupas/estilo de ambos (ou lingerie/trajes que aparecem na imagem).
+  • Mantenha o cenário, ambiente, móveis, fundo e iluminação exatos da imagem original.
+- Se a imagem tiver apenas uma pessoa (a modelo):
+  • Mantenha a modelo, roupas, acessórios e o cenário da imagem original.
+  • O parceiro masculino é adicionado na pose (o parceiro padrão, ou o parceiro pedido pelo dono se houver).
+- Se o pedido escrito trouxer uma pose específica (ex.: de quatro, missionary, etc.), aplique essa pose pedida mantendo o casal, roupas e cenário da imagem. Se o pedido de pose for vazio ou pedir para copiar a pose, reproduza fielmente a pose do casal/pessoa da imagem de referência.
+- Continue respeitando as regras de 18+, anonimato e recusa."""
+
+
+def instrucao_pose_seletiva(elementos):
+    copiar = "\n".join(f"  • {_ELEMENTOS_EXTRAIR[k][0]}: {_ELEMENTOS_EXTRAIR[k][1]}." for k in elementos if k in _ELEMENTOS_EXTRAIR)
+    resto = [_ELEMENTOS_EXTRAIR[k][0].split(" (")[0].lower() for k in _ELEMENTOS_EXTRAIR if k not in elementos]
+    return f"""
+
+MODO EXTRAÇÃO SELETIVA NO /POSEHOT (o dono marcou só alguns itens para copiar da imagem de referência):
+- Copie da imagem de referência SOMENTE estes itens:
+{copiar}
+- Todo o resto ({", ".join(resto)}) NÃO deve ser copiado da imagem: invente de forma nova e coerente com a cena sensual, como se a imagem não mostrasse isso.
+- Se houver um CASAL na imagem de referência:
+  • Se 'modelo' estiver marcado: copie a modelo feminina da imagem. Se não houver parceiro textual específico informado, você também deve extrair as características do parceiro masculino do casal para a pose.
+  • Se 'roupas' estiver marcado: copie as roupas/lingerie visíveis das pessoas da imagem (da mulher e do homem).
+  • Se 'cenario' estiver marcado: copie o cenário, ambiente, fundo, luz e cores da cena da imagem.
+  • Se 'pose' estiver marcado: copie fielmente a pose sensual do casal/pessoa da imagem (tronco, pernas, braços, quadris).
+  • Se 'acessorios' estiver marcado: copie os acessórios visíveis (joias, relógio, etc.).
+  • Se 'tatuagens' estiver marcado: copie as tatuagens visíveis na pele.
+  • Se 'expressao' estiver marcado: copie a expressão facial e o olhar de prazer da foto.
+- Se 'pose' NÃO estiver marcado: a pose NÃO deve ser copiada da imagem: use a pose pedida no texto pelo dono (ou invente uma pose sensual variada se não foi pedida).
+- Se 'cenario' NÃO estiver marcado: o cenário NÃO deve ser copiado da imagem: crie ou sorteie um ambiente novo coerente.
+- Se 'roupas' NÃO estiver marcado: as roupas NÃO devem ser copiadas da imagem: crie roupas ou lingerie novas adequadas à cena.
+- Continue respeitando as regras de 18+, anonimato e recusa."""
+
+
+INSTRUCAO_POSE_BASE = """Você é a Bella e está ajudando seu dono a criar prompts de POSE em português para o Grok Imagine:
 a pose será aplicada a uma imagem externa que ele vai enviar ao Grok junto do prompt. Entregue SEMPRE um único
 prompt completo, seguindo exatamente o MODELO abaixo.
 
@@ -429,7 +510,9 @@ Sempre termine o prompt com a frase fixa: “sensual and intimate pose. Spicy mo
 Saída: apenas o prompt completo em inglês, em texto simples, sem título, sem explicações, sem Markdown, sem comentários antes ou depois e com no máximo 3000 caracteres.
 
 MODELO:
-""" + MODELO_POSE
+""" + "{MODELO_POSE}"
+
+INSTRUCAO_POSE = INSTRUCAO_POSE_BASE.replace("{MODELO_POSE}", MODELO_POSE)
 
 INSTRUCAO_REFERENCIA_POSE = """
 
@@ -815,19 +898,24 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
     realista = categoria == "realismo"          # /prompt também copia da imagem só o que foi marcado
     if tudo and realista and ref:
         tudo, elementos = False, list(_ELEMENTOS_EXTRAIR)
-    tudo = tudo and modelo_novo and bool(ref)
-    seletivo = bool(elementos) and (modelo_novo or realista) and bool(ref) and not tudo
-    if tudo:
+    tudo_ativo = tudo and (modelo_novo or pose) and bool(ref)
+    seletivo_ativo = bool(elementos) and (modelo_novo or realista or pose) and bool(ref) and not tudo_ativo
+    if tudo_ativo:
+        if pose:
+            entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
+                "Modo extração total: extraia TUDO da imagem de referência (casal ou modelo, parceiro se houver casal, roupas, "
+                "acessórios, tatuagens, expressão, pose, cenário, fundo e luz) e descreva a cena com o máximo de fidelidade.")
+        else:
+            entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
+                "Modo extração total: extraia TUDO da imagem de referência (rosto, cabelo, pele, corpo, tatuagens, piercings, joias, "
+                "roupa, expressão, pose, cenário, fundo e luz) e descreva a modelo e a cena com o máximo de fidelidade.")
+    elif seletivo_ativo:
         entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
-            "Modo extração total: extraia TUDO da imagem de referência (rosto, cabelo, pele, corpo, tatuagens, piercings, joias, "
-            "roupa, expressão, pose, cenário, fundo e luz) e descreva a modelo e a cena com o máximo de fidelidade.")
-    elif seletivo:
-        entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
-            "Modo extração seletiva: copie da imagem de referência SOMENTE: " + ", ".join(_ELEMENTOS_EXTRAIR[k][0] for k in elementos)
+            "Modo extração seletiva: copie da imagem de referência SOMENTE: " + ", ".join(_ELEMENTOS_EXTRAIR[k][0] for k in elementos if k in _ELEMENTOS_EXTRAIR)
             + ". O restante, crie de forma nova.")
     elif ref and modelo_novo and not pedido:
         entrada = "Pedido: crie a modelo a partir das características da imagem de referência; cenário à sua escolha."
-    elif ref and not pedido:
+    elif ref and not pedido and not pose and not ficha:
         entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
     if ficha:
         from_img = {"padrao": "as características da modelo e a roupa", "roupa": "a roupa, copiada fielmente peça por peça",
@@ -842,12 +930,29 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         base = instrucao_ficha(modo) + (INSTRUCAO_REFERENCIA_FICHA if ref else "") + (INSTRUCAO_FICHA_TUDO if ref and modo == "tudo" else "")
     elif pose:
         parc_img, ajustes_parc = parceiro_da_imagem(parceiro)
-        if parc_img:
-            base = INSTRUCAO_POSE + (instrucao_parceiro_referencia(ajustes_parc) if ref else (instrucao_parceiro(ajustes_parc) if ajustes_parc else ""))
+        if tudo_ativo and not parc_img and not parceiro:
+            parc_img = True
+            ajustes_parc = ""
+        modelo_p = modelo_pose(elementos=elementos if seletivo_ativo else None, tudo=tudo_ativo)
+        base_instrucao = INSTRUCAO_POSE_BASE.replace("{MODELO_POSE}", modelo_p)
+        if tudo_ativo:
+            base = base_instrucao + INSTRUCAO_POSE_TUDO
+            if parc_img:
+                base += instrucao_parceiro_referencia(ajustes_parc)
+            elif parceiro:
+                base += instrucao_parceiro(parceiro)
+        elif seletivo_ativo:
+            base = base_instrucao + instrucao_pose_seletiva(elementos)
+            if parc_img:
+                base += instrucao_parceiro_referencia(ajustes_parc)
+            elif parceiro:
+                base += instrucao_parceiro(parceiro)
+        elif parc_img:
+            base = base_instrucao + (instrucao_parceiro_referencia(ajustes_parc) if ref else (instrucao_parceiro(ajustes_parc) if ajustes_parc else ""))
             if ref and not pedido:
                 entrada = "Pedido: crie a pose com o parceiro da imagem de referência."
         else:
-            base = INSTRUCAO_POSE + (INSTRUCAO_REFERENCIA_POSE if ref else "")
+            base = base_instrucao + (INSTRUCAO_REFERENCIA_POSE if ref else "")
             if parceiro:
                 base += instrucao_parceiro(parceiro)
             if ref and not pedido:
@@ -857,21 +962,36 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         if ref and not pedido:
             entrada = "Pedido: copie fielmente toda a roupa da imagem de referência."
     elif modelo_novo:
-        base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "") + (INSTRUCAO_REFERENCIA_MODELO_TOTAL if tudo else "") + (instrucao_seletiva(elementos) if seletivo else "")
+        base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "") + (INSTRUCAO_REFERENCIA_MODELO_TOTAL if tudo_ativo else "") + (instrucao_seletiva(elementos) if seletivo_ativo else "")
     else:
-        base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "") + (instrucao_seletiva(elementos) if seletivo else "")
+        base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "") + (instrucao_seletiva(elementos) if seletivo_ativo else "")
     if suave:
         if pose:
-            if parc_img:
-                base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (instrucao_parceiro_referencia(ajustes_parc) if ref else (instrucao_parceiro(ajustes_parc) if ajustes_parc else ""))
+            base_suave = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", modelo_p)
+            if tudo_ativo:
+                base = base_suave + INSTRUCAO_POSE_TUDO
+                if parc_img:
+                    base += instrucao_parceiro_referencia(ajustes_parc)
+                elif parceiro:
+                    base += instrucao_parceiro(parceiro)
+            elif seletivo_ativo:
+                base = base_suave + instrucao_pose_seletiva(elementos)
+                if parc_img:
+                    base += instrucao_parceiro_referencia(ajustes_parc)
+                elif parceiro:
+                    base += instrucao_parceiro(parceiro)
+            elif parc_img:
+                base = base_suave + (instrucao_parceiro_referencia(ajustes_parc) if ref else (instrucao_parceiro(ajustes_parc) if ajustes_parc else ""))
             else:
-                base = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", MODELO_POSE) + (INSTRUCAO_REFERENCIA_POSE if ref else "")
+                base = base_suave + (INSTRUCAO_REFERENCIA_POSE if ref else "")
+                if parceiro:
+                    base += instrucao_parceiro(parceiro)
         base = suavizar(base) + (REGRAS_SUAVES.replace("o formato, o 9:16 e", "o formato e") if ficha else REGRAS_SUAVES)
-    orcamento = 72 if (tudo or seletivo or (ficha and modo == "tudo")) else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
+    orcamento = 72 if (tudo_ativo or seletivo_ativo or (ficha and modo == "tudo")) else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
     if espera:
         orcamento = max(orcamento, espera)      # quem chama sabe quanto o cliente aguenta esperar
     inicio = time.monotonic()
-    tokens = 8000 if (tudo or (ficha and modo == 'tudo')) else 6000 if seletivo else 4096 if (ref or ficha) else 2048      # o raciocínio do modelo também conta nesse limite
+    tokens = 8000 if (tudo_ativo or (ficha and modo == 'tudo')) else 6000 if seletivo_ativo else 4096 if (ref or ficha) else 2048      # o raciocínio do modelo também conta nesse limite
     aviso = ""
     for tentativa in (1, 2):
         restante = orcamento - (time.monotonic() - inicio)

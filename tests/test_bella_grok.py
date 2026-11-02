@@ -809,3 +809,110 @@ def test_extracao_pintura_corporal_e_efeitos_especiais_separados():
     assert "body paint" in instr and "NÃO é tatuagem" in instr and "aura" in instr and "se não houver pintura, não invente" in instr
     _, el = pb.elementos_extrair("x [[extrair: tatuagens]]")
     assert "pintura corporal" in pb.instrucao_seletiva(el).split("Todo o resto")[1] and "efeitos especiais" in pb.instrucao_seletiva(el).split("Todo o resto")[1]
+
+def test_modelo_pose_personalizacao():
+    from nucleo import prompts_bella as pb
+    padrao = pb.modelo_pose()
+    assert padrao == pb.MODELO_POSE
+    tudo = pb.modelo_pose(tudo=True)
+    assert "Recrie as pessoas (ou o casal)" in tudo
+    assert "Não alterar rostos, cabelos, cor da pele, corpos, roupas, acessórios, tatuagens, cenário, fundo nem iluminação" in tudo
+    seletivo = pb.modelo_pose(elementos=["cenario", "roupas"])
+    assert "SOMENTE: Roupas, Cenário" in seletivo or "SOMENTE: Cenário, Roupas" in seletivo
+    assert "Não alterar os itens mantidos da imagem original" in seletivo
+
+
+def test_posehot_extrair_tudo_com_referencia(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos["instr"] = instr
+        vistos["entrada"] = entrada
+        vistos["kw"] = k
+        return "Recrie a pessoa da imagem " + "x" * 700
+    monkeypatch.setattr(pb.grok, "gerar", falso)
+    ref = "data:image/jpeg;base64,/9j/falso"
+    pb.criar("/posehot extrair tudo da imagem de referência", categoria="pose", chave=None, referencia_anexa=ref)
+    assert "MODO EXTRAÇÃO TOTAL NO /POSEHOT" in vistos["instr"]
+    assert "CASAL" in vistos["instr"] and "Extraia as características físicas do homem da foto" in vistos["instr"]
+    assert "Recrie as pessoas (ou o casal)" in vistos["instr"]
+    assert "Não alterar rostos, cabelos, cor da pele, corpos, roupas, acessórios, tatuagens, cenário, fundo nem iluminação" in vistos["instr"]
+    assert "Modo extração total" in vistos["entrada"]
+    assert vistos["kw"].get("imagens") == [ref]
+
+
+def test_posehot_extrair_seletivo_cenario_e_roupas(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos["instr"] = instr
+        vistos["entrada"] = entrada
+        vistos["kw"] = k
+        return "Recrie a pessoa da imagem " + "x" * 700
+    monkeypatch.setattr(pb.grok, "gerar", falso)
+    ref = "data:image/jpeg;base64,/9j/falso"
+    pb.criar("de quatro [[extrair: cenario, roupas]]", categoria="pose", chave=None, referencia_anexa=ref)
+    assert "MODO EXTRAÇÃO SELETIVA NO /POSEHOT" in vistos["instr"]
+    assert "Cenário" in vistos["instr"] and "Roupas" in vistos["instr"]
+    assert "CASAL" in vistos["instr"]
+    assert "Pedido: de quatro" in vistos["entrada"]
+    assert "Modo extração seletiva: copie da imagem de referência SOMENTE" in vistos["entrada"]
+    assert vistos["kw"].get("imagens") == [ref]
+
+
+def test_posehot_extrair_seletivo_apenas_cenario(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos["instr"] = instr
+        vistos["entrada"] = entrada
+        return "Recrie a pessoa da imagem " + "x" * 700
+    monkeypatch.setattr(pb.grok, "gerar", falso)
+    ref = "data:image/jpeg;base64,/9j/falso"
+    pb.criar("[[extrair: cenario]]", categoria="pose", chave=None, referencia_anexa=ref)
+    assert "MODO EXTRAÇÃO SELETIVA NO /POSEHOT" in vistos["instr"]
+    assert "SOMENTE: Cenário" in vistos["instr"]
+    assert "Modo extração seletiva" in vistos["entrada"]
+
+
+def test_posehot_extrair_seletivo_com_parceiro_escolhido(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos["instr"] = instr
+        vistos["entrada"] = entrada
+        return "Recrie a pessoa da imagem " + "x" * 700
+    monkeypatch.setattr(pb.grok, "gerar", falso)
+    ref = "data:image/jpeg;base64,/9j/falso"
+    pb.criar("[[extrair: cenario, roupas]] [[parceiro: loiro alto sem barba]]", categoria="pose", chave=None, referencia_anexa=ref)
+    assert "MODO EXTRAÇÃO SELETIVA NO /POSEHOT" in vistos["instr"]
+    assert "loiro alto sem barba" in vistos["instr"]
+
+
+def test_posehot_extrair_tudo_suave(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos["instr"] = instr
+        return "Recrie a pessoa da imagem " + "x" * 700
+    monkeypatch.setattr(pb.grok, "gerar", falso)
+    ref = "data:image/jpeg;base64,/9j/falso"
+    pb.criar("/posehot extrair tudo da imagem", categoria="pose", chave=None, referencia_anexa=ref, suave=True)
+    assert "MODO EXTRAÇÃO TOTAL NO /POSEHOT" in vistos["instr"]
+    assert "Recrie as pessoas (ou o casal)" in vistos["instr"]
+
+
+def test_posehot_extrair_sem_anexo_fallback(monkeypatch):
+    from nucleo import prompts_bella as pb
+    vistos = {}
+    def falso(instr, entrada, **k):
+        vistos["instr"] = instr
+        vistos["entrada"] = entrada
+        return "Recrie a pessoa da imagem " + "x" * 700
+    monkeypatch.setattr(pb.grok, "gerar", falso)
+    pb.criar("/posehot extrair tudo da imagem", categoria="pose", chave=None, referencia_anexa=None)
+    assert "MODO EXTRAÇÃO TOTAL NO /POSEHOT" not in vistos["instr"]
+    pb.criar("de quatro [[extrair: cenario]]", categoria="pose", chave=None, referencia_anexa=None)
+    assert "MODO EXTRAÇÃO SELETIVA NO /POSEHOT" not in vistos["instr"]
+    assert vistos["entrada"] == "Pedido: de quatro"
+

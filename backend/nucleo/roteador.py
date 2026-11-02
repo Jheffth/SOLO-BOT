@@ -289,7 +289,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/promptmodelo` — modelo nova do zero (25 anos por padrão, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`. "
         "Com uma foto junto, escreva *extrair tudo da imagem* para copiar penteado, rosto, tatuagens, joias e roupas, ou `[[extrair: pose, cenario]]` para copiar só alguns itens (modelo, roupas, pose, cenario, penteado, acessorios, tatuagens, expressao)",
         "▸ `/promptroupa` — descreve uma roupa (da foto ou do pedido) para vestir em outra imagem: `/promptroupa lingerie preta de renda`",
-        "▸ `/posehot` — pose sensual de uma pessoa para aplicar em outra imagem: `/posehot de bruços olhando para trás` (parceiro à sua escolha: `/posehot de quatro [[parceiro: moreno, barba cheia, tatuado]]` ou da foto: `/posehot [[parceiro: da imagem]]`)",
+        "▸ `/posehot` — pose sensual para aplicar em outra imagem: `/posehot de bruços olhando para trás` (com foto de casal/referência: extraia tudo com *extrair tudo da imagem*, ou itens específicos como `[[extrair: cenario, roupas]]`, e parceiro à escolha ou da foto com `[[parceiro: da imagem]]`)",
         "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",
         "▸ `/charactersheet` — prancha de personagem em foto real, com a imagem anexa: `roupa` (só a roupa do anexo), `personagem`, `cenario` ou `tudo` (extrai tudo). Sem palavra: personagem com roupa",
         "    _Mande a foto junto para usar de referência. A opção *Sem sensualização* (prompts neutros) fica no painel do Solo Bot._",
@@ -1272,7 +1272,7 @@ def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: 
         "`/prompt use o penteado e o cenário da foto`.\n"
         "`/promptmodelo` cria uma modelo nova a partir das características da foto.\n"
         "`/promptroupa` descreve toda a roupa da foto para vestir em outra imagem.\n"
-        "`/posehot` copia a pose da foto (ou use `/posehot [[parceiro: da imagem]]` para copiar o parceiro dela).\n"
+        "`/posehot` copia a pose da foto (ou use *extrair tudo*, `[[extrair: cenario, roupas]]` para capturar itens da foto/casal, e `[[parceiro: da imagem]]` para o parceiro).\n"
         "`/promptcriativo` usa a foto como roupa e inventa o resto.\n"
         "`/prompt sem referência ...` descarta a imagem.")
 

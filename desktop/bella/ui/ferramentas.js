@@ -146,7 +146,7 @@
   function enviar(cmd, corpo) {
     const api = window.bellaApi; if (!api) return;
     if (api.ocupada()) return aviso("Espere eu terminar o pedido anterior.");
-    const comExtracao = cmd === "/promptmodelo" || cmd === "/prompt";
+    const comExtracao = cmd === "/promptmodelo" || cmd === "/prompt" || cmd === "/posehot";
     const tudo = $("extrair-tudo") && $("extrair-tudo").checked && comExtracao;
     if (tudo && !api.temAnexo()) return aviso("Anexe a imagem de referência para extrair tudo dela.");
     const itensExtrair = tudo || !comExtracao ? [] : Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
@@ -191,7 +191,22 @@
     });
     $("montar-dica").textContent = COMANDOS[0].cmd + " — " + COMANDOS[0].dica;
     $("montar-enviar").onclick = () => { const c = atual(); enviar(c.cmd, corpoDe(c, texto())); };
-    $("montar-campo").onclick = () => { if (window.bellaApi) { const c = atual(); window.bellaApi.inserir((c.cmd + " " + corpoDe(c, texto())).trim()); window.bellaApi.fechar(); } };
+    $("montar-campo").onclick = () => {
+      if (window.bellaApi) {
+        const c = atual();
+        const corpo = corpoDe(c, texto());
+        const comExtracao = c.cmd === "/promptmodelo" || c.cmd === "/prompt" || c.cmd === "/posehot";
+        const tudo = $("extrair-tudo") && $("extrair-tudo").checked && comExtracao;
+        const itensExtrair = tudo || !comExtracao ? [] : Array.from(document.querySelectorAll(".extrair-item:checked")).map(x => x.dataset.el);
+        const parceiroFoto = $("posehot-parceiro-foto") && $("posehot-parceiro-foto").checked && c.cmd === "/posehot";
+        const campoParc = $("posehot-parceiro");
+        let parceiro = c.cmd === "/posehot" && campoParc ? campoParc.value.replace(/\[\[|\]\]/g, " ").replace(/\s+/g, " ").trim() : "";
+        if (parceiroFoto) parceiro = parceiro ? ("da imagem, " + parceiro) : "da imagem";
+        const t = (c.cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "") + (itensExtrair.length ? " [[extrair: " + itensExtrair.join(", ") + "]]" : "") + (parceiro ? " [[parceiro: " + parceiro + "]]" : "")).trim();
+        window.bellaApi.inserir(t);
+        window.bellaApi.fechar();
+      }
+    };
     $("montar-limpar").onclick = () => {
       itens.length = 0;
       $("montar-extra").value = "";
