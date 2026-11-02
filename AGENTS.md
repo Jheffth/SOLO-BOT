@@ -27,3 +27,5 @@ e anote em `integracao/LEIA-ME.md`.
 
 - `python -m pytest -q tests` antes de commitar.
 - Commit com `git add` nomeado. Nunca `.env`, `temp_env.txt` ou scripts com senha.
+- Ao concluir cada alteração neste projeto, fazer commit e push após os testes e a revisão do conteúdo. Autorização permanente do Arquiteto em 02/11/2026; não pedir nova confirmação para essas etapas.
+- Bancos, backups, memórias, mídias privadas e credenciais não entram nos commits. Alterações apenas no banco local devem ser documentadas quando relevante; push de código não publica esses dados nem faz deploy.
