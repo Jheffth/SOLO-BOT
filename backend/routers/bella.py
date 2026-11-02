@@ -318,7 +318,7 @@ class PedidoConversa(BaseModel):
     texto: str = Field(min_length=1, max_length=2000)
     modo: Literal["safada"]
     voz_separada: bool = True
-    imagem_base64: Optional[str] = Field(default=None, max_length=9_000_000)   # referência de roupa para prompts
+    imagem_base64: Optional[str] = Field(default=None, max_length=9_000_000)   # anexo: treino ou referência de prompt
     imagem_mime: Optional[str] = Field(default=None, max_length=40)
 
 
@@ -345,6 +345,18 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
         erro = prompts_bella.validar_referencia(p.imagem_mime or "", conteudo)
         if erro:
             raise HTTPException(422, erro)
+        from nucleo.imagens_entrada import tentar_treino
+        treino = tentar_treino(db, conta, "bella", p.texto, conteudo, p.imagem_mime or "")
+        if treino is not None:
+            blocos = [m.get("texto") or "" for m in treino.mensagens]
+            texto_treino = _sem_marcacao("\n\n".join(blocos))
+            falado = (fala.texto_falavel(texto_treino, None) or "Confira o registro no Rotinas.")[:fala.MAX_CARACTERES]
+            saida = {"texto": texto_treino, "falar": falado, "opcoes": []}
+            if p.voz_separada:
+                saida["voz_id"] = _guardar_fala(conta, treino.mensagens, falado, False)
+            else:
+                saida.update(_preparar_voz(treino.mensagens, falado, False, True))
+            return saida
         mime = (p.imagem_mime or "").split(";")[0].strip().lower()
         referencia_anexa = ("image/jpeg" if mime == "image/jpg" else mime, p.imagem_base64)
         if pedido is None:

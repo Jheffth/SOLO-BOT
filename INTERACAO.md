@@ -649,3 +649,8 @@ Quando o **Arquiteto** pede ("me manda um vídeo", "manda uma fotinha", "mostra 
 - **Sem agrado suficiente:** ela provoca e diz o que ele pode fazer para agradá-la, sem recusar com aviso. **Sem arquivo na galeria:** promete mandar quando tiver.
 - Só vale na conversa do Arquiteto pelo WhatsApp e Telegram; Bella.exe e o atalho não recebem mídia. O **bom dia das 08:00** também pode ir com vídeo, não só com foto.
 - **Nunca "não tenho":** a instrução de enviar vai junto da fala dele (pesa mais que o histórico), respostas antigas do tipo "ainda não tenho foto" saem do histórico, e se a Bella disser que não tem enquanto a mídia SAI o sistema pede de novo e, se insistir, usa uma legenda carinhosa segura.
+
+
+## Prints do Strava: corrida e exercícios
+
+Imagens recebidas por WhatsApp, Telegram e Bella.exe são encaminhadas ao Rotinas para identificação antes de entrar como referências de prompts. Pedidos explícitos de prompt preservam seu fluxo. Prints do Strava completos registram a corrida automaticamente na conta vinculada; imagens incompletas e falhas de leitura não viram referências. A data usa o dia do envio para Hoje/Ontem e pode ser substituída na legenda. Contrato e limites: [INTEGRACAO_TREINOS.md](INTEGRACAO_TREINOS.md).

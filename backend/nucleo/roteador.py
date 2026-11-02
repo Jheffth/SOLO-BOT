@@ -1244,13 +1244,17 @@ def _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod, intenc
 # A ENTRADA — áudio
 # ══════════════════════════════════════════════════════════════════════
 def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: str,
-                   legenda: str = "", rotulo: Optional[str] = None) -> Resposta:
-    """Imagem de referência para os prompts da Bella: só a roupa, a menos que o pedido peça mais."""
+                   legenda: str = "", rotulo: Optional[str] = None, enviado_em=None) -> Resposta:
+    """Prints do Strava vão ao Rotinas; as demais imagens seguem o fluxo de prompts."""
     from nucleo import prompts_bella
     origem = str(origem)
     conta = conta_de(db, canal, origem)
     if not conta:
         return _boas_vindas()
+    from nucleo.imagens_entrada import tentar_treino
+    treino = tentar_treino(db, conta, canal, legenda, conteudo, mime, enviado_em)
+    if treino is not None:
+        return treino
     chave = _chave_bella(canal, conta)
     erro = prompts_bella.guardar_referencia(chave, mime, conteudo)
     if erro:

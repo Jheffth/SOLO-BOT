@@ -460,15 +460,15 @@
       let t = $("entrada").value.trim(); if (!t && !anexo) return;
       if (estado.ocupada) return toast("Espere eu terminar o pedido anterior.");
       if (anexo) {
-        // com referência anexa, o texto é o pedido do prompt (vazio = prompt aleatório com as roupas da imagem)
-        const img = anexo; if (!t) t = "crie um prompt com essa referência";
+        // Sem legenda, o servidor distingue treino do Strava de referência de prompt.
+        const img = anexo; if (!t) t = "analise esta imagem";
         // caixinhas "Extrair ..." marcadas no painel de ferramentas: viram um /promptmodelo com o que copiar da imagem
         let exibir = t;
         if ((!t.startsWith("/") || /^\/(promptmodelo|prompt)(\s|$)/i.test(t)) && !/\[\[\s*extrair|extrair tudo/i.test(t)) {      // o painel de ferramentas já põe o marcador
           const tudo = $("extrair-tudo") && $("extrair-tudo").checked;
           const itens = Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
           if (tudo || itens.length) {
-            let pedido = t === "crie um prompt com essa referência" ? "" : t;
+            let pedido = t === "analise esta imagem" ? "" : t;
             const cmd = /^\/prompt(?!modelo)(\s|$)/i.test(t) ? "/prompt" : "/promptmodelo";
             if (t.startsWith("/")) pedido = t.replace(/^\/\S+\s*/, "");
             t = (cmd + " " + pedido + (tudo ? " extrair tudo da imagem de referência" : " [[extrair: " + itens.join(", ") + "]]")).replace(/\s+/g, " ").trim();
@@ -516,7 +516,8 @@
     $("captura-prompt").onclick = () => {
       if (!captura) return;
       if (estado.ocupada) return toast("Espere eu terminar o pedido anterior.", true);
-      const t = $("captura-pedido").value.trim() || "crie um prompt com essa referência";
+      const pedido = $("captura-pedido").value.trim();
+      const t = pedido.startsWith("/") ? pedido : "/prompt " + pedido;
       const img = captura; fecharCaptura();
       enviar("enviar", { texto: t, exibir: "✂️ " + t, imagem: img });
     };
@@ -524,7 +525,7 @@
     $("captura-anexar").onclick = () => {
       if (!captura) return;
       anexo = captura; mostrarAnexo(captura); fecharCaptura();
-      toast("Recorte anexado. Escreva o pedido ou só envie para criar o prompt."); $("entrada").focus();
+      toast("Recorte anexado. Envie para identificar o treino ou use /prompt para criar um prompt."); $("entrada").focus();
     };
     $("captura-copiar").onclick = () => enviar("captura_copiar");
     $("captura-salvar").onclick = () => enviar("captura_salvar");
@@ -713,7 +714,7 @@
     const leitor = new FileReader();
     leitor.onload = () => reduzir(leitor.result, 1280, .85).then(url => {
       anexo = url; mostrarAnexo(url);
-      toast("Referência anexada. Peça o prompt (ou só envie) para eu usar a imagem.");
+      toast("Imagem anexada. Prints do Strava registram sua corrida; use /prompt para criar um prompt.");
       $("entrada").focus();
     }).catch(() => toast("Não consegui abrir essa imagem.", true));
     leitor.readAsDataURL(f);

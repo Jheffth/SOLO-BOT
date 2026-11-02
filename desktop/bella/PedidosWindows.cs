@@ -9,7 +9,7 @@ namespace Bella {
         string tokenSolo;
         bool ultimoLocal;
         public Dictionary<string,long> Tempos {get;private set;}
-        /// <summary>Imagem de referência (data URL) anexada ao próximo pedido; é usada uma vez e some.</summary>
+        /// <summary>Anexo (data URL) identificado pelo servidor como treino ou referência; é usado uma vez e some.</summary>
         public string ImagemRef;
         public PedidosWindows() {Tempos=new Dictionary<string,long>();}
         public event Action<bool,string> GerandoImagem;

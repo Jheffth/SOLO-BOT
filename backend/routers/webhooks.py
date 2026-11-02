@@ -64,7 +64,8 @@ def _processar_telegram(update: dict):
                 if not roteador.conta_de(db, "telegram", str(chat["id"])) and not config.RESPONDER_DESCONHECIDOS:
                     return
                 r = roteador.atender_imagem(db, "telegram", str(chat["id"]), telegram.baixar(foto.get("file_id", "")),
-                                            foto.get("mime_type") or "image/jpeg", msg.get("caption") or "", rotulo)
+                                            foto.get("mime_type") or "image/jpeg", msg.get("caption") or "", rotulo,
+                                            enviado_em=msg.get("date"))
                 entrega.entregar(db, "telegram", str(chat["id"]), r)
                 return
             contato = msg.get("contact")
@@ -195,7 +196,8 @@ def _processar_whatsapp(evento: dict, recebido_em=None):
             with _tempo_whatsapp("baixar_imagem"):
                 conteudo, mime = _bytes_do_audio(data, mensagem, {**imagem, "mimetype": imagem.get("mimetype") or "image/jpeg"})
             with _tempo_whatsapp("rotear_imagem"):
-                r = roteador.atender_imagem(db, "whatsapp", jid, conteudo, mime, imagem.get("caption") or "", data.get("pushName"))
+                r = roteador.atender_imagem(db, "whatsapp", jid, conteudo, mime, imagem.get("caption") or "", data.get("pushName"),
+                                             enviado_em=data.get("messageTimestamp"))
             with _tempo_whatsapp("entrega"):
                 entrega.entregar(db, "whatsapp", jid, r)
             return

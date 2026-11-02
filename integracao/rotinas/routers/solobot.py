@@ -13,9 +13,10 @@ Bot, que desenha (botão no Telegram, lista numerada no WhatsApp).
 """
 import logging
 from typing import Optional
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 import solobot_ponte as ponte
@@ -66,6 +67,17 @@ def conectar(usuario: Usuario = Depends(get_usuario_atual)):
 
 
 # ── Solo Bot → Rotinas ────────────────────────────────────────────
+class ValidarAviso(BaseModel):
+    usuario_id: int = Field(gt=0)
+    referencia: str = Field(min_length=1,max_length=160)
+
+
+@interno.post('/validar-aviso')
+def validar_aviso(p:ValidarAviso,db:Session=Depends(get_db)):
+    from motors.avisos_gerais import validar_pendente
+    return validar_pendente(db,p.usuario_id,p.referencia)
+
+
 class Resgate(BaseModel):
     codigo: str
 
@@ -138,3 +150,29 @@ def acao(m: Mensagem, db: Session = Depends(get_db)):
 def desvinculado(m: Mensagem):
     log.info("Hunter %s desconectou o Rotinas do Solo Bot", m.usuario_id)
     return {"ok": True}
+
+
+class ImagemTreino(BaseModel):
+    usuario_id: Optional[str] = None
+    canal: str = Field(default="telegram", max_length=20)
+    origem: str = Field(default="", max_length=120)
+    imagem_base64: str = Field(max_length=11_184_812)
+    mime: str = Field(max_length=40)
+    legenda: str = Field(default="", max_length=2000)
+    enviado_em: Optional[datetime] = None
+
+    @field_validator('enviado_em')
+    @classmethod
+    def validar_fuso(cls, valor):
+        if valor is not None and valor.tzinfo is None:
+            raise ValueError('A data do envio precisa informar o fuso horário.')
+        return valor
+
+
+@interno.post('/imagem')
+def imagem(m: ImagemTreino, db: Session = Depends(get_db)):
+    from motors import treinos_bot
+    usuario = _usuario(db, m.usuario_id) if m.usuario_id else None
+    if m.usuario_id and usuario is None:
+        return {'tratado': True, 'desvinculado': True, 'mensagens': []}
+    return treinos_bot.processar(db, usuario, m.imagem_base64, m.mime, m.legenda, m.enviado_em)

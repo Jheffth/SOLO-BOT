@@ -127,7 +127,7 @@ namespace Bella {
         public Task<Reply> Conversar(string text,string imagem=null) {
             var body=new Dictionary<string,object> {{"texto",text},{"modo","safada"},{"voz_separada",true}};
             int segundos=Regex.IsMatch(text ?? "",@"prompt|character\s*sheet|ficha\s+de\s+personagem|posehot",RegexOptions.IgnoreCase) ? 145 : 25;      // um prompt com o Grok lento pode levar mais de 1 min
-            // Referência de roupa para o prompt: "data:image/jpeg;base64,...". O servidor valida tipo e tamanho.
+            // Anexo para identificação de treino ou referência de prompt: "data:image/jpeg;base64,...". O servidor valida tipo e tamanho.
             const string marca=";base64,";
             if(imagem!=null && imagem.StartsWith("data:image/") && imagem.Length<8000000) {
                 int i=imagem.IndexOf(marca,StringComparison.Ordinal);

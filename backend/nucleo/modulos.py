@@ -107,6 +107,7 @@ def buscar(mod: Modulo, rota: str) -> dict:
         raise ErroModulo(f"{mod.nome} respondeu algo que não entendi.")
 
 
+TIMEOUT_IMAGEM = httpx.Timeout(90.0, connect=3.0)  # OCR e registro da atividade
 TIMEOUT_AUDIO = httpx.Timeout(60.0, connect=3.0)   # ouvir + falar leva segundos
 
 
@@ -114,7 +115,9 @@ def chamar(mod: Modulo, rota: str, corpo: dict) -> dict:
     if not mod.token:
         raise ErroModulo(f"{mod.nome} ainda não foi configurado no Solo Bot.")
     try:
-        if "audio_base64" in corpo:
+        if "imagem_base64" in corpo:
+            r = _post(f"{mod.url}/interno/bot/{rota}", mod.token, corpo, TIMEOUT_IMAGEM)
+        elif "audio_base64" in corpo:
             r = _post(f"{mod.url}/interno/bot/{rota}", mod.token, corpo, TIMEOUT_AUDIO)
         else:
             r = _post(f"{mod.url}/interno/bot/{rota}", mod.token, corpo)
@@ -131,7 +134,10 @@ def chamar(mod: Modulo, rota: str, corpo: dict) -> dict:
     if r.status_code == 404 and rota == "resgatar":
         raise ErroModulo("Código inválido ou expirado. Gere outro no sistema.")
     if r.status_code >= 400:
-        log.error("%s respondeu %s em %s: %s", mod.chave, r.status_code, rota, r.text[:200])
+        if "imagem_base64" in corpo:
+            log.error("%s respondeu %s em %s", mod.chave, r.status_code, rota)
+        else:
+            log.error("%s respondeu %s em %s: %s", mod.chave, r.status_code, rota, r.text[:200])
         raise ErroModulo(f"{mod.nome} recusou o pedido ({r.status_code}).")
     try:
         return r.json()

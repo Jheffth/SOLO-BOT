@@ -404,3 +404,10 @@ Copiar e Salvar usam a imagem em tamanho real e não passam pelo servidor. Fecha
 Limites: conteúdo protegido (vídeos com DRM, alguns apps de banco) aparece preto, como na ferramenta
 do Windows. Em monitores HDR as cores podem sair mais claras. Se outro programa já usa Ctrl + Alt + S,
 a Bella avisa e os demais caminhos continuam funcionando.
+
+
+## Prints de corrida do Strava
+
+Anexe ou cole o print no chat e envie. A Bella identifica o Strava e registra automaticamente a corrida na conta conectada do Rotinas, com as métricas do dia. Você recebe a confirmação com data, distância e tempo. Use `/rot treino DD/MM/AAAA` na legenda para informar outra data ou acrescente caminhada/ciclismo para mudar a modalidade. Corrida é o padrão.
+
+O botão Criar prompt e pedidos como `/prompt roupa azul` continuam no fluxo de prompts. Prints reconhecidos do Strava não são usados como referências nem enviados ao acervo de prompts. Essa integração exige os backends Solo Bot e Solo Rotinas atualizados; a imagem do Rotinas precisa incluir o OCR.

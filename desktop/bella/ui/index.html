@@ -56,13 +56,13 @@
   <section class="conversa" id="conversa" aria-live="polite"></section>
 
   <form class="compositor" id="compositor" autocomplete="off">
-    <span class="anexo" id="anexo" hidden><img id="anexo-img" alt="Referência anexada"><button type="button" id="anexo-x" title="Tirar a referência" aria-label="Tirar a referência">×</button></span>
+    <span class="anexo" id="anexo" hidden><img id="anexo-img" alt="Imagem anexada"><button type="button" id="anexo-x" title="Tirar a referência" aria-label="Tirar a referência">×</button></span>
     <input id="entrada" maxlength="2000" placeholder="Escreva ou diga “Olá Bella”…" aria-label="Mensagem para a Bella">
     <input type="file" id="anexo-arquivo" accept="image/png,image/jpeg,image/webp" hidden>
     <button class="enviar" id="btn-recortar-tela" type="button" title="Recortar a tela (Ctrl + Alt + S)" aria-label="Recortar a tela">
       <svg viewBox="0 0 24 24"><circle cx="6" cy="7" r="2.6"/><circle cx="6" cy="17" r="2.6"/><path d="M8.3 8.5 20 17M8.3 15.5 20 7"/></svg>
     </button>
-    <button class="enviar" id="btn-anexo" type="button" title="Anexar imagem de referência (ou cole com Ctrl + V)" aria-label="Anexar imagem de referência">
+    <button class="enviar" id="btn-anexo" type="button" title="Anexar print de treino ou referência de imagem (ou cole com Ctrl + V)" aria-label="Anexar print de treino ou referência de imagem">
       <svg viewBox="0 0 24 24"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15 7"/></svg>
     </button>
     <button class="enviar" id="btn-video" type="button" title="Extrair frames de um vídeo" aria-label="Extrair frames de um vídeo">
@@ -90,7 +90,7 @@
       <h3>Imagem de referência</h3>
       <p>Recorte a tela (Ctrl + Alt + S), anexe, cole (Ctrl + V) ou arraste uma imagem para a janela. Ela vale para /promptmodelo, /promptroupa, /posehot e /charactersheet, e continua aparecendo no chat, onde também dá para anexar.</p>
       <div class="ref-area" id="ref-area">
-        <img id="ref-img" alt="Referência anexada" hidden>
+        <img id="ref-img" alt="Imagem anexada" hidden>
         <span class="vazio" id="ref-vazio">Nenhuma imagem anexada</span>
       </div>
       <div class="montar-acoes">

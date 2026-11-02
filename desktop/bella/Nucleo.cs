@@ -318,7 +318,7 @@ namespace Bella {
 
         // ── Pedidos ──────────────────────────────────────────────────
         public async Task SendText(string text,string exibir=null,string imagem=null) {
-            text=(text ?? "").Trim(); if(text.Length==0 && !String.IsNullOrEmpty(imagem)) text="crie um prompt com essa referência";
+            text=(text ?? "").Trim(); if(text.Length==0 && !String.IsNullOrEmpty(imagem)) text="analise esta imagem";
             if(text.Length==0 || busy) return;
             pedidos.ImagemRef=String.IsNullOrEmpty(imagem) ? null : imagem;
             await Send(text,null,exibir);

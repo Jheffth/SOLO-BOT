@@ -54,6 +54,10 @@ class SistemasFalsos:
         if rota == "resgatar":
             par = self.codigos[app].pop(corpo["codigo"], None)
             return Resp(404, {}) if not par else Resp(200, {"usuario_id": par[0], "nome": par[1]})
+        if rota == "imagem" and app == "rot":
+            # Os anexos desta simulação são referências comuns, não prints do Strava.
+            # Os testes de treino substituem a resposta com registrado/incompleto.
+            return Resp(200, {"tratado": False, "estado": "nao_treino", "mensagens": []})
         if rota == "mensagem" and "audio_base64" in corpo:
             return Resp(200, {"mensagens": [{"texto": f"ouvi {len(corpo['audio_base64'])} b64",
                                              "audio": {"base64": "QUJD", "mime": "audio/ogg"}}]})

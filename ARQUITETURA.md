@@ -234,3 +234,8 @@ incluir conteúdo das mensagens, números, áudio ou credenciais nesses registro
 de tempo. Os tempos de síntese ElevenLabs e VoiceStudio já existentes continuam.
 Isso permite separar lentidão do provedor, do sistema conectado e do transporte.
 Não há medição de tempo real da VPS nos testes locais.
+
+
+## Prints do Strava: corrida e exercícios
+
+Imagens recebidas por WhatsApp, Telegram e Bella.exe são encaminhadas ao Rotinas para identificação antes de entrar como referências de prompts. Pedidos explícitos de prompt preservam seu fluxo. Prints do Strava completos registram a corrida automaticamente na conta vinculada; imagens incompletas e falhas de leitura não viram referências. A data usa o dia do envio para Hoje/Ontem e pode ser substituída na legenda. Contrato e limites: [INTEGRACAO_TREINOS.md](INTEGRACAO_TREINOS.md).
