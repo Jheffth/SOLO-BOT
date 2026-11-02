@@ -34,7 +34,7 @@
 
   <nav class="admin-nav" aria-label="Seções das configurações">
     <a href="#visao-geral">Visão geral</a><a href="#canais-admin">Conexões</a>
-    <a href="#voz-admin">Voz da Bella</a><a href="#grok-admin">Grok</a><a href="#audios-admin">Enviar áudio</a><a href="#sistemas-admin">Sistemas</a>
+    <a href="#voz-admin">Voz da Bella</a><a href="#ia-admin">IA de texto</a><a href="#grok-admin">Grok</a><a href="#audios-admin">Enviar áudio</a><a href="#sistemas-admin">Sistemas</a>
   </nav>
   <div class="numeros" id="numeros"></div>
   <div class="admin-section-heading" id="canais-admin"><div><span class="eyebrow">Sempre por perto</span><h2>Suas conexões</h2></div><p class="muted pequeno">Os canais por onde a conversa acontece.</p></div>
@@ -50,6 +50,14 @@
       <button class="btn pequeno" id="voz-recarregar"><span data-i="activity"></span>Atualizar voz</button>
     </div>
     <div id="voz-corpo"><div class="esqueleto" style="height:160px;margin-top:16px"></div></div>
+  </section>
+
+  <section class="cartao vidro entrar-animado" id="ia-admin" style="margin-bottom:28px">
+    <div class="linha entre" style="flex-wrap:wrap;gap:10px">
+      <div><h2>IA de texto</h2><p class="muted pequeno" style="margin:4px 0 0">Quem escreve a Bella, as histórias e os prompts. As chaves ficam no .env do servidor; aqui você só escolhe entre as que já existem.</p></div>
+      <button class="btn pequeno" id="ia-recarregar"><span data-i="activity"></span>Atualizar</button>
+    </div>
+    <div id="ia-corpo"><div class="esqueleto" style="height:140px;margin-top:16px"></div></div>
   </section>
 
   <section class="cartao vidro entrar-animado" id="grok-admin" style="margin-bottom:28px">
@@ -407,6 +415,35 @@
   }
   document.getElementById("voz-recarregar").onclick = () => carregarVoz();
   carregarVoz();
+  async function carregarIA() {
+    const alvo = document.getElementById("ia-corpo");
+    let d;
+    try { d = await api("/api/admin/ia"); } catch (e) { alvo.innerHTML = `<p class="muted" style="margin-top:14px">${esc(e.message)}</p>`; return; }
+    const num = n => Number(n || 0).toLocaleString("pt-BR");
+    const usd = n => "US$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const linhaUso = (t, gratis) => t
+      ? `${num(t.req)} chamada(s)${t.req - t.ok ? ` (${num(t.req - t.ok)} falha(s))` : ""} · ${num(t.in + t.out)} tokens · ${gratis ? "grátis" : "~" + usd(t.usd)}`
+      : "sem chamadas";
+    const cartoes = d.provedores.map(p => {
+      const ativo = p.id === d.ativo;
+      return `<div class="saldo vidro ${ativo ? "ok" : ""}">
+        <div class="saldo-topo"><b>${esc(p.nome)}</b>${ativo ? '<span class="chip ok"><span class="ponto"></span>em uso</span>' : p.configurado ? '<span class="chip">chave ok</span>' : '<span class="chip aguarda">sem chave no .env</span>'}</div>
+        <p class="muted pequeno" style="margin:8px 0">${esc(p.nota)}</p>
+        <p class="pequeno" style="margin:0 0 4px"><b>Hoje:</b> ${esc(linhaUso(d.uso.hoje[p.id], p.id === "gemini"))}</p>
+        <p class="pequeno" style="margin:0 0 12px"><b>30 dias:</b> ${esc(linhaUso(d.uso.periodo[p.id], p.id === "gemini"))}</p>
+        ${ativo ? "" : `<button class="btn pequeno primario" data-ia="${esc(p.id)}" ${p.configurado ? "" : "disabled"}>Usar este</button>`}
+      </div>`;
+    }).join("");
+    alvo.innerHTML = `<div class="saldos">${cartoes}</div>
+      <p class="muted pequeno">O consumo é contado pelo Solo Bot a partir do momento em que esta tela foi publicada, e o custo é uma estimativa (o DeepSeek usa o preço de fora do pico). A conta oficial de cada provedor manda.${d.fallback.length ? " Reserva se o escolhido falhar: " + esc(d.fallback.join(", ")) + "." : " Sem provedor de reserva: se o escolhido falhar, a Bella avisa o motivo."}</p>`;
+    alvo.querySelectorAll("[data-ia]").forEach(b => b.onclick = async function () {
+      carregando(this, true);
+      try { await api("/api/admin/ia", { method: "PUT", body: { provedor: this.dataset.ia } }); toast("IA de texto trocada."); await carregarIA(); }
+      catch (e) { toast(e.message, "erro"); carregando(this, false); }
+    });
+  }
+  document.getElementById("ia-recarregar").onclick = () => carregarIA();
+  carregarIA();
   async function carregarGrok(forcar) {
     const alvo = document.getElementById("grok-corpo");
     let g;

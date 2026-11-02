@@ -145,6 +145,37 @@ def painel_voz(_: Conta = Depends(conta_admin)):
     }
 
 
+_IA_INFO = {
+    "grok": ("Grok (xAI)", "O padrão: entende imagens, custa mais (US$ 2 por milhão de tokens de entrada e US$ 6 de saída)."),
+    "deepseek": ("DeepSeek", "Bem mais barato (cerca de US$ 0,15 e US$ 0,60 fora do pico); os servidores ficam na China."),
+    "gemini": ("Gemini (Google)", "Tem plano gratuito, mas o filtro costuma barrar conteúdo adulto e o plano gratuito pode usar as conversas para treinar."),
+}
+
+
+@router.get("/ia")
+def painel_ia(_: Conta = Depends(conta_admin)):
+    """Provedor de IA de texto em uso, quais têm chave no servidor e o consumo contado pelo Solo Bot."""
+    from nucleo import grok
+    return {"ativo": grok.provedor_ativo(),
+            "provedores": [{"id": p, "nome": _IA_INFO[p][0], "nota": _IA_INFO[p][1], "configurado": grok.tem_chave(p)} for p in grok.PROVEDORES],
+            "uso": grok.uso(30), "fallback": list(config.LLM_FALLBACK)}
+
+
+class AjusteIA(BaseModel):
+    provedor: str
+
+
+@router.put("/ia")
+def ajustar_ia(dados: AjusteIA, _: Conta = Depends(conta_admin)):
+    from nucleo import grok
+    if dados.provedor not in grok.PROVEDORES:
+        raise HTTPException(422, "Provedor desconhecido.")
+    if not grok.tem_chave(dados.provedor):
+        raise HTTPException(409, "Defina a chave desse provedor no .env do servidor antes de selecioná-lo.")
+    grok.definir_provedor(dados.provedor)
+    return {"ok": True, "ativo": grok.provedor_ativo()}
+
+
 @router.get("/grok")
 def painel_grok(_: Conta = Depends(conta_admin), atualizar: bool = False):
     """Saldo pré-pago da xAI (Grok), pela API de gerenciamento."""

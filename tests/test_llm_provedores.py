@@ -127,3 +127,24 @@ def test_uso_conta_chamadas_tokens_e_custo_por_provedor(cliente, logado, caixa, 
     _tg(cliente, "/ia uso")
     t = caixa[-1][2]
     assert "Uso da IA de texto" in t and "deepseek: 3 chamada(s) (1 falha(s))" in t and "~US$ 0.90" in t and "XAI_MANAGEMENT_KEY" in t
+
+
+def test_admin_ia_lista_troca_e_barra_provedor_sem_chave(cliente, monkeypatch):
+    _limpar(monkeypatch)
+    monkeypatch.setattr(config, "DEEPSEEK_API_KEY", "")
+    monkeypatch.setattr(config, "GROK_API_KEY", "gk-falsa")
+    assert cliente.get("/api/admin/ia").status_code in (401, 403)
+    cliente.post("/api/auth/cadastro", json={"nome": "Arq", "usuario": "arq", "email": "arquiteto@solo.dev", "senha": "12345678"})
+    d = cliente.get("/api/admin/ia").json()
+    assert d["ativo"] == "grok" and [p["id"] for p in d["provedores"]] == ["grok", "deepseek", "gemini"]
+    assert {p["id"]: p["configurado"] for p in d["provedores"]}["deepseek"] is False and "periodo" in d["uso"]
+    assert cliente.put("/api/admin/ia", json={"provedor": "deepseek"}).status_code == 409
+    assert cliente.put("/api/admin/ia", json={"provedor": "outro"}).status_code == 422
+    monkeypatch.setattr(config, "DEEPSEEK_API_KEY", "ds-falsa")
+    assert cliente.put("/api/admin/ia", json={"provedor": "deepseek"}).json()["ativo"] == "deepseek"
+    assert cliente.get("/api/admin/ia").json()["ativo"] == "deepseek"
+
+
+def test_admin_ia_nega_conta_comum(logado):
+    assert logado.get("/api/admin/ia").status_code == 403
+    assert logado.put("/api/admin/ia", json={"provedor": "grok"}).status_code == 403
