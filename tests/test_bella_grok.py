@@ -817,9 +817,17 @@ def test_modelo_pose_personalizacao():
     tudo = pb.modelo_pose(tudo=True)
     assert "Recrie as pessoas (ou o casal)" in tudo
     assert "Não alterar rostos, cabelos, cor da pele, corpos, roupas, acessórios, tatuagens, cenário, fundo nem iluminação" in tudo
+    # Extração total coloca campos explícitos de roupas, cenário, casal e detalhes
+    assert "[CASAL/PESSOAS:" in tudo and "[ROUPAS:" in tudo and "[CENÁRIO:" in tudo and "[LUZ E FUNDO:" in tudo and "[DETALHES:" in tudo
     seletivo = pb.modelo_pose(elementos=["cenario", "roupas"])
     assert "SOMENTE: Roupas, Cenário" in seletivo or "SOMENTE: Cenário, Roupas" in seletivo
     assert "Não alterar os itens mantidos da imagem original" in seletivo
+    # Extração seletiva coloca campos dos itens marcados
+    assert "[ROUPAS:" in seletivo and "[CENÁRIO:" in seletivo and "[LUZ E FUNDO:" in seletivo
+    assert "[CASAL/PESSOAS:" not in seletivo
+    # Suporte a texto natural em português
+    _, el_nat = pb.elementos_extrair("use a roupa e o cenário da foto")
+    assert "roupas" in el_nat and "cenario" in el_nat
 
 
 def test_posehot_extrair_tudo_com_referencia(monkeypatch):

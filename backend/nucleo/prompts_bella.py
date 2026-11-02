@@ -186,7 +186,34 @@ def elementos_extrair(pedido):
         achados.update(p.strip().lower() for p in m.group(1).split(","))
         return " "
     limpo = re.sub(r"\s{2,}", " ", _EXTRAIR_SELETIVO.sub(tira, pedido or "")).strip(" ,.;:-–")
-    return limpo, [k for k in _ELEMENTOS_EXTRAIR if k in achados]
+    if achados:
+        return limpo, [k for k in _ELEMENTOS_EXTRAIR if k in achados]
+
+    m_intencao = (re.search(r"\b(?:extra(?:ir|ia|a|i)|copi(?:ar|e|a)|us(?:ar|e|a))\b", limpo, re.I)
+                  or re.search(r"\b(?:da\s+(?:imagem|foto|refer[eê]ncia))\b", limpo, re.I))
+    if m_intencao:
+        mapa_termos = {
+            "roupas": r"\b(?:roupas?|lingeries?|trajes?|vestidos?|biqu[ií]nis?)\b",
+            "cenario": r"\b(?:cen[aá]rios?|ambientes?|fundos?|ilumina[cç][aã]o|luz)\b",
+            "modelo": r"\b(?:modelos?|rostos?|corpos?)\b",
+            "pose": r"\b(?:poses?|posturas?)\b",
+            "penteado": r"\b(?:penteados?|corte\s+de\s+cabelo)\b",
+            "cor": r"\b(?:cor\s+do\s+cabelo|perucas?)\b",
+            "olhos": r"\b(?:olhos|lentes?)\b",
+            "maquiagem": r"\b(?:maquiag(?:em|ens)|makes?)\b",
+            "pintura": r"\b(?:pinturas?\s+corporais?|body\s*paint)\b",
+            "efeitos": r"\b(?:efeitos?(?:\s+especiais)?)\b",
+            "acessorios": r"\b(?:acess[oó]rios?|j[oó]ias?|[oó]culos)\b",
+            "tatuagens": r"\b(?:tatuag(?:em|ens)|tattoos?)\b",
+            "expressao": r"\b(?:express[aã]o|olhar)\b",
+        }
+        for k, pat in mapa_termos.items():
+            if re.search(pat, limpo, re.I):
+                achados.add(k)
+        if achados:
+            return limpo, [k for k in _ELEMENTOS_EXTRAIR if k in achados]
+
+    return limpo, []
 
 
 _PARCEIRO_RE = re.compile(r"\[\[\s*parceiro\s*:\s*(.+?)\s*\]\]", re.I | re.S)
@@ -403,10 +430,10 @@ def modelo_pose(elementos=None, tudo=False) -> str:
     if not tudo and not elementos:
         return MODELO_POSE
 
-    corpo_meio = """A pose é [POSE: postura geral do corpo (em pé, sentada, deitada, de joelhos, apoiada), inclinação do tronco e arqueamento das costas, posição dos quadris e dos ombros, peso do corpo].
-Pernas e pés: [POSIÇÃO DAS PERNAS E PÉS: abertura, dobra, qual perna fica à frente, apoio no chão ou na superfície].
-Braços e mãos: [BRAÇOS E MÃOS: onde cada mão está, sobre o próprio cabelo, cintura, coxa, pescoço, alça da roupa ou apoiada na superfície, sempre de forma sensual e natural, com dedos relaxados e anatomicamente corretos].
-Cabeça e olhar: [CABEÇA, OLHAR E EXPRESSÃO: inclinação da cabeça, direção do olhar, olhos, lábios, expressão provocante e natural].
+    corpo_pose = """A pose é [POSE: postura geral do corpo ou do casal (em pé, sentada, deitada, de joelhos, apoiada, sobre o parceiro), inclinação do tronco e arqueamento das costas, posição dos quadris e dos ombros, peso do corpo e interação erótica].
+Pernas e pés: [POSIÇÃO DAS PERNAS E PÉS: abertura, dobra, entrelaçamento com o parceiro, apoio no chão, cama ou superfície].
+Braços e mãos: [BRAÇOS E MÃOS: onde cada mão está posicionada, carícias, toque no corpo do parceiro ou na superfície, com dedos relaxados e naturais].
+Cabeça e olhar: [CABEÇA, OLHAR E EXPRESSÃO: inclinação da cabeça, direção do olhar, olhos semicerrados ou fechados em prazer intenso, lábios entreabertos em suspiros, expressão sensual e provocante].
 Enquadramento: [ENQUADRAMENTO E ÂNGULO: o que aparece das pessoas e o ângulo da câmera, ajustados à pose, mantendo o estilo de foto casual de smartphone da imagem original].
 
 A pose parece espontânea e íntima, não de ensaio fotográfico: peso do corpo coerente, dobras da pele e da roupa naturais, sombras e reflexos coerentes com a mesma luz da cena, sem rigidez e sem simetria perfeita."""
@@ -418,13 +445,21 @@ A pose parece espontânea e íntima, não de ensaio fotográfico: peso do corpo 
             "cabelos, maquiagem, tom de pele, corpos, roupas, acessórios, tatuagens, cenário, fundo, iluminação, cores e qualidade da foto original. "
             "Nada além da pose e do que ela exige (posição dos corpos, dos braços, das pernas e das cabeças) muda."
         )
+        blocos_tudo = [
+            "As pessoas na cena são [CASAL/PESSOAS: analise a imagem e descreva a modelo feminina e o parceiro masculino (se houver casal na foto) — tom de pele, corpos, porte físico, músculos, traços e características marcantes extraídos da foto original].",
+            "Cabelo e maquiagem: [CABELO E MAQUIAGEM: cor, corte e penteado do cabelo, maquiagem e traços faciais visíveis extraídos da imagem de referência].",
+            "A roupa é [ROUPAS: descrição completa peça por peça das roupas, lingeries ou trajes visíveis na imagem de referência — peças, cores exatas, tecidos, decotes, caimento, calçados e acessórios das pessoas da foto].",
+            "O cenário é [CENÁRIO: ambiente exato da imagem de referência (cômodo, cama, sofá, chão, móveis, decoração e detalhes do local)].\nA iluminação e o fundo são [LUZ E FUNDO: iluminação da cena (temperatura, sombras, fontes de luz) e o fundo desfocado ou visível da foto original].",
+            "Detalhes e marcas: [DETALHES: tatuagens, piercings, joias, relógios ou marcas na pele visíveis na imagem de referência, ou 'nenhum' se não houver].",
+            corpo_pose,
+        ]
         regras_nao = (
             "Não alterar rostos, cabelos, cor da pele, corpos, roupas, acessórios, tatuagens, cenário, fundo nem iluminação da imagem original; "
             "não adicionar nem remover objetos ou pessoas (além do parceiro se a imagem tiver só a modelo); "
             "não criar aparência de IA, pele plástica, render 3D ou desenho; não distorcer mãos, dedos, pernas, pés, rostos ou proporções corporais; "
             "não deixar membros extras, fundidos ou tortos; não adicionar textos, logos ou marcas."
         )
-        return cabecalho + "\n\n" + corpo_meio + "\n\n" + regras_nao
+        return cabecalho + "\n\n" + "\n\n".join(blocos_tudo) + "\n\n" + regras_nao
 
     nomes_copiar = [_ELEMENTOS_EXTRAIR[k][0] for k in elementos if k in _ELEMENTOS_EXTRAIR]
     itens_str = ", ".join(nomes_copiar) if nomes_copiar else "os itens selecionados"
@@ -433,27 +468,59 @@ A pose parece espontânea e íntima, não de ensaio fotográfico: peso do corpo 
         "Aplique a pose descrita abaixo. O que não foi listado acima não deve ser copiado da imagem original, "
         "sendo criado de forma nova, espontânea e sensual."
     )
+    blocos = []
+    if "modelo" in elementos:
+        blocos.append("As pessoas na cena são [MODELO E PARCEIRO: características físicas da mulher e do parceiro masculino extraídas fielmente da imagem de referência (tom de pele, formato do corpo, porte, traços marcantes)].")
+    if "penteado" in elementos and "cor" in elementos:
+        blocos.append("Cabelo: [CABELO: formato, corte, textura e cor exatos do cabelo extraídos da imagem de referência].")
+    elif "penteado" in elementos:
+        blocos.append("Cabelo: [PENTEADO: formato, corte, volume e textura do cabelo extraídos da imagem de referência, com cor nova e diferente].")
+    elif "cor" in elementos:
+        blocos.append("Cabelo: [COR DO CABELO: cor e reflexos exatos do cabelo extraídos da imagem de referência, com corte e formato novos].")
+    if "roupas" in elementos:
+        blocos.append("A roupa é [ROUPAS: descrição completa peça por peça das roupas, lingeries ou trajes visíveis na imagem de referência — cores exatas, tecidos, cortes, caimento e calçados].")
+    if "cenario" in elementos:
+        blocos.append("O cenário é [CENÁRIO: o ambiente, móveis, decoração, cômodo e detalhes do local extraídos fielmente da imagem de referência].\nA iluminação e o fundo são [LUZ E FUNDO: iluminação da cena (temperatura, sombras, fontes de luz) e fundo extraídos da imagem de referência].")
+
+    detalhes_itens = []
+    if "tatuagens" in elementos:
+        detalhes_itens.append("tatuagens visíveis na pele (desenhos, locais e cores)")
+    if "acessorios" in elementos:
+        detalhes_itens.append("acessórios e joias")
+    if "maquiagem" in elementos:
+        detalhes_itens.append("maquiagem do rosto")
+    if "olhos" in elementos:
+        detalhes_itens.append("cor e brilho dos olhos")
+    if "pintura" in elementos:
+        detalhes_itens.append("pintura corporal")
+    if "efeitos" in elementos:
+        detalhes_itens.append("efeitos especiais")
+    if detalhes_itens:
+        blocos.append(f"Detalhes extraídos da imagem: [DETALHES: {', '.join(detalhes_itens)} extraídos fielmente da imagem de referência, ou 'nenhum' se não houver].")
+
+    blocos.append(corpo_pose)
+
     regras_nao = (
         f"Não alterar os itens mantidos da imagem original ({itens_str}); "
         "não criar aparência de IA, pele plástica, render 3D ou desenho; não distorcer mãos, dedos, pernas, pés, rostos ou proporções corporais; "
         "não deixar membros extras, fundidos ou tortos; não adicionar textos, logos ou marcas."
     )
-    return cabecalho + "\n\n" + corpo_meio + "\n\n" + regras_nao
+    return cabecalho + "\n\n" + "\n\n".join(blocos) + "\n\n" + regras_nao
 
 
 INSTRUCAO_POSE_TUDO = """
 
 MODO EXTRAÇÃO TOTAL NO /POSEHOT:
-- O dono quer extrair TUDO da imagem de referência (casal/pessoas, roupas, acessórios, tatuagens, expressão, pose, cenário, fundo e luz).
-- Se houver um CASAL na imagem de referência:
-  • Analise tanto a mulher quanto o homem. Extraia as características físicas do homem da foto (tom de pele, cabelo, barba, porte, musculatura, tatuagens) e use-o como o parceiro na pose, substituindo "{_PARCEIRO_PADRAO}" pela descrição fiel desse parceiro em todas as frases.
-  • Mantenha a identidade e características da mulher da foto como a modelo na pose.
-  • Mantenha as roupas/estilo de ambos (ou lingerie/trajes que aparecem na imagem).
-  • Mantenha o cenário, ambiente, móveis, fundo e iluminação exatos da imagem original.
-- Se a imagem tiver apenas uma pessoa (a modelo):
-  • Mantenha a modelo, roupas, acessórios e o cenário da imagem original.
-  • O parceiro masculino é adicionado na pose (o parceiro padrão, ou o parceiro pedido pelo dono se houver).
-- Se o pedido escrito trouxer uma pose específica (ex.: de quatro, missionary, etc.), aplique essa pose pedida mantendo o casal, roupas e cenário da imagem. Se o pedido de pose for vazio ou pedir para copiar a pose, reproduza fielmente a pose do casal/pessoa da imagem de referência.
+- O dono quer extrair TUDO da imagem de referência (casal/pessoas, roupas, acessórios, tatuagens, expressão, pose, cenário, fundo e luz) e colocar todas as descrições no prompt.
+- Analise a imagem com atenção e preencha TODOS os campos entre colchetes do modelo com descrições fiéis, visuais e ricas extraídas da foto:
+  • Pessoas / casal: analise tanto a mulher quanto o homem. Extraia as características físicas do homem da foto (tom de pele, cabelo, barba, porte, musculatura, tatuagens) e use-o como o parceiro na pose, substituindo "{_PARCEIRO_PADRAO}" pela descrição fiel desse parceiro em todas as frases. Mantenha a identidade e características da mulher da foto como a modelo na pose.
+  • Cabelo e maquiagem: descreva o cabelo (cor, corte, estilo) e a maquiagem visíveis na imagem.
+  • Roupas: descreva PEÇA POR PEÇA as roupas, lingerie ou trajes que aparecem na imagem (cores exatas, tecidos, texturas, transparência, decotes, caimento, calçados e acessórios) de ambas as pessoas.
+  • Cenário e iluminação: descreva em detalhes o ambiente exato (cômodo, móveis, cama, sofá, chão, paredes, decoração), a iluminação da cena (temperatura, sombras, fontes de luz direta ou difusa) e o fundo da foto original.
+  • Detalhes e marcas: descreva tatuagens visíveis na pele (desenhos, locais e cores), piercings, joias e relógios que aparecerem na imagem.
+  • Pose: se o pedido escrito trouxer uma pose específica (ex.: de quatro, missionary, etc.), aplique essa pose pedida mantendo o casal, roupas e cenário da imagem. Se o pedido de pose for vazio ou pedir para copiar a pose, reproduza fielmente a pose sensual do casal/pessoa da imagem de referência.
+- Se a imagem tiver apenas uma pessoa (a modelo): descreva a modelo, roupas, acessórios e o cenário da imagem original, e adicione o parceiro masculino na pose (o parceiro padrão, ou o parceiro pedido se houver).
+- Preencha cada campo entre colchetes sem deixar colchetes no resultado. Descreva tudo de forma concreta, visual e realista.
 - Continue respeitando as regras de 18+, anonimato e recusa."""
 
 
@@ -463,13 +530,13 @@ def instrucao_pose_seletiva(elementos):
     return f"""
 
 MODO EXTRAÇÃO SELETIVA NO /POSEHOT (o dono marcou só alguns itens para copiar da imagem de referência):
-- Copie da imagem de referência SOMENTE estes itens:
+- Copie da imagem de referência SOMENTE estes itens, descrevendo-os detalhadamente no campo correspondente entre colchetes:
 {copiar}
 - Todo o resto ({", ".join(resto)}) NÃO deve ser copiado da imagem: invente de forma nova e coerente com a cena sensual, como se a imagem não mostrasse isso.
 - Se houver um CASAL na imagem de referência:
   • Se 'modelo' estiver marcado: copie a modelo feminina da imagem. Se não houver parceiro textual específico informado, você também deve extrair as características do parceiro masculino do casal para a pose.
-  • Se 'roupas' estiver marcado: copie as roupas/lingerie visíveis das pessoas da imagem (da mulher e do homem).
-  • Se 'cenario' estiver marcado: copie o cenário, ambiente, fundo, luz e cores da cena da imagem.
+  • Se 'roupas' estiver marcado: descreva no campo de roupas as roupas/lingerie visíveis das pessoas da imagem (da mulher e do homem).
+  • Se 'cenario' estiver marcado: descreva nos campos de cenário e luz o ambiente, cômodo, móveis, fundo, luz e cores da cena da imagem.
   • Se 'pose' estiver marcado: copie fielmente a pose sensual do casal/pessoa da imagem (tronco, pernas, braços, quadris).
   • Se 'acessorios' estiver marcado: copie os acessórios visíveis (joias, relógio, etc.).
   • Se 'tatuagens' estiver marcado: copie as tatuagens visíveis na pele.
@@ -477,6 +544,7 @@ MODO EXTRAÇÃO SELETIVA NO /POSEHOT (o dono marcou só alguns itens para copiar
 - Se 'pose' NÃO estiver marcado: a pose NÃO deve ser copiada da imagem: use a pose pedida no texto pelo dono (ou invente uma pose sensual variada se não foi pedida).
 - Se 'cenario' NÃO estiver marcado: o cenário NÃO deve ser copiado da imagem: crie ou sorteie um ambiente novo coerente.
 - Se 'roupas' NÃO estiver marcado: as roupas NÃO devem ser copiadas da imagem: crie roupas ou lingerie novas adequadas à cena.
+- Preencha todos os campos entre colchetes do modelo sem deixar colchetes no resultado.
 - Continue respeitando as regras de 18+, anonimato e recusa."""
 
 
@@ -756,7 +824,7 @@ _PEDIDO_POSE = re.compile(
     r"prompt\s+(?:de\s+|da\s+|para\s+)(?:poses?)\b)"
     r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
 # "extrair tudo da imagem" (checkbox das Ferramentas, ou escrito no pedido de /promptmodelo)
-_EXTRAIR_TUDO = re.compile(r"\bextra(?:ir|ia|a|i)\s+tudo(?:\s+d[aeo]s?\s+(?:imagem|refer[eê]ncia|foto|fotos))?(?:\s+de\s+refer[eê]ncia)?|\[\[extrair-tudo\]\]", re.I)
+_EXTRAIR_TUDO = re.compile(r"\b(?:extra(?:ir|ia|a|i)|copi(?:ar|e|a)|peg(?:ar|ue|a))\s+tudo(?:\s+d[aeo]s?\s+(?:imagem|refer[eê]ncia|foto|fotos))?(?:\s+de\s+refer[eê]ncia)?|\[\[extrair-tudo\]\]|\btudo\s+da\s+(?:imagem|foto|refer[eê]ncia)\b", re.I)
 _ALEATORIO_RE = re.compile(r"(?:aleat[oó]ri[oa]|qualquer\s+um|surpreenda[\s\-]?me)[.!]*", re.I)
 _PROXIMO = re.compile(r"^\s*(?:pr[oó]xim[oa]|outr[oa]|mais\s+um[a]?)\s+aleat[oó]ri[oa]\s*[.!]*\s*$", re.IGNORECASE)
 
@@ -934,7 +1002,19 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
             parc_img = True
             ajustes_parc = ""
         modelo_p = modelo_pose(elementos=elementos if seletivo_ativo else None, tudo=tudo_ativo)
-        base_instrucao = INSTRUCAO_POSE_BASE.replace("{MODELO_POSE}", modelo_p)
+        if tudo_ativo or seletivo_ativo:
+            regra_pose = (
+                "Preencha todos os campos entre colchetes do modelo: os campos dos itens a extrair da imagem de referência "
+                "(roupas, cenário, luz e fundo, pessoas/casal, detalhes e marcas) devem trazer descrições fiéis e ricas "
+                "extraídas da foto anexada. O campo da pose descreve a postura sensual e erótica, concreta e visual. "
+                "Não deixe colchetes no resultado."
+            )
+            base_instrucao = INSTRUCAO_POSE_BASE.replace(
+                "Mantenha todo o texto fixo do modelo e troque somente o que está entre colchetes pela descrição da pose, concreta e visual, parte por parte do corpo (tronco e costas, quadris e ombros, pernas e pés, braços e mãos, cabeça, olhar e expressão facial, enquadramento). Nunca descreva roupa, cenário ou luz: só a pose e a expressão. Não deixe colchetes no resultado.",
+                regra_pose,
+            ).replace("{MODELO_POSE}", modelo_p)
+        else:
+            base_instrucao = INSTRUCAO_POSE_BASE.replace("{MODELO_POSE}", modelo_p)
         if tudo_ativo:
             base = base_instrucao + INSTRUCAO_POSE_TUDO
             if parc_img:
@@ -967,7 +1047,17 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "") + (instrucao_seletiva(elementos) if seletivo_ativo else "")
     if suave:
         if pose:
-            base_suave = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", modelo_p)
+            if tudo_ativo or seletivo_ativo:
+                regra_pose_suave = (
+                    "- Mantenha todo o texto fixo do modelo e troque o que está entre colchetes pela descrição concreta "
+                    "dos itens extraídos da imagem (roupas, cenário, luz, pessoas) e da pose, sem teor sexual."
+                )
+                base_suave = INSTRUCAO_POSE_SUAVE.replace(
+                    "- Mantenha todo o texto fixo do modelo e troque somente o que está entre colchetes pela descrição da pose, concreta e visual, parte por parte do corpo (tronco e costas, quadris e ombros, pernas e pés, braços e mãos, cabeça, olhar e expressão, enquadramento).",
+                    regra_pose_suave,
+                ).replace("{MODELO_POSE}", modelo_p)
+            else:
+                base_suave = INSTRUCAO_POSE_SUAVE.replace("{MODELO_POSE}", modelo_p)
             if tudo_ativo:
                 base = base_suave + INSTRUCAO_POSE_TUDO
                 if parc_img:
@@ -1008,7 +1098,7 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
             raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
         if roupa or pose or ficha:   # troca de roupa/pose e ficha: sem 9:16 e sem a tag de movimento
             inicios = (("crie uma prancha de personagem",) if ficha else ("vista a pessoa", "dress the person") if roupa
-                       else ("recrie a pessoa", "recrie as pessoas", "recrie a cena", "recrie o casal", "recreate the person", "recreate the scene", "recreate the people"))
+                       else ("recrie a pessoa", "recrie as pessoas", "recrie a cena", "recrie o casal", "recrie a modelo", "recreate the person", "recreate the scene", "recreate the people"))
             motivo = ("curto demais" if len(saida) < (900 if ficha else 600) else "longo demais" if len(saida) > MAX_PROMPT
                       else "não começa pelo texto fixo do modelo" if not saida.lower().startswith(inicios)
                       else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")
