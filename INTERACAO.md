@@ -654,3 +654,10 @@ Quando o **Arquiteto** pede ("me manda um vídeo", "manda uma fotinha", "mostra 
 ## Prints do Strava: corrida e exercícios
 
 Imagens recebidas por WhatsApp, Telegram e Bella.exe são encaminhadas ao Rotinas para identificação antes de entrar como referências de prompts. Pedidos explícitos de prompt preservam seu fluxo. Prints do Strava completos registram a corrida automaticamente na conta vinculada; imagens incompletas e falhas de leitura não viram referências. A data usa o dia do envio para Hoje/Ontem e pode ser substituída na legenda. Contrato e limites: [INTEGRACAO_TREINOS.md](INTEGRACAO_TREINOS.md).
+
+
+## Consultar as próprias memórias no Solo Models
+
+No perfil da Bella, Minhas memórias mostra o arquivo do próprio Arquiteto: Eternizar, Narrador, histórias, lembranças de longo prazo, conversas e resumos, organizados por ano, mês e dia em Brasília. Atualizar agora busca as gravações recentes do Bot; com a sincronização habilitada, a cópia também é atualizada a cada minuto. A aba Visão do Arquiteto contém a descrição da relação, separada desse arquivo real. A interface nunca oferece as memórias de outros usuários.
+
+Os comandos /eternizar, /narrador, /lembrar e a recuperação das lembranças durante a conversa continuam usando o armazenamento do Bot nesta etapa. O Models guarda uma cópia viva para consulta e arquivos permanentes por data, preservando a captura original da migração. Uma indisponibilidade não apaga a última cópia.

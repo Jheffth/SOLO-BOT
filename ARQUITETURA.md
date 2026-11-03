@@ -239,3 +239,10 @@ Não há medição de tempo real da VPS nos testes locais.
 ## Prints do Strava: corrida e exercícios
 
 Imagens recebidas por WhatsApp, Telegram e Bella.exe são encaminhadas ao Rotinas para identificação antes de entrar como referências de prompts. Pedidos explícitos de prompt preservam seu fluxo. Prints do Strava completos registram a corrida automaticamente na conta vinculada; imagens incompletas e falhas de leitura não viram referências. A data usa o dia do envio para Hoje/Ontem e pode ser substituída na legenda. Contrato e limites: [INTEGRACAO_TREINOS.md](INTEGRACAO_TREINOS.md).
+
+
+## Cópia privada das memórias para o Models
+
+GET /interno/bella/memorias exporta somente histórias (/eternizar, /narrador e passado), lembranças, arquivo de conversas e resumos da própria conta administradora. Exige o token do módulo models e X-Solo-Contexto HS256 com MODELS_CONTEXTO_KEY, emissor solo-models, destinatário solo-bot-memorias, dono solo-bot:conta:ID, modelo, emissão e expiração em até 120 segundos. O Models resolve o dono pelo mapeamento importado; a rota recusa contas comuns e outros serviços. A chave coincide com CONTEXTO_SERVICE_KEY do Models.
+
+O Models mantém o arquivo consultável em Minhas memórias, agrupado por ano, mês e dia, com cópia JSON no volume privado e sincronização opcional a cada minuto. O Bot continua gravando e recuperando essas memórias para a conversa normalmente; a sincronização não chama IA nem altera os comandos de memória. Nenhum conteúdo de memória ou credencial é registrado nos logs dessa exportação.

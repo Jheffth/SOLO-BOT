@@ -25,6 +25,7 @@ if not SECRET_KEY:
         raise RuntimeError("SECRET_KEY vazia: o Solo Bot não assina sessão com chave improvisada.")
 
 ALGORITHM = "HS256"
+MODELS_CONTEXTO_KEY = _env("MODELS_CONTEXTO_KEY")
 SESSAO_HORAS = int(_env("SESSAO_HORAS", "168"))  # 7 dias
 
 URL_PUBLICA = _env("URL_PUBLICA", "http://localhost:8000").rstrip("/")

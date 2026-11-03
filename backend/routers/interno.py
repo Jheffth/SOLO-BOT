@@ -79,3 +79,44 @@ def vozes_internas(mod: modulos.Modulo = Depends(_modulo)):
     """Consulta interna autenticada das vozes disponíveis em todos os provedores."""
     from nucleo import fala
     return {"vozes": fala.catalogo_todas_vozes()}
+
+
+@router.get("/bella/memorias")
+def memorias_bella(x_solo_contexto: str = Header(""), mod: modulos.Modulo = Depends(_modulo),
+                  db: Session = Depends(get_db)):
+    """Cópia das memórias do próprio Arquiteto para seu arquivo privado no Models."""
+    import time
+    import config
+    from jose import jwt, JWTError
+    from database import Conta, BellaLore, BellaMemoria, BellaArquivo, BellaDia
+    if mod.chave != "models" or not config.MODELS_CONTEXTO_KEY:
+        raise HTTPException(403, "Contexto de memória não autorizado.")
+    try:
+        contexto = jwt.decode(x_solo_contexto, config.MODELS_CONTEXTO_KEY, algorithms=["HS256"],
+                              issuer="solo-models", audience="solo-bot-memorias")
+        for chave in ("sub", "modelo_id", "iat", "exp"):
+            if chave not in contexto:
+                raise ValueError()
+        if not isinstance(contexto['modelo_id'], str) or not contexto['modelo_id']:
+            raise ValueError()
+        if not all(type(contexto[k]) in (int, float) for k in ('iat', 'exp')):
+            raise ValueError()
+        if not 0 < contexto['exp'] - contexto['iat'] <= 120 or contexto['iat'] > time.time() + 5:
+            raise ValueError()
+        import re
+        m = re.fullmatch(r"solo-bot:conta:([1-9][0-9]*)", contexto['sub'])
+        conta = db.get(Conta, int(m[1])) if m else None
+        if not conta or not conta.admin:
+            raise ValueError()
+    except (JWTError, ValueError, TypeError, KeyError):
+        raise HTTPException(403, "Contexto de memória não autorizado.") from None
+    tabelas = {}
+    # A cópia inclui somente registros da conta autorizada; não consulta outros donos.
+    for tipo, classe in [('bella_lores', BellaLore), ('bella_memorias', BellaMemoria),
+                         ('bella_arquivo', BellaArquivo), ('bella_dias', BellaDia)]:
+        linhas = db.query(classe).filter(classe.conta_id == conta.id).order_by(classe.id).all()
+        tabelas[tipo] = [{col.name: (v.isoformat() if isinstance(v, datetime) else v)
+                         for col in classe.__table__.columns for v in [getattr(linha, col.name)]}
+                        for linha in linhas]
+    return {"formato": 1, "dono_id": contexto['sub'], "modelo_id": contexto['modelo_id'],
+            "tabelas": tabelas}
