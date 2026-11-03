@@ -113,7 +113,8 @@ def responder(texto,conta_id):
             +json.dumps(perfil,ensure_ascii=False)+"\nMemórias desta relação:\n"+fatos)
         if p.get('classificacao')=='geral' or not p.get('conteudo_adulto_habilitado'):
             prompt+='\nMantenha a conversa sem conteúdo sexual explícito.'
-        historico=[(v['usuario'],v['texto']) for v in ctx['historico']]
+        historico=[mensagem for v in ctx['historico']
+                   for mensagem in [('user',v['usuario']),('assistant',v['texto'])]]
         saida=grok.gerar(prompt,texto,max_tokens=1800,historico=historico)
         if not saida:raise ErroModels('O modelo não conseguiu responder agora. Tente novamente.')
         _gravar(conta,ident,'turno',saida,usuario=texto)

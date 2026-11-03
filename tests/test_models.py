@@ -1,19 +1,35 @@
 """Escolha de modelos: catálogo vivo, conversa, voz e legado isolados."""
 from database import SessionLocal,Conta,BellaArquivo,BellaMemoria
 from nucleo import models,bella_conversa,roteador,fala
+import pytest
 
 IDENT='e5bd7992-24bf-42fe-b54c-abd355b8966c'
 
-def remoto(monkeypatch):
+
+@pytest.fixture(autouse=True)
+def limpar_escolha_apos_teste():
+    yield
+    from database import Configuracao
+    db=SessionLocal()
+    try:
+        db.query(Configuracao).filter(Configuracao.chave.like('models_selecao:%')).delete(synchronize_session=False)
+        db.commit()
+    finally:db.close()
+
+def remoto(monkeypatch,historico=None):
     chamadas=[]
+    historico=[] if historico is None else historico
     itens=[{'id':IDENT,'nome':'Bella','descricao':'Personagem do Models','classificacao':'geral','versao':1}]
     voz={'provedor':'voicestudio','conta':'voicestudio','voice_id':'voz-escolhida','ativa':True,'principal':True}
     def pedir(metodo,rota,conta=None,modelo_id=None,corpo=None):
         chamadas.append((metodo,rota,corpo))
         if rota.endswith('/pacote'):return {'modelo':{**itens[0],'persona':'Persona própria do Models',
             'vozes_por_conta':[voz]}}
-        if rota.endswith('/contexto'):return {'historico':[],'memorias':[{'tipo':'bella_memorias','texto':'Gosto de chuva'}]}
-        if rota.endswith('/registros'):return {'id':'registro'} if metodo=='POST' else []
+        if rota.endswith('/contexto'):return {'historico':list(historico),'memorias':[{'tipo':'bella_memorias','texto':'Gosto de chuva'}]}
+        if rota.endswith('/registros'):
+            if metodo=='POST' and corpo['tipo']=='turno':
+                historico.append({'usuario':corpo['usuario'],'texto':corpo['texto']})
+            return {'id':'registro'} if metodo=='POST' else []
         return list(itens)
     monkeypatch.setattr(models,'_requisicao',pedir)
     return itens,chamadas,voz
@@ -112,3 +128,54 @@ def test_falha_de_leitura_nao_finge_escolha_legado(logado,monkeypatch):
     assert 'não foi alterada' in bella_conversa.responder('Olá',1)
     r=logado.get('/api/conta/models')
     assert r.status_code==503 and 'origem' not in r.json()
+
+
+def test_deepseek_recebe_papeis_validos_em_conversa_com_historico(logado,monkeypatch):
+    import httpx
+    import config
+    from nucleo import grok,llm_provedores
+    historico=[{'usuario':'Quero lembrar do marcador azul.','texto':'Vou lembrar do marcador azul.'}]
+    remoto(monkeypatch,historico)
+    logado.put('/api/conta/models',json={'modelo_id':IDENT})
+    corpos=[]
+    class Cliente:
+        def __init__(self,**k):pass
+        def __enter__(self):return self
+        def __exit__(self,*a):pass
+        def post(self,url,**k):
+            corpo=k['json'];corpos.append(corpo)
+            if any(m['role'] not in ('system','user','assistant') for m in corpo['messages']):
+                return httpx.Response(400,json={'error':{'message':'invalid role'}})
+            return httpx.Response(200,json={'choices':[{'finish_reason':'stop',
+                'message':{'content':'Resposta '+str(len(corpos))}}]})
+    monkeypatch.setattr(grok,'provedor_ativo',lambda:'deepseek')
+    monkeypatch.setattr(config,'DEEPSEEK_API_KEY','chave-ficticia')
+    monkeypatch.setattr(config,'LLM_FALLBACK',[])
+    monkeypatch.setattr(llm_provedores.httpx,'Client',Cliente)
+    for pergunta in ['Oi?','O que acabamos de conversar?','Continue']:
+        assert isinstance(models.responder(pergunta,1),models.TextoModels)
+    assert len(corpos)==3
+    for i,corpo in enumerate(corpos):
+        assert [m['role'] for m in corpo['messages']]==['system']+['user','assistant']*(i+1)+['user']
+        assert corpo['messages'][1]['content']=='Quero lembrar do marcador azul.'
+    assert corpos[-1]['messages'][-2]['content']=='Resposta 2'
+
+
+def test_cumprimento_na_conversa_models_nao_abre_menu(logado,monkeypatch):
+    from database import CanalVinculo
+    remoto(monkeypatch)
+    db=SessionLocal();db.add(CanalVinculo(conta_id=1,canal='whatsapp',origem='111'));db.commit()
+    logado.put('/api/conta/models',json={'modelo_id':IDENT})
+    perguntas=[]
+    monkeypatch.setattr(models,'responder',lambda texto,conta_id:perguntas.append(texto) or 'Resposta Models')
+    for texto in ['Oi?','Oi ?','Olá','Bom dia']:
+        r=roteador.atender_texto(db,'whatsapp','111',texto)
+        assert r.mensagens[0]['texto']=='Resposta Models'
+        assert roteador._modo_valido(roteador.sessao_de(db,'whatsapp','111'))==roteador.MODO_BELLA
+        assert models.selecionado(1)==IDENT
+    assert perguntas==['Oi?','Oi ?','Olá','Bom dia']
+    r=roteador.atender_texto(db,'whatsapp','111','/menu')
+    assert 'Com qual sistema' in r.mensagens[0]['texto'] or r.mensagens[0]['opcoes']
+    assert roteador._modo_valido(roteador.sessao_de(db,'whatsapp','111')) is None
+    assert models.selecionado(1)==IDENT
+    db.close()

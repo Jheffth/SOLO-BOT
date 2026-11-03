@@ -512,6 +512,14 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         cmd = "/memoria"          # com acento também
     simples = _sem_acento(txt.lower()).strip("!.?")
 
+    cumprimentos={_sem_acento(x) for x in SAUDACOES-{'menu','inicio','início'}}
+    if simples in cumprimentos and _modo_valido(s)==MODO_BELLA:
+        from nucleo import models
+        try:em_models=bool(models.selecionado(conta.id))
+        except models.ErroModels as e:return Resposta().diz(str(e))
+        if em_models:
+            _entrar_modo(db,s,MODO_BELLA)
+            return _bella_responder(db,conta,canal,txt)
     if cmd in ("/start", "/menu") or simples in {_sem_acento(x) for x in SAUDACOES}:
         _entrar_modo(db, s, None)
         return menu(db, conta)
