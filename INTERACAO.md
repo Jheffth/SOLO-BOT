@@ -661,3 +661,17 @@ Imagens recebidas por WhatsApp, Telegram e Bella.exe são encaminhadas ao Rotina
 No perfil da Bella, Minhas memórias mostra o arquivo do próprio Arquiteto: Eternizar, Narrador, histórias, lembranças de longo prazo, conversas e resumos, organizados por ano, mês e dia em Brasília. Atualizar agora busca as gravações recentes do Bot; com a sincronização habilitada, a cópia também é atualizada a cada minuto. A aba Visão do Arquiteto contém a descrição da relação, separada desse arquivo real. A interface nunca oferece as memórias de outros usuários.
 
 Os comandos /eternizar, /narrador, /lembrar e a recuperação das lembranças durante a conversa continuam usando o armazenamento do Bot nesta etapa. O Models guarda uma cópia viva para consulta e arquivos permanentes por data, preservando a captura original da migração. Uma indisponibilidade não apaga a última cópia.
+
+## Extração seletiva de referências na Bella
+
+No `/promptmodelo` e `/prompt`, o marcador `[[extrair: ...]]` acompanha a imagem
+no mesmo pedido. Marcar as 13 categorias e desmarcar somente cenário produz 12
+itens: cenário não deve ser copiado. Penteado e cor do cabelo podem ser marcados
+juntos; as instruções deixam de proibir a cópia do outro componente nesse caso.
+Frases fixas do modelo cedem à seleção explícita, preservando regras de idade e
+limites de conteúdo. Detalhes invisíveis não devem ser inventados.
+
+Se houver seleção de extração sem imagem anexada ou referência disponível, a API
+recusa com mensagem para anexar a imagem, em vez de gerar um prompt aleatório.
+A correção fica no backend: não exige recompilar o executável para entrar em vigor,
+mas precisa ser publicada no servidor usado pela Bella.

@@ -297,7 +297,21 @@ PARCEIRO EXTRAÍDO DA IMAGEM DE REFERÊNCIA (vale no lugar do parceiro padrão a
 
 
 def instrucao_seletiva(elementos):
-    copiar = "\n".join(f"  • {_ELEMENTOS_EXTRAIR[k][0]}: {_ELEMENTOS_EXTRAIR[k][1]}." for k in elementos)
+    descricoes = []
+    for k in elementos:
+        titulo, descricao = _ELEMENTOS_EXTRAIR[k]
+        # Formato e cor têm escolhas independentes; quando ambos estão marcados,
+        # não pode haver uma proibição de copiar o outro componente do cabelo.
+        if k == "penteado" and "cor" in elementos:
+            descricao = descricao.split("NÃO copie a cor do cabelo:", 1)[0].rstrip(" .")
+        elif k == "cor" and "penteado" in elementos:
+            descricao = descricao.split("NÃO copie o formato", 1)[0].rstrip(" .")
+        elif k == "olhos" and ("modelo" in elementos or "expressao" in elementos):
+            descricao = descricao.split("NÃO copie o formato dos olhos", 1)[0].rstrip(" .")
+        elif k == "maquiagem" and "modelo" in elementos:
+            descricao = descricao.replace("NÃO copie o rosto, a pele nem o formato das feições;", "O rosto e a pele vêm da categoria Modelo;")
+        descricoes.append(f"  • {titulo}: {descricao}.")
+    copiar = "\n".join(descricoes)
     resto = [_ELEMENTOS_EXTRAIR[k][0].split(" (")[0].lower() for k in _ELEMENTOS_EXTRAIR if k not in elementos]
     return f"""
 
@@ -308,7 +322,9 @@ referência anteriores, exceto as de idade, recusa e anonimato:
 - Todo o resto ({", ".join(resto)}) NÃO deve ser copiado da imagem: invente de forma nova e coerente (ou sorteie), como se a imagem não mostrasse isso.
 {"- Cabelo: copie só o formato (penteado), e a COR do cabelo fica nova, diferente da imagem." if "penteado" in elementos and "cor" not in elementos else "- Cabelo: copie só a cor (peruca), e o formato do cabelo fica novo, diferente da imagem." if "cor" in elementos and "penteado" not in elementos else ""}
 - Descreva só o que se vê nos itens marcados. Nunca invente tatuagens, piercings ou acessórios que não existam; se um item marcado "se houver" não aparecer, omita-o.
-- Coloque cada informação no campo certo entre colchetes, sem apagar o texto fixo do modelo, e não deixe colchetes no resultado.
+- Coloque cada informação no campo certo entre colchetes e não deixe colchetes no resultado.
+- Se alguma frase fixa contradisser uma categoria marcada (por exemplo, impedir a cor do cabelo, maquiagem, tatuagens ou expressão selecionadas), adapte essa frase para respeitar a seleção. Preserve a estrutura, as regras de idade e os limites de conteúdo. Não deixe uma proibição genérica anular um item marcado.
+- As categorias marcadas devem constar explicitamente da descrição final quando forem visíveis; não as substitua por "igual à referência". Se não forem visíveis, informe que o detalhe não pode ser identificado, sem inventar.
 - Continue sem dizer quem é a pessoa e sem usar nome. Um pedido escrito junto continua mandando sobre a imagem."""
 
 

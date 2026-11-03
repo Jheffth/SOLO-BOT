@@ -364,6 +364,11 @@ def conversa(p: PedidoConversa, x_bella_chave: str = Header(""), db: Session = D
         referencia_anexa = ("image/jpeg" if mime == "image/jpg" else mime, p.imagem_base64)
         if pedido is None:
             pedido = p.texto.strip()          # com imagem anexa, o texto é o pedido do prompt
+    if pedido is not None and categoria in ("modelo", "realismo"):
+        extracao_pedida = bool(prompts_bella._EXTRAIR_SELETIVO.search(pedido)
+                              or prompts_bella._EXTRAIR_TUDO.search(pedido))
+        if extracao_pedida and not (referencia_anexa or prompts_bella.referencia(chave)):
+            raise HTTPException(422, "Anexe a imagem de referência para copiar as categorias selecionadas.")
     if pedido is not None:
         try:
             extra = {"suave": True} if getattr(conta, "prompt_suave", False) else {}      # "Sem sensualização" da conta
