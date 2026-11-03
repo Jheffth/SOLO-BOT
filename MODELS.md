@@ -4,7 +4,8 @@ O padrão de cada Conta Solo continua sendo **Bella (Legado)**. No painel, a se�
 **Models** oferece a Bella legada e os modelos publicados para o destino `solo_bot`.
 No chat, `/models` abre a mesma lista; a Bella aparece primeiro e novos modelos
 publicados entram automaticamente. O menu também tem botões **Bella (Legado)** e
-**Models**. `/bella` volta explicitamente ao legado. A escolha é da conta e vale
+**Models**. `/bella` e `/safada` abrem a conversa escolhida sem trocar o modelo;
+`/bella legado` volta explicitamente ao legado. A escolha é da conta e vale
 para WhatsApp, Telegram e Bella.exe. Contas comuns recebem os modelos gerais;
 modelos adultos ficam restritos ao Arquiteto nesta etapa.
 
@@ -19,6 +20,12 @@ O Bot guarda somente `models_selecao:ID` em sua configuração. A lista é consu
 novamente ao abrir o menu e a cada atualização do painel. Cada escolha e resposta
 confere se o modelo continua publicado. Falhas preservam a seleção e mostram uma
 mensagem; não iniciam silenciosamente uma conversa com outra personalidade.
+
+A escolha não expira com a sessão de conversa. `/menu`, `/sair`, `/bella` e
+`/safada` preservam o modelo escolhido. Somente a opção explícita Bella (Legado),
+no painel/menu, ou `/bella legado` limpa a seleção Models. Uma falha ao consultar
+essa preferência retorna indisponibilidade; não é interpretada como escolha do
+legado. O painel descarta respostas de atualização anteriores à última escolha.
 
 `GET` e `PUT /api/conta/models` exigem a sessão da Conta Solo. Contexto e gravações
 usam `/api/servico/conversas/{dono}/{modelo}` no Models, com token de serviço e

@@ -530,15 +530,20 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         pedido = prompts_bella_pedido(txt, canal, conta) or (padrao, "")
         return _prompt_responder(db, conta, canal, pedido[1], pedido[0])
     if cmd in ("/bella", "/safada"):
-        if cmd == "/bella":
+        primeira=resto.strip()
+        argumentos=primeira.split(maxsplit=1)
+        if argumentos and argumentos[0].casefold() == 'legado':
             from nucleo import models
             models.escolher(db,conta,None)
+            primeira=argumentos[1] if len(argumentos)>1 else ''
         _entrar_modo(db, s, MODO_BELLA)
-        return _bella_entrar(canal, conta, resto.strip())
+        return _bella_entrar(canal, conta, primeira)
     if cmd == "/models":
         return _menu_models(conta)
     from nucleo import models
-    if models.selecionado(conta.id) and cmd in ("/memoria","/lembrar","/eternizar","/permanente",
+    try:selecao_models=models.selecionado(conta.id)
+    except models.ErroModels as e:return Resposta().diz(str(e))
+    if selecao_models and cmd in ("/memoria","/lembrar","/eternizar","/permanente",
             "/narrador","/esquecer","/eliminarmemo","/eliminarmemoria","/eliminarmemória","/bio","/historia",
             "/temperatura","/sentimentos","/emocoes","/emocao","/iniciativa"):
         return Resposta().diz(models.comando(conta,cmd,resto.strip()))
@@ -1188,6 +1193,13 @@ def _cmd_historia(conta: Conta, resto: str) -> Resposta:
 def _bella_entrar(canal: str, conta: Conta, primeira: str) -> Resposta:
     if primeira:
         return _bella_responder(None, conta, canal, primeira)
+    from nucleo import models
+    try:ident=models.selecionado(conta.id)
+    except models.ErroModels as e:return Resposta().diz(str(e))
+    if ident:
+        try:nome=models.pacote(conta,ident)['nome']
+        except models.ErroModels as e:return Resposta().diz(str(e))
+        return Resposta().diz(f"🎭 {nome} · Models. Pode falar. /models troca de modelo; /bella legado volta à Bella legada.")
     return Resposta().diz("💋 Oi, sou a Bella. Pode falar. `/esquecer` apaga a conversa, `/sair` volta ao hub.")
 
 
@@ -1674,7 +1686,7 @@ def atender_toque(db: Session, canal: str, origem: str, dados: str) -> Resposta:
             except models.ErroModels as e:return Resposta().diz(str(e))
             _entrar_modo(db,s,MODO_BELLA)
             return Resposta().diz(f"Você está conversando com {nome}"+(' · Models.' if ident else '.')+
-                " Pode falar. /models troca de modelo; /bella volta à Bella legada.")
+                " Pode falar. /models troca de modelo; /bella legado volta à Bella legada.")
         if resto == "nada":
             return Resposta()
         if resto == "menu":

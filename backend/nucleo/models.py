@@ -7,7 +7,8 @@ from urllib.parse import quote
 import httpx
 from jose import jwt
 import config
-from database import Configuracao, Conta, SessionLocal, ler_config
+from database import Configuracao, Conta, SessionLocal
+from sqlalchemy.exc import SQLAlchemyError
 from nucleo import modulos
 
 
@@ -23,7 +24,13 @@ class TextoModels(str):
 
 def selecionado(conta_id):
     if conta_id is None:return None
-    return ler_config('models_selecao:'+str(conta_id)) or None
+    db=SessionLocal()
+    try:
+        row=db.get(Configuracao,'models_selecao:'+str(conta_id))
+        return row.valor if row and row.valor else None
+    except SQLAlchemyError:
+        raise ErroModels('Não consegui consultar sua escolha de conversa. Tente novamente; ela não foi alterada.') from None
+    finally:db.close()
 
 
 def _requisicao(metodo,rota,conta=None,modelo_id=None,corpo=None):

@@ -21,7 +21,8 @@ router = APIRouter(prefix="/api/conta", tags=["conta"])
 @router.get("/models")
 def listar_models(conta: Conta = Depends(conta_atual)):
     from nucleo import models
-    atual=models.selecionado(conta.id)
+    try:atual=models.selecionado(conta.id)
+    except models.ErroModels as e:raise HTTPException(503,str(e)) from None
     try:
         return {"modelo_id":atual,"origem":"models" if atual else "legado",
                 "modelos":models.catalogo(conta),"disponivel":True}

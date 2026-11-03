@@ -5,10 +5,13 @@
   if (!alvo) return;
   let atual = null;
   let ocupado = false;
+  let revisao = 0;
   async function carregar() {
     if (ocupado) return;
+    const pedido = ++revisao;
     try {
       const dados = await Solo.api('/api/conta/models');
+      if (ocupado || pedido !== revisao) return;
       atual = dados.modelo_id;
       alvo.replaceChildren();
       const legado = document.createElement('button');
@@ -38,10 +41,13 @@
         const vazio = document.createElement('p'); vazio.className = 'muted';
         vazio.textContent = 'Nenhum modelo publicado disponível para sua conta.'; alvo.append(vazio);
       }
-    } catch { alvo.textContent = 'Não foi possível carregar Models. Tente novamente em instantes.'; }
+    } catch {
+      if (!ocupado && pedido === revisao) alvo.textContent = 'Não foi possível carregar Models. Tente novamente em instantes.';
+    }
   }
   async function escolher(ident) {
     ocupado = true;
+    ++revisao;
     alvo.querySelectorAll('button').forEach(b => b.disabled = true);
     try {
       await Solo.api('/api/conta/models', {method: 'PUT', body: {modelo_id: ident}});
