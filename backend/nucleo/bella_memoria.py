@@ -200,7 +200,7 @@ def turnos_recentes(chave, quantos: int, minutos: int) -> List[Tuple[str, str]]:
         desde = datetime.utcnow() - timedelta(minutes=minutos)
         linhas = (db.query(BellaTurno)
                   .filter(BellaTurno.chave == _chave(chave), BellaTurno.criado_em >= desde)
-                  .order_by(BellaTurno.id.desc()).limit(quantos).all())
+                  .order_by(BellaTurno.criado_em.desc(), BellaTurno.id.desc()).limit(quantos).all())
         return [(t.usuario, t.bella) for t in reversed(linhas)]
     except Exception:  # noqa: BLE001
         return []

@@ -78,6 +78,16 @@ recebe a confirmação ou o erro. `RESPONDER_DESCONHECIDOS=1` no `.env` volta a 
 
 ### Comandos do hub (valem em qualquer modo)
 
+`/sincronizarmemorias` copia as memórias do próprio Arquiteto da Bella selecionada
+para a outra versão (Legado → Models ou Models → Legado), sem trocar a escolha ativa.
+Todas as modelos possuem UUID; a Bella Legado está permanentemente vinculada ao
+UUID da Bella migrada no Solo Models. Nomes editáveis não definem compatibilidade.
+As demais modelos têm suas próprias memórias e não participam dessa sincronização.
+Repetir a cópia mantém os IDs de origem, sem duplicar lembranças, Eternizar,
+Narrador ou conversas. Memórias exclusivas do destino não são removidas pelo comando.
+As exclusões feitas no legado continuam refletidas na cópia automática das memórias
+legadas; os registros próprios do Models são preservados.
+
 | Comando | Faz |
 |---|---|
 | `/menu` ou `oi` | cartão inicial: saudação + sistemas conectados como botões |

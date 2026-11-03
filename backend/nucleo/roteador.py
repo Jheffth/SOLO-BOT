@@ -280,6 +280,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/bella` (ou `/safada`) — conversa com a Bella: flerte, humor e, se estiver liberado, conteúdo adulto. "
         "Fica nesse modo até você mandar `/sair`",
         "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
+        "▸ `/sincronizarmemorias` — (Arquiteto) copia da Bella ativa para sua outra versão: Legado ↔ Models, pelo ID permanente; outras modelos ficam isoladas",
         "▸ `/memoria` — lista o que ela lembra de você e as histórias dela; com texto cria o passado dela: `/memoria Bella tinha um ficante na faculdade, o Ricardo` (veja, edite ou apague por nome)",
         "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
         "▸ `/galeria` — (Arquiteto) as fotos e vídeos da Bella · `/iniciativa bomdia` — o bom dia com foto das 08:00",
@@ -528,6 +529,9 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return menu(db, conta, prefixo="↩️ De volta ao hub.\n\n")
     if cmd == "/conta":
         return _conta_resumo(db, conta)
+    if cmd in ("/sincronizarmemorias", "/sincronizar_memorias") or (cmd == "/sincronizar" and _sem_acento(resto.strip().lower()) == "memorias"):
+        from nucleo.models_memorias import sincronizar
+        return Resposta().diz(sincronizar(conta))
     if cmd == "/voz":
         return _cmd_voz(db, conta, resto.strip().lower())
     if cmd == "/ia":

@@ -118,5 +118,6 @@ def memorias_bella(x_solo_contexto: str = Header(""), mod: modulos.Modulo = Depe
         tabelas[tipo] = [{col.name: (v.isoformat() if isinstance(v, datetime) else v)
                          for col in classe.__table__.columns for v in [getattr(linha, col.name)]}
                         for linha in linhas]
+    from nucleo.models_memorias import vinculos
     return {"formato": 1, "dono_id": contexto['sub'], "modelo_id": contexto['modelo_id'],
-            "tabelas": tabelas}
+            "tabelas": tabelas, "vinculos": vinculos(db, conta.id, contexto['modelo_id'])}
