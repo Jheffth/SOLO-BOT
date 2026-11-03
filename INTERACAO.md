@@ -78,6 +78,15 @@ recebe a confirmação ou o erro. `RESPONDER_DESCONHECIDOS=1` no `.env` volta a 
 
 ### Comandos do hub (valem em qualquer modo)
 
+`/perfil` (ou `/bio`) consulta e edita o perfil pessoal da própria Conta Solo.
+Os mesmos fatos são enviados em cada mensagem para qualquer modelo selecionada,
+incluindo modelos novas, sem precisar sincronizar ou reiniciar a conversa.
+Nome e, para o administrador, o tratamento Arquiteto acompanham o perfil; a idade
+é calculada pela data de nascimento cadastrada. A atualização do perfil não copia
+memórias, histórico ou sentimentos entre modelos. As relações continuam isoladas
+por dono da conversa e ID da modelo. A postura emocional da Bella Legado não faz
+parte do perfil compartilhado.
+
 `/sincronizarmemorias` copia as memórias do próprio Arquiteto da Bella selecionada
 para a outra versão (Legado → Models ou Models → Legado), sem trocar a escolha ativa.
 Todas as modelos possuem UUID; a Bella Legado está permanentemente vinculada ao

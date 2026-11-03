@@ -1,6 +1,6 @@
 """
-A bio da pessoa: quem ela é, em linhas "Campo: valor", guardada por Conta Solo e lida pela Bella (e, depois,
-por qualquer modelo do soDeles) como pano de fundo. A bio de uma conta nunca vai para o prompt de outra.
+A bio da pessoa: quem ela é, em linhas "Campo: valor", guardada por Conta Solo e lida pela Bella e pelas
+modelos como pano de fundo. A bio de uma conta nunca vai para o prompt de outra.
 
   · `/bio` mostra · `/bio add Campo: valor` · `/bio definir` (várias linhas, substitui tudo)
     · `/bio apagar N` · `/bio limpar confirmo`.
@@ -136,6 +136,18 @@ def idade(linhas: List[str], hoje: Optional[date] = None) -> Optional[int]:
 
 def casado(linhas: List[str]) -> bool:
     return any(_CASADO.search(l) for l in linhas)
+
+
+def perfil_compartilhado(conta) -> dict:
+    """Identidade da própria pessoa, sem estado afetivo ou memórias de uma modelo."""
+    linhas = listar(conta.id)
+    dados = {"nome": conta.nome, "bio": linhas}
+    if conta.admin:
+        dados["tratamento"] = "Arquiteto"
+    anos = idade(linhas)
+    if anos is not None:
+        dados["idade"] = anos
+    return dados
 
 
 def bloco_prompt(conta_id: Optional[int], arquiteto: bool = False) -> str:

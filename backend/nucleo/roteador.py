@@ -284,7 +284,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/memoria` — lista o que ela lembra de você e as histórias dela; com texto cria o passado dela: `/memoria Bella tinha um ficante na faculdade, o Ricardo` (veja, edite ou apague por nome)",
         "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
         "▸ `/galeria` — (Arquiteto) as fotos e vídeos da Bella · `/iniciativa bomdia` — o bom dia com foto das 08:00",
-        "▸ `/bio` — a sua bio (quem você é) que a Bella e as modelos conhecem: `add Campo: valor`, `definir`, `apagar N`",
+        "▸ `/perfil` (ou `/bio`) — seu perfil pessoal compartilhado com as modelos: `add Campo: valor`, `definir`, `apagar N`",
         "▸ `/iniciativa` — (Arquiteto) a Bella puxa assunto sozinha, poucas vezes por dia: `ligar`, `desligar`, `max N`, `janela 09:00 22:00`, `testar`",
         "▸ `/historia` — a nossa história guardada por dia · `/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias` apaga só esses dias",
         "▸ `/emocoes` — a galeria de sentimentos da Bella (o que desperta cada um e as duas reações). `/emocao <nome>` (Arquiteto) define na hora",
@@ -552,11 +552,13 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _bella_entrar(canal, conta, primeira)
     if cmd == "/models":
         return _menu_models(conta)
+    if cmd in ("/bio", "/perfil"):
+        return _cmd_bio(conta, resto)
     from nucleo import models
     try:selecao_models=models.selecionado(conta.id)
     except models.ErroModels as e:return Resposta().diz(str(e))
     if selecao_models and cmd in ("/memoria","/lembrar","/eternizar","/permanente",
-            "/narrador","/esquecer","/eliminarmemo","/eliminarmemoria","/eliminarmemória","/bio","/historia",
+            "/narrador","/esquecer","/eliminarmemo","/eliminarmemoria","/eliminarmemória","/historia",
             "/temperatura","/sentimentos","/emocoes","/emocao","/iniciativa"):
         return Resposta().diz(models.comando(conta,cmd,resto.strip()))
     if cmd == "/clonarvoz":
@@ -581,8 +583,6 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_lembrar(conta, resto.strip())
     if cmd == "/galeria":
         return _cmd_galeria(conta, resto.strip())
-    if cmd == "/bio":
-        return _cmd_bio(conta, resto)
     if cmd == "/iniciativa":
         return _cmd_iniciativa(db, conta, resto.strip())
     if cmd == "/historia":
