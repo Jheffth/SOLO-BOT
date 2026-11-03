@@ -678,6 +678,15 @@ def falar_resposta(conta, canal: str, resposta, entrada_audio: bool, forcar: boo
             if getattr(conta, "voz", None) == "nunca":
                 m.pop("audio", None)
         return
+    from nucleo import models
+    voz_models = models.voz_das_mensagens(resposta.mensagens)
+    if voz_models:
+        try:
+            audio=models.sintetizar(o_que_falar(resposta.mensagens),canal,voz_models)
+            if audio:resposta.mensagens[-1]['audio']=audio
+        except Exception:
+            log.warning('Voz do Models indisponível; texto preservado.')
+        return
     if not disponivel():
         return
     if any(m.get("audio") for m in resposta.mensagens):

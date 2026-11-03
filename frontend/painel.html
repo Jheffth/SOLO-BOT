@@ -93,6 +93,7 @@
         <button type="button" role="tab" data-secao="s-voz"><span data-i="mic"></span>Resposta por voz</button>
         <button type="button" role="tab" data-secao="s-prompts"><span data-i="spark"></span>Prompts de imagem</button>
         <button type="button" role="tab" data-secao="s-avisos"><span data-i="bell"></span>Avisos</button>
+        <button type="button" role="tab" data-secao="s-models"><span data-i="spark"></span>Models</button>
         <button type="button" role="tab" data-secao="s-bella"><span data-i="spark"></span>Bella no computador</button>
         <button type="button" role="tab" data-secao="s-siri"><span data-i="chat"></span>Siri</button>
         <button type="button" role="tab" data-secao="s-senha"><span data-i="shield"></span>Senha</button>
@@ -131,6 +132,11 @@
           <div id="avisos"><div class="esqueleto" style="height:220px"></div></div>
         </section>
 
+        <section class="secao vidro entrar-animado" data-corpo="s-models">
+          <header><div><h2>Com quem conversar</h2><p class="muted">Use a Bella original ou escolha um modelo do Solo Models. A escolha vale para sua conta nos canais e no aplicativo.</p></div></header>
+          <div class="pilha" id="models-escolha"><p class="muted">Carregando modelos…</p></div>
+          <p class="faint pequeno">A Bella aparece primeiro. Novos modelos publicados ficam disponíveis automaticamente. No chat, use /models para escolher ou /bella para voltar à Bella (Legado).</p>
+        </section>
         <section class="secao vidro entrar-animado" data-corpo="s-bella">
           <header><div><h2>Bella no computador</h2><p class="muted">Sua assistente por voz no Windows, disponível perto do relógio.</p></div></header>
           <div class="pilha" id="bella"><p class="muted">Carregando acesso da Bella…</p></div>
@@ -157,6 +163,7 @@
 <script src="/static/solo.js?v=orbita-2"></script>
 <script src="/static/vendor/qrcode.js"></script>
 <script src="/static/topo.js?v=orbita-2"></script>
-<script src="/static/painel.js?v=orbita-2"></script>
+<script src="/static/painel.js?v=models-1"></script>
+<script src="/static/models.js?v=models-1"></script>
 </body>
 </html>

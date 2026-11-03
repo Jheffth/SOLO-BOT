@@ -79,6 +79,10 @@ def _lembrar(conta_id, usuario, bella):
     bella_memoria.gravar_turno(conta_id, usuario[:_MAX_FALA_USUARIO], bella)
 
 def esquecer(conta_id):
+    from nucleo import models
+    if isinstance(conta_id,int) and models.selecionado(conta_id):
+        models.esquecer(conta_id)
+        return
     with _TRAVA:
         _MEMORIA.pop(conta_id, None)
     bella_memoria.apagar_turnos(conta_id)
@@ -123,6 +127,9 @@ def responder(texto, conta_id=None, numero_conta=None, saida_midia=None):
     """`conta_id`: a chave da memória curta (por canal). `numero_conta`: a Conta Solo, dona das lembranças."""
     if numero_conta is None and isinstance(conta_id, int):
         numero_conta = conta_id
+    from nucleo import models
+    if numero_conta is not None and models.selecionado(numero_conta):
+        return models.responder(texto,numero_conta)
     estado = bella_estado.avancar(numero_conta, texto)
     nota, midia, gasto = "", None, 0
     if saida_midia is not None and estado and bella_estado.eh_arquiteto(numero_conta):

@@ -44,6 +44,8 @@ class Resposta:
 
     def diz(self, texto: str, opcoes=None, audio=None, midia=None) -> "Resposta":
         m = {"texto": texto, "opcoes": opcoes or []}
+        if getattr(texto,"voz_models",None):
+            m["modelo_voz"] = texto.voz_models
         if audio:
             m["audio"] = audio                           # {base64, mime}: voz depois do texto
         if midia:
@@ -230,8 +232,8 @@ def _boas_vindas() -> Resposta:
 
 
 def menu(db: Session, conta: Conta, prefixo: str = "") -> Resposta:
-    ligados = _sistemas_da_conta(db, conta)
-    faltam = [m for m in modulos.todos() if m not in ligados]
+    ligados = [m for m in _sistemas_da_conta(db, conta) if m.chave != 'models']
+    faltam = [m for m in modulos.todos() if m not in ligados and m.chave != 'models']
     nome = _primeiro_nome(conta)
     corpo = prefixo or f"👋 Olá{', ' + nome if nome else ''}!\n\n"
 
@@ -248,6 +250,9 @@ def menu(db: Session, conta: Conta, prefixo: str = "") -> Resposta:
                   "*Conectar ao Solo Bot*.")
     if ligados and faltam:
         corpo += "\n\nAinda não conectados: " + ", ".join(m.nome for m in faltam) + "."
+    opcoes.append({"titulo":"Conversar","acoes":[
+        {"rotulo":"Bella (Legado)","dados":"hub:bella_legado"},
+        {"rotulo":"Models","dados":"hub:models"}]})
     return Resposta().diz(corpo, opcoes)
 
 
@@ -525,8 +530,18 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         pedido = prompts_bella_pedido(txt, canal, conta) or (padrao, "")
         return _prompt_responder(db, conta, canal, pedido[1], pedido[0])
     if cmd in ("/bella", "/safada"):
+        if cmd == "/bella":
+            from nucleo import models
+            models.escolher(db,conta,None)
         _entrar_modo(db, s, MODO_BELLA)
         return _bella_entrar(canal, conta, resto.strip())
+    if cmd == "/models":
+        return _menu_models(conta)
+    from nucleo import models
+    if models.selecionado(conta.id) and cmd in ("/memoria","/lembrar","/eternizar","/permanente",
+            "/narrador","/esquecer","/eliminarmemo","/eliminarmemoria","/eliminarmemória","/bio","/historia",
+            "/temperatura","/sentimentos","/emocoes","/emocao","/iniciativa"):
+        return Resposta().diz(models.comando(conta,cmd,resto.strip()))
     if cmd == "/clonarvoz":
         return _cmd_clonarvoz(conta, canal, origem, resto.strip())
     if cmd == "/apagarvoz":
@@ -1176,6 +1191,18 @@ def _bella_entrar(canal: str, conta: Conta, primeira: str) -> Resposta:
     return Resposta().diz("💋 Oi, sou a Bella. Pode falar. `/esquecer` apaga a conversa, `/sair` volta ao hub.")
 
 
+def _menu_models(conta):
+    from nucleo import models
+    try:
+        itens=models.catalogo(conta)
+    except models.ErroModels as e:
+        return Resposta().diz(str(e))
+    opcoes=[{"rotulo":m['nome'],"dados":"hub:modelo|"+m['id']} for m in itens]
+    opcoes.append({"rotulo":"Bella (Legado)","dados":"hub:bella_legado"})
+    return Resposta().diz("🎭 Models — escolha com quem conversar. Novos modelos publicados aparecem aqui automaticamente.",
+        [{"titulo":"Models","acoes":opcoes}])
+
+
 def _bella_responder(db, conta: Conta, canal: str, txt: str, so_se_responder: bool = False) -> Optional[Resposta]:
     from nucleo import bella_conversa
     extra = []
@@ -1636,6 +1663,18 @@ def atender_toque(db: Session, canal: str, origem: str, dados: str) -> Resposta:
 
     dono, _, resto = (dados or "").partition(":")
     if dono == "hub":
+        if resto == "models":
+            return _menu_models(conta)
+        if resto == "bella_legado" or resto.startswith("modelo|"):
+            from nucleo import models
+            ident=resto.split('|',1)[1] if resto.startswith('modelo|') else None
+            try:
+                models.escolher(db,conta,ident)
+                nome=models.pacote(conta,ident)['nome'] if ident else 'Bella (Legado)'
+            except models.ErroModels as e:return Resposta().diz(str(e))
+            _entrar_modo(db,s,MODO_BELLA)
+            return Resposta().diz(f"Você está conversando com {nome}"+(' · Models.' if ident else '.')+
+                " Pode falar. /models troca de modelo; /bella volta à Bella legada.")
         if resto == "nada":
             return Resposta()
         if resto == "menu":

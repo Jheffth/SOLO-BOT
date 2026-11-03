@@ -243,6 +243,10 @@ Imagens recebidas por WhatsApp, Telegram e Bella.exe são encaminhadas ao Rotina
 
 ## Cópia privada das memórias para o Models
 
+A seleção entre Bella (Legado) e o canal Models está documentada em [MODELS.md](MODELS.md).
+O padrão permanece no legado; as novas conversas do canal Models são persistidas
+no serviço Models, isoladas por dono e modelo, sem alterar a memória legada.
+
 GET /interno/bella/memorias exporta somente histórias (/eternizar, /narrador e passado), lembranças, arquivo de conversas e resumos da própria conta administradora. Exige o token do módulo models e X-Solo-Contexto HS256 com MODELS_CONTEXTO_KEY, emissor solo-models, destinatário solo-bot-memorias, dono solo-bot:conta:ID, modelo, emissão e expiração em até 120 segundos. O Models resolve o dono pelo mapeamento importado; a rota recusa contas comuns e outros serviços. A chave coincide com CONTEXTO_SERVICE_KEY do Models.
 
 O Models mantém o arquivo consultável em Minhas memórias, agrupado por ano, mês e dia, com cópia JSON no volume privado e sincronização opcional a cada minuto. O Bot continua gravando e recuperando essas memórias para a conversa normalmente; a sincronização não chama IA nem altera os comandos de memória. Nenhum conteúdo de memória ou credencial é registrado nos logs dessa exportação.

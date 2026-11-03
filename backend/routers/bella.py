@@ -131,7 +131,10 @@ def _preparar_voz(mensagens, fallback, tem_opcoes, com_audio):
     saida = {"falar": falado}
     if com_audio and fala.disponivel():
         try:
-            audio = fala.sintetizar_longo(falado, "whatsapp")
+            from nucleo import models
+            voz_modelo = models.voz_das_mensagens(mensagens)
+            audio = (models.sintetizar(falado,"whatsapp",voz_modelo) if voz_modelo
+                     else fala.sintetizar_longo(falado, "whatsapp"))
             if audio:
                 saida.update(audio_base64=audio["base64"], mime=audio["mime"])
         except Exception:

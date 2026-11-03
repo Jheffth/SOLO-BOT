@@ -18,6 +18,29 @@ log = logging.getLogger("solobot.conta")
 router = APIRouter(prefix="/api/conta", tags=["conta"])
 
 
+@router.get("/models")
+def listar_models(conta: Conta = Depends(conta_atual)):
+    from nucleo import models
+    atual=models.selecionado(conta.id)
+    try:
+        return {"modelo_id":atual,"origem":"models" if atual else "legado",
+                "modelos":models.catalogo(conta),"disponivel":True}
+    except models.ErroModels as e:
+        return {"modelo_id":atual,"origem":"models" if atual else "legado",
+                "modelos":[],"disponivel":False,"aviso":str(e)}
+
+
+class EscolhaModels(BaseModel):
+    modelo_id: Optional[str] = Field(default=None,min_length=1,max_length=36)
+
+
+@router.put("/models")
+def escolher_models(p: EscolhaModels,conta: Conta = Depends(conta_atual),db: Session = Depends(get_db)):
+    from nucleo import models
+    try:return models.escolher(db,conta,p.modelo_id)
+    except models.ErroModels as e:raise HTTPException(503,str(e)) from None
+
+
 def _canal_publico(c: Optional[CanalVinculo], canal: str) -> dict:
     disponivel = telegram.disponivel() if canal == "telegram" else evolution.disponivel()
     return {"canal": canal, "disponivel": disponivel, "conectado": bool(c),
