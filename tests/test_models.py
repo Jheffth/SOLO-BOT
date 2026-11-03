@@ -22,6 +22,8 @@ def test_catalogo_dinamico_escolha_e_volta_ao_legado(logado,monkeypatch):
     itens,_,_=remoto(monkeypatch)
     assert logado.get('/api/conta/models').json()['origem']=='legado'
     assert logado.put('/api/conta/models',json={'modelo_id':IDENT}).status_code==200
+    from database import Sessao
+    db=SessionLocal();assert db.query(Sessao).filter_by(canal='bella',origem='bella:1').one().modo=='bella';db.close()
     assert logado.get('/api/conta/models').json()['modelo_id']==IDENT
     itens.append({'id':'outro','nome':'Aurora','descricao':'Outra personagem','classificacao':'geral'})
     assert [m['nome'] for m in logado.get('/api/conta/models').json()['modelos']]==['Bella','Aurora']

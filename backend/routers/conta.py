@@ -37,7 +37,13 @@ class EscolhaModels(BaseModel):
 @router.put("/models")
 def escolher_models(p: EscolhaModels,conta: Conta = Depends(conta_atual),db: Session = Depends(get_db)):
     from nucleo import models
-    try:return models.escolher(db,conta,p.modelo_id)
+    try:
+        escolha=models.escolher(db,conta,p.modelo_id)
+        destinos=[(c.canal,c.origem) for c in conta.canais]+[('bella','bella:'+str(conta.id))]
+        for canal,origem in destinos:
+            s=roteador.sessao_de(db,canal,origem)
+            roteador._entrar_modo(db,s,roteador.MODO_BELLA)
+        return escolha
     except models.ErroModels as e:raise HTTPException(503,str(e)) from None
 
 
