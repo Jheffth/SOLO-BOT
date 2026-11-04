@@ -298,6 +298,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/posehot` — pose sensual para aplicar em outra imagem: `/posehot de bruços olhando para trás` (com foto de casal/referência: extraia tudo com *extrair tudo da imagem*, ou itens específicos como `[[extrair: cenario, roupas]]`, e parceiro à escolha ou da foto com `[[parceiro: da imagem]]`)",
         "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",
         "▸ `/charactersheet` — prancha de personagem em foto real, com a imagem anexa: `roupa` (só a roupa do anexo), `personagem`, `cenario` ou `tudo` (extrai tudo). Sem palavra: personagem com roupa",
+        "▸ `/charactersheet2` — folha de personagem com as três vistas de corpo inteiro (frente, lado e costas), bloco de informações, paleta de cores e seis painéis de detalhe; use com a imagem da modelo anexa: `/charactersheet2 vestido preto de couro`",
         "    _Mande a foto junto para usar de referência. A opção *Sem sensualização* (prompts neutros) fica no painel do Solo Bot._",
     ])
     bloco("🔊 VOZ DAS RESPOSTAS", [
@@ -536,9 +537,9 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_voz(db, conta, resto.strip().lower())
     if cmd == "/ia":
         return _cmd_ia(db, conta, resto.strip().lower())
-    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo", "/charactersheet", "/fichapersonagem"):
+    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo", "/charactersheet", "/fichapersonagem", "/charactersheet2", "/fichapersonagem2"):
         padrao = {"/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose", "/promptcriativo": "criativo",
-                  "/charactersheet": "ficha", "/fichapersonagem": "ficha"}.get(cmd, "realismo")
+                  "/charactersheet": "ficha", "/fichapersonagem": "ficha", "/charactersheet2": "ficha2", "/fichapersonagem2": "ficha2"}.get(cmd, "realismo")
         pedido = prompts_bella_pedido(txt, canal, conta) or (padrao, "")
         return _prompt_responder(db, conta, canal, pedido[1], pedido[0])
     if cmd in ("/bella", "/safada"):

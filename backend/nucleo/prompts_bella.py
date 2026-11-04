@@ -37,7 +37,8 @@ CATEGORIAS = {"realismo": "Realismo sensual (selfie de smartphone, modelo própr
               "roupa": "Troca de roupa em imagem externa (/promptroupa)",
               "pose": "Troca de pose em imagem externa (/posehot)",
               "criativo": "Realismo sensual criativo, fora da biblioteca (/promptcriativo)",
-              "ficha": "Character sheet em fotografia real: padrão, só roupa, só personagem ou com cenário (/charactersheet)"}
+              "ficha": "Character sheet em fotografia real: padrão, só roupa, só personagem ou com cenário (/charactersheet)",
+              "ficha2": "Character sheet 2: três vistas (frente, lado, costas) com informações e paleta, mais seis painéis de detalhe (/charactersheet2)"}
 # Começa o texto enviado ao Bella.exe quando a resposta é um prompt; a tela tira a marca e abre a caixa de copiar.
 MARCA_PROMPT = "[[prompt]]"
 
@@ -723,6 +724,11 @@ _PEDIDO_FICHA = re.compile(
     r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?(?:prompt\s+(?:de\s+|da\s+|para\s+)?)?"
     r"(?:character\s*sheet|ficha\s+de\s+personagem|folha\s+de\s+personagem)\b)"
     r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+_PEDIDO_FICHA2 = re.compile(
+    r"^\s*(?:/(?:charactersheet2|character_sheet2|fichapersonagem2)\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
+    r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?(?:prompt\s+(?:de\s+|da\s+|para\s+)?)?"
+    r"(?:character\s*sheet\s*2|ficha\s+de\s+personagem\s*2|folha\s+de\s+personagem\s*2)\b)"
+    r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
 _MODOS_FICHA = (
     # com a imagem anexa, basta a palavra: /charactersheet roupa | personagem | cenario | tudo
     ("tudo", re.compile(r"^\s*(?:tudo|completo|extrair\s+tudo|extra[ií]\s+tudo)\b[\s:,\-–]*|\b(?:extrair|extraia)\s+tudo\b", re.I)),
@@ -744,6 +750,54 @@ def modo_ficha(pedido):
             resto = re.sub(r"\s{2,}", " ", pedido[:m.start()] + " " + pedido[m.end():]).strip(" ,.;:-–")
             return modo, resto
     return "padrao", pedido.strip()
+
+
+# ── /charactersheet2: folha de referência de personagem (três vistas + informações + paleta + seis detalhes) ────────
+# Composição fixa: faixa de cima com FRENTE, LADO e COSTAS de corpo inteiro (rótulos FRONT VIEW, SIDE VIEW, BACK VIEW),
+# bloco CHARACTER INFO e paleta de cores no canto; faixa de baixo com seis painéis de detalhe. O Grok só preenche os colchetes.
+_FICHA2_MODELO = """Crie uma prancha de personagem (character sheet de design de personagem) em estilo de fotografia real, de uma única mulher adulta, com a mesma identidade em todos os painéis. Use a imagem da modelo como referência principal para manter o mesmo rosto, identidade facial, proporções naturais, cor de pele, cabelo e aparência geral da pessoa original. Nunca altere a cor do cabelo, não adicione perucas nem mude o estilo natural do cabelo da referência.
+
+Proporção vertical 2:3, em formato de folha de referência de personagem com duas faixas: a faixa de cima, com cerca de 70% da altura, tem três vistas de corpo inteiro; a faixa de baixo, com cerca de 30% da altura, tem seis painéis de detalhe.
+Características que se mantêm em todos os painéis: [CARACTERÍSTICAS: só o que o pedido ou a imagem mostrarem (cabelo, olhos, pintas, tatuagens, piercings, óculos, joias fixas); se nada foi informado, escreva "as mesmas da imagem de referência"].
+
+Faixa de cima: três colunas do mesmo tamanho, lado a lado, separadas por linhas verticais finas e claras, todas com o mesmo fundo cinza médio liso de estúdio e chão liso levemente refletivo, com luz suave e difusa igual nas três. A personagem tem exatamente a mesma altura, a mesma escala e os pés no mesmo nível nas três colunas, de corpo inteiro com os pés visíveis, de pé, em pose neutra de folha de personagem, com os braços relaxados ao lado do corpo:
+- coluna da esquerda, vista da FRENTE: de frente para a câmera, olhando para a câmera, pés levemente afastados, com o rótulo "FRONT VIEW" em letras pequenas brancas no canto superior esquerdo da coluna;
+- coluna do meio, vista de LADO: de perfil, olhando para a frente, mostrando o perfil do rosto, do corpo e das pernas, com o rótulo "SIDE VIEW" em letras pequenas brancas no canto superior esquerdo da coluna;
+- coluna da direita, vista de COSTAS: de costas para a câmera, mostrando o cabelo, as costas e a parte de trás das pernas, com o rótulo "BACK VIEW" em letras pequenas brancas no canto superior esquerdo da coluna.
+No canto superior direito da coluna das costas, um pequeno bloco de texto "CHARACTER INFO" com quatro linhas curtas em letras pequenas brancas: "Height : [ALTURA em cm]", "Body type : [TIPO DE CORPO em duas palavras, em inglês]", "Style : [ESTILO em duas palavras, em inglês]", "Look : [LOOK em duas palavras, em inglês]". Logo abaixo do bloco, quatro quadrados pequenos de paleta de cores, um sobre o outro, com as cores principais do visual: [PALETA: quatro cores (roupa, calçado, cabelo e detalhe), do tom mais claro ao mais escuro].
+
+Faixa de baixo: seis painéis de detalhe lado a lado, de larguras um pouco diferentes, encaixados com bordas finas e claras, sem espaços vazios, na mesma luz e no mesmo fundo neutro:
+1) close do rosto em três quartos, olhando para a câmera, com a parte de cima da roupa;
+2) detalhe da peça principal do tronco: [DETALHE DO TRONCO: decote, costuras, tecido, fecho];
+3) outro close do rosto, em ângulo diferente do primeiro, levemente de lado, com expressão séria e confiante;
+4) a parte de trás da cabeça e do cabelo, com a gola ou as costas da roupa;
+5) detalhe das pernas ou dos braços: [DETALHE DE ACESSÓRIO: liga, faixa, pulseira, joia ou outro detalhe da roupa];
+6) detalhe do calçado e dos tornozelos.
+
+A roupa é [ROUPA peça por peça, com cor exata, tecido e textura realistas: costuras, brilho, zíper, caimento]. Calçado: [CALÇADO: modelo, salto, cor e material]. Acessórios: [ACESSÓRIOS ou "nenhum"]. Estética natural e sensual, sem pose de ensaio.
+
+Os únicos textos da imagem são os rótulos FRONT VIEW, SIDE VIEW e BACK VIEW e o bloco CHARACTER INFO, pequenos e legíveis; sem outros textos, números, setas, logos ou marcas d'água."""
+
+_FICHA2_REALISMO = _FICHA_REALISMO.replace(
+    "não adicionar textos, legendas, números, setas, logos ou marcas d'água nos painéis",
+    "não adicionar outros textos, legendas, números, setas, logos ou marcas d'água além dos rótulos e do bloco CHARACTER INFO")
+assert _FICHA2_REALISMO != _FICHA_REALISMO
+
+
+def modelo_ficha2():
+    return _FICHA2_MODELO + "\n\n" + _FICHA2_REALISMO
+
+
+INSTRUCAO_FICHA2 = INSTRUCAO_FICHA.replace(
+    "- Os painéis são só enquadramentos: não peça títulos, legendas, rótulos, números nem setas.",
+    "- Os únicos textos da imagem são os rótulos FRONT VIEW, SIDE VIEW, BACK VIEW e o bloco CHARACTER INFO do modelo, que\n"
+    "  ficam como estão (altura, tipo de corpo, estilo e look só preenchem os colchetes). Não invente outros textos.")
+assert INSTRUCAO_FICHA2 != INSTRUCAO_FICHA
+
+
+def instrucao_ficha2():
+    return (INSTRUCAO_FICHA2 + "\nMODO DESTA FICHA: FOLHA DE PERSONAGEM 2: três vistas de corpo inteiro (frente, lado e costas, mesma "
+            "altura e pose neutra), bloco de informações, paleta de cores e seis painéis de detalhe, em fundo neutro.\n\nMODELO:\n" + modelo_ficha2())
 
 
 # ── "Sem sensualização" (opção da conta no painel do Solo Bot; vale para Bella, WhatsApp e Telegram) ──────────────
@@ -867,7 +921,7 @@ def solicitacao(texto, chave=None):
     texto = (texto or "").strip()
     if not texto:
         return None
-    for categoria, regra in (("ficha", _PEDIDO_FICHA), ("criativo", _PEDIDO_CRIATIVO), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
+    for categoria, regra in (("ficha2", _PEDIDO_FICHA2), ("ficha", _PEDIDO_FICHA), ("criativo", _PEDIDO_CRIATIVO), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
         m = regra.match(texto)
         if m:
             pedido = m.group(1).strip()
@@ -956,9 +1010,10 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         pedido = re.sub(r"\s{2,}", " ", _EXTRAIR_TUDO.sub("", pedido)).strip(" ,.;:-–")
     roupa = categoria == "roupa"
     pose = categoria == "pose"
-    ficha = categoria == "ficha"
+    ficha2 = categoria == "ficha2"
+    ficha = categoria in ("ficha", "ficha2")
     modo = "padrao"
-    if ficha:
+    if ficha and not ficha2:
         modo, pedido = modo_ficha(pedido)
     ref = (referencia_anexa or (referencia(chave) if chave is not None else None)) if not sem else None
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
@@ -1002,6 +1057,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
     elif ref and not pedido and not pose and not ficha:
         entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
     if ficha:
+        if ficha2:
+            modo = "padrao"
         from_img = {"padrao": "as características da modelo e a roupa", "roupa": "a roupa, copiada fielmente peça por peça",
                     "personagem": "as características da modelo (rosto, cabelo, corpo, detalhes)",
                     "cenario": "as características da modelo, a roupa e o cenário", "tudo": "TUDO (modelo, roupa e cenário)"}[modo]
@@ -1010,8 +1067,9 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         else:
             entrada = ("Pedido: " + pedido[:600]) if pedido else (
                 "Pedido: aleatório. Sorteie " + ("a roupa e o cenário" if modo in ("cenario", "tudo") else "a roupa" if modo != "personagem" else "a modelo e a roupa básica")
-                + ", diferentes dos últimos.")
-        base = instrucao_ficha(modo) + (INSTRUCAO_REFERENCIA_FICHA if ref else "") + (INSTRUCAO_FICHA_TUDO if ref and modo == "tudo" else "")
+                + ", diferentes dos últimos." + (" Inclua calçado, acessórios e a paleta de cores." if ficha2 else ""))
+        base = ((instrucao_ficha2() if ficha2 else instrucao_ficha(modo)) + (INSTRUCAO_REFERENCIA_FICHA if ref else "")
+                + (INSTRUCAO_FICHA_TUDO if ref and modo == "tudo" else ""))
     elif pose:
         parc_img, ajustes_parc = parceiro_da_imagem(parceiro)
         if tudo_ativo and not parc_img and not parceiro:
@@ -1120,6 +1178,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
                       else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")
             if not motivo and ficha and "2:3" not in saida:
                 motivo = "sem a proporção 2:3 do modelo"
+            if not motivo and ficha2 and not all(t in saida for t in ("FRONT VIEW", "SIDE VIEW", "BACK VIEW", "CHARACTER INFO")):
+                motivo = "sem os rótulos FRONT VIEW, SIDE VIEW, BACK VIEW e CHARACTER INFO do modelo"
             if not motivo and suave and _TERMOS_SENSUAIS.search(saida):
                 motivo = "ainda com termos sensuais"
             if not motivo:

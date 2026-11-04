@@ -15,7 +15,8 @@
     { id: "ficha-roupa", cmd: "/charactersheet", modo: "roupa", nome: "Ficha · Roupa", dica: "Character sheet só da roupa da imagem anexa" },
     { id: "ficha-personagem", cmd: "/charactersheet", modo: "personagem", nome: "Ficha · Personagem", dica: "Character sheet só do personagem da imagem anexa" },
     { id: "ficha-cenario", cmd: "/charactersheet", modo: "cenario", nome: "Ficha · Cenário", dica: "Character sheet com personagem, roupa e cenário da imagem anexa" },
-    { id: "ficha-tudo", cmd: "/charactersheet", modo: "tudo", nome: "Ficha · Tudo", dica: "Character sheet extraindo tudo da imagem anexa" }
+    { id: "ficha-tudo", cmd: "/charactersheet", modo: "tudo", nome: "Ficha · Tudo", dica: "Character sheet extraindo tudo da imagem anexa" },
+    { id: "ficha2", cmd: "/charactersheet2", nome: "Ficha 2", dica: "Folha de personagem: três vistas (frente, lado, costas), informações, paleta e seis detalhes" }
   ];
   COMANDOS.forEach(c => { c.id = c.id || c.cmd; });
   const MODOS_FICHA = /^(roupa|personagem|cenario|tudo)\b/i;

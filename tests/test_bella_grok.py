@@ -408,7 +408,7 @@ def test_posehot_reconhece_pedido_e_cria_pose(monkeypatch):
 def test_todo_prompt_sai_marcado_para_a_caixa_de_copiar(monkeypatch):
     """Regra: toda categoria de prompt (inclusive as futuras) é marcada, para o Bella.exe abrir a caixa de copiar."""
     from nucleo import prompts_bella as pb, roteador
-    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "criativo": "/promptcriativo x", "ficha": "/charactersheet x"}
+    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "criativo": "/promptcriativo x", "ficha": "/charactersheet x", "ficha2": "/charactersheet2 x"}
     assert set(comandos) == set(pb.CATEGORIAS), "categoria nova: registre o comando aqui e em CATEGORIAS"
     monkeypatch.setattr(pb, "criar", lambda *a, **k: "texto do prompt")
     monkeypatch.setattr(roteador, "_registrar", lambda *a, **k: None)
@@ -935,3 +935,56 @@ def test_posehot_aceita_prompt_que_comeca_com_recrie_a_cena(monkeypatch):
         out = pb.criar("[[extrair: modelo, roupas, pose, cenario, penteado, maquiagem, acessorios, expressao]]",
                        categoria="pose", chave=None, referencia_anexa=ref)
         assert out and out.startswith(inicio), inicio
+
+
+def test_charactersheet2_reconhece_o_comando_e_nao_confunde_com_o_1():
+    from nucleo import prompts_bella as pb
+    assert pb.solicitacao("/charactersheet2 vestido preto de couro") == ("ficha2", "vestido preto de couro")
+    assert pb.solicitacao("/charactersheet2") == ("ficha2", "")
+    assert pb.solicitacao("/fichapersonagem2 body branco") == ("ficha2", "body branco")
+    assert pb.solicitacao("/charactersheet roupa") == ("ficha", "roupa")
+    assert pb.solicitacao("/charactersheet") == ("ficha", "")
+
+
+def test_charactersheet2_modelo_tem_as_tres_vistas_info_paleta_e_seis_detalhes(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pronto = pb.modelo_ficha2()
+    for trecho in ("FRONT VIEW", "SIDE VIEW", "BACK VIEW", "CHARACTER INFO", "Height", "Body type", "Style", "Look",
+                   "paleta de cores", "2:3", "seis painéis de detalhe", "poros visíveis"):
+        assert trecho in pronto, trecho
+    assert "além dos rótulos e do bloco CHARACTER INFO" in pronto and "9:16" not in pronto
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or pronto)
+    assert pb.criar("body de couro preto", "g1", "ficha2") == pronto
+    instr, entrada, _ = vistos[0]
+    assert "FOLHA DE PERSONAGEM 2" in instr and "Pedido: body de couro preto" in entrada
+    assert "Os únicos textos da imagem" in instr and "não peça títulos" not in instr
+    assert pb._recente("g1") == "ficha2"
+    pb.criar("", "g1", "ficha2")
+    assert "calçado, acessórios e a paleta" in vistos[1][1]
+
+
+def test_charactersheet2_rejeita_prompt_sem_rotulos_e_usa_a_referencia(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pb.guardar_referencia("g2", "image/png", b"abc")
+    vistos = []
+    pronto = pb.modelo_ficha2()
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or pronto)
+    pb.criar("", "g2", "ficha2")
+    assert vistos[0][2]["imagens"] == [("image/png", "YWJj")] and "REFERÊNCIA ANEXADA" in vistos[0][0]
+    assert "Use da imagem de referência: as características da modelo e a roupa" in vistos[0][1]
+    sem_rotulos = pronto.replace("FRONT VIEW", "VISTA").replace("BACK VIEW", "VISTA")
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: sem_rotulos)
+    assert pb.criar("x", "g2", "ficha2") is None
+    assert "rótulos" in grok.motivo()
+
+
+def test_charactersheet2_suave_troca_o_sensual(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pronto = pb.suavizar(pb.modelo_ficha2())
+    assert "sensual" not in pronto
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: pronto)
+    assert pb.criar("", "g3", "ficha2", suave=True) == pronto
