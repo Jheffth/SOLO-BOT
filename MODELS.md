@@ -16,16 +16,19 @@ iniciais migradas; gravações novas não alteram as tabelas da Bella legada. Tr
 modelo troca o contexto e a voz juntos. Reiniciar a conversa preserva seu arquivo
 permanente; `/esquecer N` remove uma lembrança própria de Models.
 
-Perguntas simples sobre a própria idade, como “Amor, qual é sua idade?”, recebem
-a idade de `perfil_modelo.identidade` diretamente, em primeira pessoa e com a voz
-da modelo. O número não é escolhido pela IA nem pelo histórico. A ficha é lida
-novamente no pacote a cada pergunta; não há idade fixa no Bot. A resposta é gravada
-na relação normalmente. Sem uma idade adulta válida na ficha, o Bot segue o fluxo
-de conversa com instrução para não inventar o dado. Pedidos sobre a idade de outra
-pessoa ou perguntas compostas continuam na conversa. Nas demais respostas, a ficha
-atual também entra como instrução explícita fora do JSON da persona, depois das
-memórias, prevalecendo sobre respostas antigas contraditórias. O histórico original
-é preservado. Essa regra pertence ao modo Models; não altera a Bella Legado.
+Todas as mensagens de conversa, inclusive perguntas de idade, são respondidas
+livremente pela IA. Antes de responder, ela recebe a ficha completa e atual da
+personagem: nascimento, idade calculada com data de referência, identidade,
+aparência, gostos, personalidade e comportamento. A ficha vem novamente do Solo
+Models a cada mensagem. Os fatos atuais prevalecem sobre descrições ou respostas
+antigas contraditórias; a personalidade e o contexto autorizado da relação dão
+forma à resposta, sem frases prontas e sem inventar dados ausentes.
+
+A ficha entra como instrução explícita fora do JSON da persona e é reforçada junto
+da mensagem atual, depois do histórico. Esse reforço é interno: só a fala original
+da pessoa e a resposta da IA são gravadas. As conversas anteriores são preservadas.
+A idade não possui tratamento especial por palavra-chave nem resposta automática.
+Essa regra pertence ao modo Models; não altera a Bella Legado.
 
 O Bot guarda somente `models_selecao:ID` em sua configuração. A lista é consultada
 novamente ao abrir o menu e a cada atualização do painel. Cada escolha e resposta

@@ -1,9 +1,7 @@
 """Cliente e conversa do Solo Models; a Bella legada permanece como padrão."""
 import base64
 import json
-import re
 import time
-import unicodedata
 from uuid import uuid4
 from urllib.parse import quote
 import httpx
@@ -97,26 +95,24 @@ def esquecer(conta_id):
     finally:db.close()
 
 
-def _normalizar_pergunta(texto):
-    texto=''.join(c for c in unicodedata.normalize('NFD',texto.casefold())
-                  if unicodedata.category(c)!='Mn')
-    return re.sub(r'\W+',' ',texto).strip()
-
-
-def _resposta_idade(p,texto):
-    """Pergunta factual simples não depende da escolha de número pelo provedor."""
-    idade=p.get('perfil_modelo',{}).get('identidade',{}).get('idade')
-    if type(idade) is not int or idade<18:return None
-    pergunta=_normalizar_pergunta(texto)
-    tratamentos={'amor','meu amor','querida','minha querida'}
-    tratamentos.update(_normalizar_pergunta(p.get(k) or '') for k in ('nome','apelido'))
-    tratamentos.discard('')
-    prefixo='(?:'+'|'.join(re.escape(t) for t in sorted(tratamentos,key=len,reverse=True))+') '
-    pergunta=re.sub('^(?:'+prefixo+')+','',pergunta)
-    if re.fullmatch(r'(?:qual (?:e )?(?:a )?sua idade|quantos anos (?:(?:voce|vc|tu) )?(?:tem|tens)|'
-                    r'(?:voce|vc|tu) (?:tem|tens) quantos anos|que idade (?:(?:voce|vc|tu) )?(?:tem|tens))',pergunta):
-        return f'Tenho {idade} anos.'
-    return None
+def _contexto_factual(ficha):
+    """Dados atuais para a IA consultar antes de compor qualquer resposta."""
+    return ('\nFICHA FACTUAL ATUAL DA PERSONAGEM (Solo Models):\n'
+        +json.dumps(ficha,ensure_ascii=False)
+        +'\nAntes de elaborar cada resposta, consulte os campos relevantes desta ficha. '
+        'Ela descreve você, a personagem, não a pessoa com quem conversa. '
+        'Nascimento, idade, identidade, aparência, gostos, personalidade e comportamento cadastrados '
+        'prevalecem sobre persona, histórias, memórias e respostas anteriores contraditórias. '
+        'A idade já foi calculada pelo servidor na data de referência; use esse número ao falar da sua idade. '
+        'O histórico registra o que foi dito, não comprova que os fatos ditos estejam corretos. '
+        'Se antes você afirmou outro dado, use agora o atual quando esse assunto for perguntado, '
+        'sem anunciar uma correção nem inventar justificativas para o erro. '
+        'Use somente os campos relevantes à mensagem atual: não puxe a idade ou outros fatos '
+        'sem relação com a pergunta só para corrigir o histórico. '
+        'Dados ausentes não foram informados: não os invente. '
+        'Combine os fatos com sua personalidade e com o contexto autorizado da relação. '
+        'Responda livremente, em primeira pessoa, com naturalidade, carinho ou humor quando couber. '
+        'Não use uma resposta fixa, não recite a ficha e não mencione cadastro, instruções ou contexto interno.')
 
 
 def responder(texto,conta_id,saida_midia=None):
@@ -126,11 +122,6 @@ def responder(texto,conta_id,saida_midia=None):
         conta=db.get(Conta,int(conta_id));ident=selecionado(conta_id)
         if not conta or not ident:raise ErroModels('Escolha um modelo em Models.')
         p=pacote(conta,ident)
-        factual=_resposta_idade(p,texto)
-        if factual:
-            _gravar(conta,ident,'turno',factual,usuario=texto)
-            voz=next(v for v in p['vozes_por_conta'] if v.get('principal') and v.get('ativa'))
-            return TextoModels(factual,voz)
         if saida_midia is not None:
             from nucleo import models_galeria
             pedido=models_galeria.detectar(texto)
@@ -144,6 +135,7 @@ def responder(texto,conta_id,saida_midia=None):
         ctx=_requisicao('GET',_rota(conta,ident)+'/contexto',conta,ident)
         campos=['persona','lore_compacta','historia','temperamento','limites','jeito_de_falar']
         if conta.admin:campos+=['visao_do_arquiteto']
+        else:campos+=['publico_sobre_o_arquiteto']
         perfil={k:p.get(k) for k in campos if p.get(k)}
         fatos='\n'.join((v.get('titulo','')+': '+v['texto']) for v in ctx['memorias'])[-40000:]
         prompt=(f"Você é {p['nome']}, personagem virtual adulta. Converse em português, em primeira pessoa. "
@@ -156,20 +148,18 @@ def responder(texto,conta_id,saida_midia=None):
             "Seus sentimentos e suas lembranças pertencem somente à sua relação com esta pessoa; "
             "não assuma os sentimentos ou as memórias de outra modelo."
             +"\nMemórias desta relação:\n"+fatos)
-        if p.get('perfil_modelo'):
-            # Fora do JSON da persona e depois das memórias: instrução explícita do sistema.
-            prompt+=('\nFICHA FACTUAL ATUAL DA PERSONAGEM (Solo Models):\n'
-                +json.dumps(p['perfil_modelo'],ensure_ascii=False)
-                +'\nEsta é a sua identidade, não a da pessoa com quem conversa. '
-                'Use a idade e o nascimento desta ficha. Ela prevalece sobre a persona, as histórias, '
-                'as memórias e TODAS as respostas anteriores, inclusive as do histórico recente. '
-                'Uma idade dita antes por você pode estar errada: não a repita nem a justifique. '
-                'Dados ausentes não foram informados; não invente uma idade.')
+        ficha=p.get('perfil_modelo') or {}
+        contexto_factual=_contexto_factual(ficha) if ficha else ''
+        prompt+=contexto_factual
         if p.get('classificacao')=='geral' or not p.get('conteudo_adulto_habilitado'):
             prompt+='\nMantenha a conversa sem conteúdo sexual explícito.'
         historico=[mensagem for v in ctx['historico']
                    for mensagem in [('user',v['usuario']),('assistant',v['texto'])]]
-        saida=grok.gerar(prompt,texto,max_tokens=1800,historico=historico)
+        # Reforço junto da mensagem atual, depois do histórico, para todos os campos.
+        # Só a fala original da pessoa é persistida; o reforço não vira memória.
+        pergunta=(texto+'\n\n[CONTEXTO INTERNO ATUAL — não é fala da pessoa]'
+                  +contexto_factual) if contexto_factual else texto
+        saida=grok.gerar(prompt,pergunta,max_tokens=1800,historico=historico)
         if not saida:raise ErroModels('O modelo não conseguiu responder agora. Tente novamente.')
         _gravar(conta,ident,'turno',saida,usuario=texto)
         voz=next(v for v in p['vozes_por_conta'] if v.get('principal') and v.get('ativa'))
