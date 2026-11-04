@@ -60,6 +60,9 @@ def validar(linha: str) -> Tuple[Optional[str], str]:
 
 
 def listar(conta_id: int) -> List[str]:
+    from nucleo.perfil_models import fonte
+    perfil=fonte(conta_id)
+    if perfil:return perfil.listar()
     try:
         return list(json.loads(ler_config(_chave(conta_id)) or "[]"))
     except Exception:  # noqa: BLE001
@@ -67,6 +70,11 @@ def listar(conta_id: int) -> List[str]:
 
 
 def _salvar(conta_id: int, linhas: List[str]) -> None:
+    from nucleo.perfil_models import fonte
+    perfil=fonte(conta_id)
+    if perfil:
+        perfil.salvar(linhas)
+        return
     db = SessionLocal()
     try:
         gravar_config(db, _chave(conta_id), json.dumps(linhas, ensure_ascii=False))
@@ -154,7 +162,13 @@ def bloco_prompt(conta_id: Optional[int], arquiteto: bool = False) -> str:
     """O trecho da bio no prompt ('' sem bio). A postura da Bella e a regra da família só entram com a bio dele."""
     if conta_id is None:
         return ""
-    linhas = listar(int(conta_id))
+    from nucleo import models
+    try:
+        linhas = listar(int(conta_id))
+    except models.ErroModels:
+        # O legado continua conversando com a cópia local se o Models estiver fora.
+        try:linhas = json.loads(ler_config(_chave(int(conta_id))) or "[]")
+        except (ValueError,TypeError):linhas = []
     if not linhas:
         return ""
     a = idade(linhas)

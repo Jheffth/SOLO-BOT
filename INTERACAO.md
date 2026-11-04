@@ -86,6 +86,11 @@ vazia ou arquivo indisponível não provoca busca na Bella Legado. O registro da
 conversa permanece no Models; as credenciais e os arquivos não entram no texto.
 
 `/perfil` (ou `/bio`) consulta e edita o perfil pessoal da própria Conta Solo.
+O perfil Arquiteto, quando vinculado, é uma identidade própria no catálogo do
+Models e passa a ser a fonte central dessas informações. O editor fica em
+`/arquiteto` no Models. As conversas recebem a referência autorizada do próprio
+dono; os comandos de bio editam a mesma fonte. O legado preserva a cópia local
+para continuar conversando durante uma indisponibilidade do Models.
 Os mesmos fatos são enviados em cada mensagem para qualquer modelo selecionada,
 incluindo modelos novas, sem precisar sincronizar ou reiniciar a conversa.
 Nome e, para o administrador, o tratamento Arquiteto acompanham o perfil; a idade

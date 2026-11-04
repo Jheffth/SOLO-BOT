@@ -554,7 +554,9 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if cmd == "/models":
         return _menu_models(conta)
     if cmd in ("/bio", "/perfil"):
-        return _cmd_bio(conta, resto)
+        from nucleo import models
+        try:return _cmd_bio(conta, resto)
+        except models.ErroModels as e:return Resposta().diz(str(e))
     from nucleo import models
     try:selecao_models=models.selecionado(conta.id)
     except models.ErroModels as e:return Resposta().diz(str(e))
