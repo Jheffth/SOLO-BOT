@@ -1,7 +1,9 @@
 """Cliente e conversa do Solo Models; a Bella legada permanece como padrão."""
 import base64
 import json
+import re
 import time
+import unicodedata
 from uuid import uuid4
 from urllib.parse import quote
 import httpx
@@ -95,6 +97,28 @@ def esquecer(conta_id):
     finally:db.close()
 
 
+def _normalizar_pergunta(texto):
+    texto=''.join(c for c in unicodedata.normalize('NFD',texto.casefold())
+                  if unicodedata.category(c)!='Mn')
+    return re.sub(r'\W+',' ',texto).strip()
+
+
+def _resposta_idade(p,texto):
+    """Pergunta factual simples não depende da escolha de número pelo provedor."""
+    idade=p.get('perfil_modelo',{}).get('identidade',{}).get('idade')
+    if type(idade) is not int or idade<18:return None
+    pergunta=_normalizar_pergunta(texto)
+    tratamentos={'amor','meu amor','querida','minha querida'}
+    tratamentos.update(_normalizar_pergunta(p.get(k) or '') for k in ('nome','apelido'))
+    tratamentos.discard('')
+    prefixo='(?:'+'|'.join(re.escape(t) for t in sorted(tratamentos,key=len,reverse=True))+') '
+    pergunta=re.sub('^(?:'+prefixo+')+','',pergunta)
+    if re.fullmatch(r'(?:qual (?:e )?(?:a )?sua idade|quantos anos (?:(?:voce|vc|tu) )?(?:tem|tens)|'
+                    r'(?:voce|vc|tu) (?:tem|tens) quantos anos|que idade (?:(?:voce|vc|tu) )?(?:tem|tens))',pergunta):
+        return f'Tenho {idade} anos.'
+    return None
+
+
 def responder(texto,conta_id,saida_midia=None):
     from nucleo import grok,bella_bio
     db=SessionLocal()
@@ -102,6 +126,11 @@ def responder(texto,conta_id,saida_midia=None):
         conta=db.get(Conta,int(conta_id));ident=selecionado(conta_id)
         if not conta or not ident:raise ErroModels('Escolha um modelo em Models.')
         p=pacote(conta,ident)
+        factual=_resposta_idade(p,texto)
+        if factual:
+            _gravar(conta,ident,'turno',factual,usuario=texto)
+            voz=next(v for v in p['vozes_por_conta'] if v.get('principal') and v.get('ativa'))
+            return TextoModels(factual,voz)
         if saida_midia is not None:
             from nucleo import models_galeria
             pedido=models_galeria.detectar(texto)
@@ -127,6 +156,15 @@ def responder(texto,conta_id,saida_midia=None):
             "Seus sentimentos e suas lembranças pertencem somente à sua relação com esta pessoa; "
             "não assuma os sentimentos ou as memórias de outra modelo."
             +"\nMemórias desta relação:\n"+fatos)
+        if p.get('perfil_modelo'):
+            # Fora do JSON da persona e depois das memórias: instrução explícita do sistema.
+            prompt+=('\nFICHA FACTUAL ATUAL DA PERSONAGEM (Solo Models):\n'
+                +json.dumps(p['perfil_modelo'],ensure_ascii=False)
+                +'\nEsta é a sua identidade, não a da pessoa com quem conversa. '
+                'Use a idade e o nascimento desta ficha. Ela prevalece sobre a persona, as histórias, '
+                'as memórias e TODAS as respostas anteriores, inclusive as do histórico recente. '
+                'Uma idade dita antes por você pode estar errada: não a repita nem a justifique. '
+                'Dados ausentes não foram informados; não invente uma idade.')
         if p.get('classificacao')=='geral' or not p.get('conteudo_adulto_habilitado'):
             prompt+='\nMantenha a conversa sem conteúdo sexual explícito.'
         historico=[mensagem for v in ctx['historico']

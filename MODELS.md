@@ -16,6 +16,17 @@ iniciais migradas; gravações novas não alteram as tabelas da Bella legada. Tr
 modelo troca o contexto e a voz juntos. Reiniciar a conversa preserva seu arquivo
 permanente; `/esquecer N` remove uma lembrança própria de Models.
 
+Perguntas simples sobre a própria idade, como “Amor, qual é sua idade?”, recebem
+a idade de `perfil_modelo.identidade` diretamente, em primeira pessoa e com a voz
+da modelo. O número não é escolhido pela IA nem pelo histórico. A ficha é lida
+novamente no pacote a cada pergunta; não há idade fixa no Bot. A resposta é gravada
+na relação normalmente. Sem uma idade adulta válida na ficha, o Bot segue o fluxo
+de conversa com instrução para não inventar o dado. Pedidos sobre a idade de outra
+pessoa ou perguntas compostas continuam na conversa. Nas demais respostas, a ficha
+atual também entra como instrução explícita fora do JSON da persona, depois das
+memórias, prevalecendo sobre respostas antigas contraditórias. O histórico original
+é preservado. Essa regra pertence ao modo Models; não altera a Bella Legado.
+
 O Bot guarda somente `models_selecao:ID` em sua configuração. A lista é consultada
 novamente ao abrir o menu e a cada atualização do painel. Cada escolha e resposta
 confere se o modelo continua publicado. Falhas preservam a seleção e mostram uma
