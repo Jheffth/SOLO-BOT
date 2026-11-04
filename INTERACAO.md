@@ -78,6 +78,13 @@ recebe a confirmação ou o erro. `RESPONDER_DESCONHECIDOS=1` no `.env` volta a 
 
 ### Comandos do hub (valem em qualquer modo)
 
+Com uma modelo do Models selecionada, pedidos como "me manda uma foto" ou "quero
+um vídeo" anexam uma mídia da galeria desse ID. `/galeria` consulta a mesma galeria
+e `/galeria ver normal` mostra uma foto. O envio padrão usa o nível 0, respeita o
+tipo solicitado e evita repetir os últimos arquivos por conta e modelo. Galeria
+vazia ou arquivo indisponível não provoca busca na Bella Legado. O registro da
+conversa permanece no Models; as credenciais e os arquivos não entram no texto.
+
 `/perfil` (ou `/bio`) consulta e edita o perfil pessoal da própria Conta Solo.
 Os mesmos fatos são enviados em cada mensagem para qualquer modelo selecionada,
 incluindo modelos novas, sem precisar sincronizar ou reiniciar a conversa.

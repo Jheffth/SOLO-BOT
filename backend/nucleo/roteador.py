@@ -1131,6 +1131,10 @@ def _cmd_iniciativa(db, conta: Conta, resto: str) -> Resposta:
 
 def _cmd_galeria(conta: Conta, resto: str) -> Resposta:
     """Só o Arquiteto: o que há na galeria da Bella e uma prévia."""
+    from nucleo import models,models_galeria
+    try:ident=models.selecionado(conta.id)
+    except models.ErroModels as e:return Resposta().diz(str(e))
+    if ident:return models_galeria.galeria(conta,resto)
     from nucleo import bella_galeria as G
     if not conta.admin:
         return Resposta().diz("🔒 A galeria da Bella ainda é só do Arquiteto.")

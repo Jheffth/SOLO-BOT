@@ -95,13 +95,23 @@ def esquecer(conta_id):
     finally:db.close()
 
 
-def responder(texto,conta_id):
+def responder(texto,conta_id,saida_midia=None):
     from nucleo import grok,bella_bio
     db=SessionLocal()
     try:
         conta=db.get(Conta,int(conta_id));ident=selecionado(conta_id)
         if not conta or not ident:raise ErroModels('Escolha um modelo em Models.')
         p=pacote(conta,ident)
+        if saida_midia is not None:
+            from nucleo import models_galeria
+            pedido=models_galeria.detectar(texto)
+            if pedido:
+                midia=models_galeria.escolher(conta,p,pedido)
+                saida=('Aqui está um vídeo da minha galeria.' if pedido=='video' else 'Aqui está uma foto da minha galeria.') if midia else 'Ainda não tenho essa mídia disponível na minha galeria.'
+                _gravar(conta,ident,'turno',saida,usuario=texto)
+                if midia:saida_midia.append(midia)
+                voz=next(v for v in p['vozes_por_conta'] if v.get('principal') and v.get('ativa'))
+                return TextoModels(saida,voz)
         ctx=_requisicao('GET',_rota(conta,ident)+'/contexto',conta,ident)
         campos=['persona','lore_compacta','historia','temperamento','limites','jeito_de_falar']
         if conta.admin:campos+=['visao_do_arquiteto']

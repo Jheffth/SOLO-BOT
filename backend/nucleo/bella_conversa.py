@@ -131,6 +131,10 @@ def responder(texto, conta_id=None, numero_conta=None, saida_midia=None):
     try:selecionado=models.selecionado(numero_conta)
     except models.ErroModels as e:return str(e)
     if numero_conta is not None and selecionado:
+        if saida_midia is not None:
+            from nucleo import models_galeria
+            if models_galeria.detectar(texto):
+                return models.responder(texto,numero_conta,saida_midia=saida_midia)
         return models.responder(texto,numero_conta)
     estado = bella_estado.avancar(numero_conta, texto)
     nota, midia, gasto = "", None, 0
