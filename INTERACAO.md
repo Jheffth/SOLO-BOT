@@ -706,3 +706,10 @@ Se houver seleção de extração sem imagem anexada ou referência disponível,
 recusa com mensagem para anexar a imagem, em vez de gerar um prompt aleatório.
 A correção fica no backend: não exige recompilar o executável para entrar em vigor,
 mas precisa ser publicada no servidor usado pela Bella.
+
+
+## Perfil pessoal no Solo Models
+
+A Conta Solo também abre o perfil pessoal no Models por `/models/perfil`. O Models inicia a entrada com estado e desafio; o Bot exige a sessão da própria conta e devolve um código curto, de uso único, com validade de dois minutos. O resgate em `/interno/models/portal/resgatar` exige o token do Models e o verificador do desafio. Não há compartilhamento de senha, cookie ou chave de sessão entre os dois sistemas.
+
+O retorno identifica dono, nome e a condição administrativa verificada no Bot. O Models só reconhece o Arquiteto quando essa condição corresponde à identidade permanente já vinculada; as demais contas recebem somente seu perfil e suas fotos. Criar ou editar modelos e vozes continua exclusivo do Arquiteto. O endereço de retorno é fixado por `MODELS_PORTAL_URL` (padrão: portal de produção), sem aceitar destino enviado pelo navegador.
