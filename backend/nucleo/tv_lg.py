@@ -14,6 +14,7 @@ Ações para o agente (sempre com `tv` opcional = apelido, "sala", "quarto"…):
   tv.aviso {texto} · tv.play · tv.pause · tv.estado
 """
 import itertools
+import json
 import logging
 import re
 import threading
@@ -135,7 +136,7 @@ class Fila:
         self._pendentes = []
         self._aguardando = {}
         self._ids = itertools.count(1)
-        self.visto_em = 0.0
+        self.visto_em = float("-inf")      # nunca vista: com 0.0 a ponte parecia online nos primeiros 60 s após ligar a máquina
         self.tvs = []
 
     def online(self) -> bool:
@@ -190,6 +191,12 @@ FILA = Fila()
 
 def executar(acao: str, args: Optional[dict] = None, tv: Optional[str] = None) -> str:
     """Executa uma ação de TV pelo agente ou pelo roteador. Devolve o texto da resposta."""
+    ok, mensagem = executar_detalhado(acao, args, tv)
+    return ("📺 " if ok else "⚠️ ") + mensagem
+
+
+def executar_detalhado(acao: str, args: Optional[dict] = None, tv: Optional[str] = None) -> tuple:
+    """Como `executar`, mas devolve (deu_certo, mensagem) para quem quer reagir ao resultado."""
     if not ativo():
         raise ErroTV("O controle da TV não está configurado no servidor (PONTE_TV_TOKEN).")
     args = validar(acao, args)
@@ -200,7 +207,7 @@ def executar(acao: str, args: Optional[dict] = None, tv: Optional[str] = None) -
         raise ErroTV("A ponte da TV está desligada. Ligue o notebook de casa com a ponte rodando.")
     r = FILA.enviar(acao, args, tv)
     log.info("tv %s tv=%s ok=%s", acao, tv or "padrão", r["ok"])
-    return ("📺 " if r["ok"] else "⚠️ ") + r["mensagem"]
+    return bool(r["ok"]), r["mensagem"]
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -307,6 +314,104 @@ def interpretar(texto: str, tvs=None) -> Optional[tuple]:
     if re.search(r"\b(estado|status|como esta)\b", t):
         return "tv.estado", {}, apelido
     return None
+
+
+# ══════════════════════════════════════════════════════════════════════
+# CONVERSA: pedidos soltos entendidos pela IA e a resposta da própria modelo
+# ══════════════════════════════════════════════════════════════════════
+# Palavras que fazem valer a pena perguntar à IA. Fora delas a mensagem segue direto para o papo.
+GATILHOS_TV = re.compile(r"\b(tv|televisao|televisor|netflix|youtube|globoplay|prime|hdmi|volume|filme|serie|"
+                         r"episodio|assistir|assistindo|canal|legenda|som|mudo|tela|barulho|silencio|clipe|video|"
+                         r"musica|desenho|alto|baixo|escuro)s?\b")
+PALAVRAS_IA_MAX = 30
+CONFIANCA_TV = 0.75
+# Só ações sem risco: guardar e apagar favoritos continuam exclusivos de /tv (exigem link e nome exatos).
+ACOES_IA = ("tv.ligar", "tv.desligar", "tv.volume", "tv.abrir_app", "tv.entrada", "tv.aviso", "tv.play",
+            "tv.pause", "tv.estado", "tv.favorito_abrir", "tv.favoritos")
+
+PROMPT_IA = """Você decide se a MENSAGEM de uma pessoa é um PEDIDO PARA AGIR NA TV DA CASA AGORA.
+Responda SOMENTE um JSON: {"acao": "<ação ou vazio>", "args": {}, "tv": "<apelido ou vazio>", "confianca": 0.0}
+
+Ações possíveis (e seus args):
+- tv.ligar · tv.desligar · tv.play · tv.pause · tv.estado · tv.favoritos (sem args)
+- tv.volume {"modo": "subir|descer|mudo|som|definir", "valor": 0-100 só para definir}
+- tv.abrir_app {"app": "youtube|netflix|globoplay|prime"}
+- tv.entrada {"hdmi": 1-4}
+- tv.aviso {"texto": "texto exato a mostrar na tela"}
+- tv.favorito_abrir {"nome": "nome do filme, série ou vídeo guardado"}
+
+Regras:
+- Só devolva ação quando a pessoa está CLARAMENTE pedindo para fazer algo na TV agora.
+  Comentário, pergunta, lembrança, desejo vago ("queria assistir algo"), conversa sobre o que viu na TV: acao vazia.
+- Frases como "tá alto demais", "diminui esse barulho" -> volume descer; "não escuto nada", "mais alto" -> volume subir;
+  "silêncio", "cala a tv" -> mudo; "pode voltar o som" -> som; "pausa aí", "segura" -> tv.pause; "solta", "continua" -> tv.play.
+- "tv": o apelido da TV citada, só se estiver na lista TVS; senão vazio. Nunca invente apelido.
+- Nunca invente app fora da lista nem ação fora da lista. Na dúvida, acao vazia e confianca baixa.
+- "confianca": de 0 a 1."""
+
+
+def parece_pedido_tv(texto: str) -> bool:
+    """Barato: só mensagens curtas com cara de TV merecem uma consulta à IA."""
+    t = _norm(texto).strip()
+    return bool(t) and not t.startswith("/") and len(t.split()) <= PALAVRAS_IA_MAX and bool(GATILHOS_TV.search(t))
+
+
+def interpretar_ia(texto: str, tvs=None) -> Optional[tuple]:
+    """Pedido solto ("tá alto demais, dá uma baixada") -> (acao, args, apelido), ou None se não for pedido de TV."""
+    from nucleo import gemini
+    tvs = list(tvs if tvs is not None else FILA.tvs)
+    bruto = gemini.gerar(PROMPT_IA, f"TVS: {json.dumps(tvs, ensure_ascii=False)}\n\nMENSAGEM: {texto}",
+                         json_saida=True, max_tokens=160)
+    if not bruto:
+        return None
+    try:
+        d = json.loads(bruto[bruto.find("{"): bruto.rfind("}") + 1])
+        acao = str(d.get("acao") or "").strip()
+        if acao not in ACOES_IA or float(d.get("confianca") or 0) < CONFIANCA_TV:
+            return None
+        apelido = _norm(str(d.get("tv") or "")).strip() or None
+        if apelido and apelido not in [_norm(a) for a in tvs]:
+            return None            # TV que a ponte não conhece: melhor não mexer em nenhuma
+        args = validar(acao, d.get("args") if isinstance(d.get("args"), dict) else {})
+    except (ValueError, TypeError, ErroTV):
+        log.warning("TV: a IA respondeu algo que não vale como pedido")
+        return None
+    return acao, args, apelido
+
+
+def entender(texto: str, tvs=None, ia: bool = True) -> Optional[tuple]:
+    """Palavras primeiro (grátis); a IA só quando a mensagem tem cara de TV e as palavras não bastaram."""
+    pedido = interpretar(texto, tvs)
+    if pedido or not ia or not ativo() or not parece_pedido_tv(texto):
+        return pedido
+    return interpretar_ia(texto, tvs)
+
+
+BLOCO_PROMPT = """
+
+TV DA CASA (exceção ao que foi dito acima sobre não executar ações): você comanda a TV dele pelo hub. Quando ele pede algo da TV, \
+o sistema executa na hora e te entrega o resultado numa nota interna marcada [AÇÃO NA TV]; só então você confirma, no seu jeito. \
+Sem essa nota você NÃO mexeu na TV: nunca diga que fez. Se ele só comenta ou pergunta, converse; se ele parece querer algo \
+(assistir, ver, ouvir, ajustar), proponha opções (app, título, volume, entrada) e pergunte o que prefere. \
+Você sabe: ligar e desligar, volume, mudo, abrir YouTube, Netflix, Globoplay e Prime, abrir um favorito guardado, \
+trocar de entrada HDMI, pausar e continuar, e mostrar um aviso na tela."""
+
+
+def bloco_prompt(admin: bool) -> str:
+    """Trecho do prompt da persona: só para a conta administradora e com a ponte da TV configurada."""
+    return BLOCO_PROMPT if admin and ativo() else ""
+
+
+def nota_acao(acao: str, ok: bool, mensagem: str) -> str:
+    """Nota interna que acompanha a fala dele: a persona reage ao que o sistema acabou de fazer."""
+    descricao = ACOES_AGENTE.get(acao, acao)
+    resultado = "DEU CERTO" if ok else "FALHOU"
+    return (f"[AÇÃO NA TV — INTERNO, não cite esta nota] O sistema JÁ tentou o pedido dele na TV da casa ({descricao}). "
+            f"Resultado: {resultado} — {mensagem}\n"
+            "Responda no seu jeito, em até duas frases curtas, como quem acabou de fazer isso por ele"
+            + ("; pode comentar o que ele vai ver ou perguntar se quer mais algo." if ok else
+               "; diga com leveza o que houve, sem inventar causa nem prometer que já resolveu.")
+            + " Não repita o texto técnico e não use emoji de status.")
 
 
 def ajuda() -> str:

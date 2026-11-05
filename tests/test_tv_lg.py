@@ -341,3 +341,113 @@ def test_pacote_magico(monkeypatch):
     pacote = enviados[0][0]
     assert pacote[:6] == b"\xff" * 6 and pacote[6:12] == bytes.fromhex("f08620f2261e") and len(pacote) == 102
     assert ("192.168.1.255", 9) in {d for _, d in enviados}
+
+
+# ── conversa: a IA entende pedido solto e a própria modelo responde ──
+def _ia_responde(monkeypatch, saida):
+    from nucleo import gemini
+    chamadas = []
+
+    def gerar(instrucao, texto, **kw):
+        chamadas.append(texto)
+        return saida
+    monkeypatch.setattr(gemini, "gerar", gerar)
+    return chamadas
+
+
+def test_ia_entende_pedido_solto(monkeypatch, fila):
+    chamadas = _ia_responde(monkeypatch, '{"acao":"tv.volume","args":{"modo":"descer"},"tv":"sala","confianca":0.9}')
+    pedido = tv_lg.entender("tá alto demais esse barulho, dá uma baixada", tvs=["sala", "quarto"])
+    assert pedido == ("tv.volume", {"modo": "descer"}, "sala") and len(chamadas) == 1
+
+
+@pytest.mark.parametrize("saida", [
+    '{"acao":"","args":{},"tv":"","confianca":0.9}',                                              # só conversa
+    '{"acao":"tv.volume","args":{"modo":"descer"},"tv":"","confianca":0.4}',                      # incerta
+    '{"acao":"tv.favorito_apagar","args":{"nome":"x"},"tv":"","confianca":0.99}',                # fora das ações da IA
+    '{"acao":"tv.volume","args":{"modo":"definir","valor":900},"tv":"","confianca":0.99}',       # valor inválido
+    '{"acao":"tv.desligar","args":{},"tv":"garagem","confianca":0.99}',                          # TV que a ponte não conhece
+    "isso não é json", None])
+def test_ia_recusa_o_que_nao_vale(monkeypatch, fila, saida):
+    _ia_responde(monkeypatch, saida)
+    assert tv_lg.entender("baixa o barulho", tvs=["sala"]) is None
+
+
+def test_ia_so_e_chamada_quando_vale_a_pena(monkeypatch, fila):
+    chamadas = _ia_responde(monkeypatch, '{"acao":"tv.desligar","args":{},"tv":"","confianca":1}')
+    assert tv_lg.entender("gastei 80 no mercado", tvs=["sala"]) is None
+    assert tv_lg.entender("/saldo barulho", tvs=["sala"]) is None
+    assert tv_lg.entender("baixa o barulho", tvs=["sala"], ia=False) is None
+    assert tv_lg.entender("desliga a tv", tvs=["sala"]) == ("tv.desligar", {}, None)      # palavras bastam: sem IA
+    assert not chamadas
+    monkeypatch.setattr(config, "PONTE_TV_TOKEN", "")
+    assert tv_lg.entender("baixa o barulho", tvs=["sala"]) is None and not chamadas
+
+
+def test_prompt_da_persona_so_fala_de_tv_para_o_admin(monkeypatch, fila):
+    assert "TV DA CASA" in tv_lg.bloco_prompt(True) and "[AÇÃO NA TV]" in tv_lg.bloco_prompt(True)
+    assert tv_lg.bloco_prompt(False) == ""
+    monkeypatch.setattr(config, "PONTE_TV_TOKEN", "")
+    assert tv_lg.bloco_prompt(True) == ""
+
+
+def test_nota_conta_o_que_aconteceu():
+    assert "DEU CERTO" in tv_lg.nota_acao("tv.volume", True, "Volume 12.")
+    nota = tv_lg.nota_acao("tv.desligar", False, "A TV está fora da rede.")
+    assert "FALHOU" in nota and "A TV está fora da rede." in nota and "sem inventar causa" in nota
+
+
+def _persona(monkeypatch, texto):
+    from nucleo import bella_conversa
+    vistos = []
+
+    def responder(fala, conta_id=None, numero_conta=None, saida_midia=None, nota_interna=""):
+        vistos.append((fala, nota_interna))
+        return texto
+    monkeypatch.setattr(bella_conversa, "responder", responder)
+    return vistos
+
+
+def test_modelo_responde_sobre_o_que_fez_na_tv(cliente, caixa, fila, monkeypatch):
+    c = _admin(cliente)
+    _ligar_telegram(c)
+    vistos = _persona(monkeypatch, "Pronto, amor, baixei pra você.")
+    recebidos, t = _ponte_falsa(fila, {"volume": (True, "Volume 12.")})
+    _tg(c, "abaixa a tv")
+    t.join(2)
+    assert recebidos[0]["acao"] == "volume"
+    assert caixa[-1][2] == "Pronto, amor, baixei pra você."
+    assert vistos[0][0] == "abaixa a tv" and "DEU CERTO" in vistos[0][1] and "Volume 12." in vistos[0][1]
+
+
+def test_falha_da_tv_aparece_mesmo_com_a_modelo_suavizando(cliente, caixa, fila, monkeypatch):
+    c = _admin(cliente)
+    _ligar_telegram(c)
+    _persona(monkeypatch, "Ih, amor, não consegui agora.")
+    recebidos, t = _ponte_falsa(fila, {"desligar": (False, "A TV está desligada ou fora da rede.")})
+    _tg(c, "desliga a tv")
+    t.join(2)
+    assert caixa[-2][2] == "Ih, amor, não consegui agora."
+    assert caixa[-1][2] == "⚠️ A TV está desligada ou fora da rede."
+
+
+def test_sem_voz_da_modelo_o_resultado_seco_nao_se_perde(cliente, caixa, fila, monkeypatch):
+    c = _admin(cliente)
+    _ligar_telegram(c)
+    _persona(monkeypatch, None)
+    recebidos, t = _ponte_falsa(fila, {"volume": (True, "Volume 12.")})
+    _tg(c, "abaixa a tv")
+    t.join(2)
+    assert caixa[-1][2] == "📺 Volume 12."
+
+
+def test_pedido_solto_pelo_telegram_passa_pela_ia(cliente, caixa, fila, monkeypatch):
+    c = _admin(cliente)
+    _ligar_telegram(c)
+    _ia_responde(monkeypatch, '{"acao":"tv.abrir_app","args":{"app":"youtube"},"tv":"","confianca":0.9}')
+    _persona(monkeypatch, "Abri o YouTube, vai querer ver o quê?")
+    recebidos, t = _ponte_falsa(fila, {"abrir_app": (True, "Abrindo YouTube na TV sala.")})
+    _tg(c, "bella, quero ver uns clipes agora")
+    t.join(2)
+    assert recebidos[0]["acao"] == "abrir_app" and recebidos[0]["args"] == {"app": "youtube"}
+    assert caixa[-1][2] == "Abri o YouTube, vai querer ver o quê?"

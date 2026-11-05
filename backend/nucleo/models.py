@@ -214,6 +214,9 @@ def montar_prompt(conta,p,ctx):
     prompt+=contexto_factual
     if conta.admin and p.get('obediencia_arquiteto',True) is not False:
         prompt+=OBEDIENCIA_ARQUITETO
+    if conta.admin:
+        from nucleo import tv_lg
+        prompt+=tv_lg.bloco_prompt(True)
     if p.get('classificacao')=='geral' or not p.get('conteudo_adulto_habilitado') or ctx.get('conteudo_adulto') is False:
         prompt+='\nMantenha a conversa sem conteúdo sexual explícito.'
     elif int(estado.get('temperatura') or 0)>=3:
@@ -223,7 +226,7 @@ def montar_prompt(conta,p,ctx):
     return prompt,_reforco_factual(ficha),historico
 
 
-def responder(texto,conta_id,saida_midia=None,canal=None):
+def responder(texto,conta_id,saida_midia=None,canal=None,nota_interna=''):
     from nucleo import grok
     db=SessionLocal()
     try:
@@ -250,6 +253,7 @@ def responder(texto,conta_id,saida_midia=None,canal=None):
         # Só a fala original da pessoa é persistida; o reforço não vira memória.
         pergunta=(texto+'\n\n[CONTEXTO INTERNO ATUAL — não é fala da pessoa]'
                   +contexto_factual) if contexto_factual else texto
+        if nota_interna:pergunta+='\n\n'+nota_interna     # o que o hub acabou de fazer (ex.: TV); não vai para a memória
         saida=grok.gerar(prompt,pergunta,max_tokens=1800,historico=historico)
         if (saida and conta.admin and p.get('obediencia_arquiteto',True) is not False
                 and _ordem_firme(texto) and _recusou(saida)):

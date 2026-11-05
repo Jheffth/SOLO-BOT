@@ -614,9 +614,16 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if cmd == "/tv" and not conta.admin:
         return Resposta().diz("🔒 O controle da TV é só da conta administradora.")
     if conta.admin and (cmd == "/tv" or tv_lg.ativo()):
-        resposta_tv = tv_lg.atender(txt)
-        if resposta_tv:
-            return Resposta().diz(resposta_tv)
+        if cmd == "/tv":
+            resposta_tv = tv_lg.atender(txt)
+            if resposta_tv:
+                return Resposta().diz(resposta_tv)
+        else:
+            # No papo (sem modo ativo ou com a Bella), a IA entende pedidos soltos e a própria modelo responde.
+            conversa = _modo_valido(s) in (None, MODO_BELLA)
+            pedido_tv = tv_lg.entender(txt, ia=conversa)
+            if pedido_tv:
+                return _tv_responder(db, conta, canal, txt, pedido_tv, conversa)
 
     if cmd.startswith("/"):
         mod = _comando_de_modulo(cmd)
@@ -1266,6 +1273,42 @@ def _bella_responder(db, conta: Conta, canal: str, txt: str, so_se_responder: bo
         return resposta_models(texto)
     r = Resposta().diz(texto, midia=extra[0] if extra else None)
     r.mensagens[-1]["literal"] = True        # a voz LÊ o que a Bella disse; nunca passa por resumo de IA
+    return r
+
+
+def _cena_ativa(conta: Conta) -> bool:
+    """Numa cena de modelos (/addmodel) as falas são do narrador: a nota da TV não cabe ali."""
+    from nucleo import models, models_cena
+    try:
+        ident = models.selecionado(conta.id)
+        return bool(ident and models_cena.cena_ativa(conta, ident))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _tv_responder(db, conta: Conta, canal: str, txt: str, pedido: tuple, conversa: bool) -> Resposta:
+    """Executa o pedido de TV. No papo, a Bella (ou a modelo escolhida) responde sobre o que acabou de acontecer."""
+    from nucleo import bella_conversa, tv_lg
+    acao, args, tv = pedido
+    try:
+        ok, msg = tv_lg.executar_detalhado(acao, args, tv)
+    except tv_lg.ErroTV as ex:
+        ok, msg = False, str(ex)
+    seco = ("📺 " if ok else "⚠️ ") + msg
+    if not conversa or _cena_ativa(conta):
+        return Resposta().diz(seco)
+    texto = bella_conversa.responder(txt, _chave_bella(canal, conta), numero_conta=conta.id,
+                                     nota_interna=tv_lg.nota_acao(acao, ok, msg))
+    if db is not None:
+        _registrar(db, conta, canal, None, "bella", "conversa")
+    if not texto:
+        return Resposta().diz(seco)           # sem a voz da persona, o resultado seco não se perde
+    if getattr(texto, "falas", None):
+        return resposta_models(texto)
+    r = Resposta().diz(texto)
+    r.mensagens[-1]["literal"] = True
+    if not ok:
+        r.diz(seco)                           # a falha aparece escrita, mesmo que a persona a suavize
     return r
 
 

@@ -28,10 +28,15 @@ Responda em texto simples, sem Markdown ou instruções de atuação, até {limi
 Você recebe as mensagens recentes desta conversa e pode retomá-las; fora delas, não invente lembranças.
 """
 
+def _bloco_tv(numero_conta):
+    from nucleo import tv_lg
+    return tv_lg.bloco_prompt(bella_estado.eh_arquiteto(numero_conta)) if tv_lg.ativo() else ""
+
 def prompt(numero_conta=None, estado=None):
     """`numero_conta`: a Conta Solo (lembranças, quem ela é para a Bella). `estado`: o da mensagem atual."""
     return (PROMPT_BASE.replace("{limite}", str(config.BELLA_CONVERSA_MAX_CHARS)) + estilo()
             + bella_estado.bloco_prompt(estado, numero_conta)
+            + _bloco_tv(numero_conta)
             + bella_bio.bloco_prompt(numero_conta, bool(estado and bella_estado.eh_arquiteto(numero_conta)))
             + bella_memoria.bloco_prompt(numero_conta)
             + bella_lore.bloco_prompt(numero_conta)
@@ -123,8 +128,9 @@ def _pedido_de_midia(texto, estado):
     return nota.format(o_que=o_que), None, 0
 
 
-def responder(texto, conta_id=None, numero_conta=None, saida_midia=None):
-    """`conta_id`: a chave da memória curta (por canal). `numero_conta`: a Conta Solo, dona das lembranças."""
+def responder(texto, conta_id=None, numero_conta=None, saida_midia=None, nota_interna=""):
+    """`conta_id`: a chave da memória curta (por canal). `numero_conta`: a Conta Solo, dona das lembranças.
+    `nota_interna`: o que o sistema acabou de fazer (ex.: ação na TV); vai junto da fala, mas não vira memória."""
     if numero_conta is None and isinstance(conta_id, int):
         numero_conta = conta_id
     from nucleo import models
@@ -136,12 +142,14 @@ def responder(texto, conta_id=None, numero_conta=None, saida_midia=None):
             if models_galeria.detectar(texto):
                 return models.responder(texto,numero_conta,saida_midia=saida_midia)
         canal = conta_id.split(":", 1)[0] if isinstance(conta_id, str) and ":" in conta_id else None
-        return models.responder(texto,numero_conta,canal=canal)
+        return models.responder(texto,numero_conta,canal=canal,nota_interna=nota_interna)
     estado = bella_estado.avancar(numero_conta, texto)
     nota, midia, gasto = "", None, 0
     if saida_midia is not None and estado and bella_estado.eh_arquiteto(numero_conta):
         nota, midia, gasto = _pedido_de_midia(texto, estado)
     pergunta = texto + nota.replace("[AGORA]", "[INSTRUÇÃO INTERNA, não cite]") if nota else texto   # a nota vai junto da fala dele: pesa mais que o histórico
+    if nota_interna:
+        pergunta += "\n\n" + nota_interna
     resposta = grok.gerar(prompt(numero_conta, estado), pergunta, max_tokens=1536, historico=_historico(conta_id))
     if midia and resposta and _NEGA_ENVIO.search(resposta):          # ia mandar a mídia mas falou que não tem: tenta de novo, firme
         outra = grok.gerar(prompt(numero_conta, estado), texto + "\n\n[INSTRUÇÃO INTERNA, não cite] A mídia JÁ ESTÁ SENDO ENVIADA agora. "
