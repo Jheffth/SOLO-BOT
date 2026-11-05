@@ -205,6 +205,15 @@ conservando geração sob demanda e cache. Consulte `VOICESTUDIO.md`.
 
 ## Avatar local opcional
 
+O Bella.exe consulta `GET /api/bella/perfil` com sua própria chave para obter a
+foto da modelo selecionada no Models. A rota valida a seleção, a classificação
+permitida e a capa de nível 0 pertencente àquela modelo, e retorna somente nome,
+identificadores e miniatura (até 2 MiB), sem persona, memória ou credencial de serviço.
+O cliente consulta ao abrir, depois das mensagens e a cada 15 segundos; o identificador
+da foto evita baixar novamente uma capa inalterada. Trocar o acesso descarta o retrato
+anterior. Uma modelo sem capa usa o orbe; voltar ao Legado restaura a foto local,
+que nunca é sobrescrita pela integração. O avatar animado usa o retrato exibido.
+
 Settings.AvatarAnimado (false por padrao) e AvatarMotor sao preferencias locais
 cifradas. Nucleo.Dizer passa pelo audio normal quando a opcao esta desligada.
 AvatarAnimado.cs inicia um processo Python descartavel, guarda ate cinco videos

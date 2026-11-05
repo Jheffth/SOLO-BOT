@@ -30,6 +30,7 @@
     if (!m || typeof m !== "object") return;
     switch (m.tipo) {
       case "config": aplicarConfig(m); break;
+      case "perfil": aplicarPerfil(m); break;
       case "estado": aplicarEstado(m); break;
       case "nivel": aplicarNivel(m.v, m.limiar); break;
       case "busca": progressoBusca(m); break;
@@ -102,14 +103,25 @@
       el.classList.toggle("orbe", !config.foto);
     });
   }
-  function aplicarConfig(c) {
+  function aplicarPerfil(c) {
     config = Object.assign(config, c);
     aplicarAvatar();
+    if (MINI) return;
+    $("btn-recortar").disabled = !config.foto || !!config.fotoModels;
+    $("btn-remover").disabled = !config.foto || !!config.fotoModels;
+    $("arquivo").disabled = !!config.fotoModels;
+    $("soltar").style.pointerEvents = config.fotoModels ? 'none' : '';
+    $("btn-escolher").setAttribute('aria-disabled', String(!!config.fotoModels));
+    $("btn-trocar-foto").title = config.fotoModels ? 'Foto do perfil no Solo Models' : 'Trocar a foto da Bella Legado';
+    $("foto-origem").textContent = config.perfilPendente ? 'Consultando a foto do perfil selecionado…' : config.fotoModels
+      ? 'Foto do perfil de ' + (config.modeloNome || 'sua modelo') + ' no Solo Models. Troque a foto no Models; ela será atualizada aqui automaticamente.'
+      : 'Foto da Bella Legado: salva somente neste computador. Ela também aparece na Mini-Bella.';
+  }
+  function aplicarConfig(c) {
+    aplicarPerfil(c);
     const vazio = document.querySelector(".vazio");
     if (vazio) vazio.textContent = config.apertarParaFalar ? "Segure a tecla configurada para falar, ou escreva aqui embaixo." : "Diga “" + config.frasesAtivacao[0] + "”" + (config.ativacaoRapida ? ", faça uma pausa e depois o pedido." : " e aguarde a saudação.") + " Também dá para escrever aqui embaixo.";
     if (MINI) { aplicarEstado({}); return; }
-    $("btn-recortar").disabled = !config.foto;
-    $("btn-remover").disabled = !config.foto;
     document.querySelectorAll("[data-aparencia]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.aparencia === config.aparencia)));
     $("cfg-iniciar").checked = !!config.iniciar;
     $("cfg-mini").checked = !!config.mini;
@@ -579,7 +591,7 @@
     $("btn-comandos").onclick = () => abrir("comandos");
     document.querySelectorAll("[data-aba]").forEach(b => b.onclick = () => { cancelarTecla(); aba(b.dataset.aba); });
     $("btn-fechar-config").onclick = fechar; $("veu").onclick = fechar;
-    $("btn-trocar-foto").onclick = () => { abrir(); setTimeout(() => $("arquivo").click(), 320); };
+    $("btn-trocar-foto").onclick = () => { abrir(); if (!config.fotoModels) setTimeout(() => $("arquivo").click(), 320); };
     document.addEventListener("keydown", e => {
       if (e.key !== "Escape") return;
       if (!$("modal-captura").hidden) fecharCaptura();

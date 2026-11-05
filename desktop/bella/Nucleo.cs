@@ -52,6 +52,7 @@ namespace Bella {
         public event Action<Reply> ImagemRecebida;
         public event Action<string> AvatarEstado;
         public Func<string,CancellationToken,Task> ReproduzirAvatar;
+        public Func<string> RetratoAtual;
         public event Action<bool,string> GerandoImagem;
         /// <summary>Pediram o recorte de tela por voz ou texto ("recorta a tela").</summary>
         public event Action PedirCaptura;
@@ -116,7 +117,7 @@ namespace Bella {
                 if(motorAvatar!=null) novo.AvatarMotor=AvatarAnimado.Validar(motorAvatar);
                 if(avatar==true) {
                     AvatarAnimado.Validar(novo.AvatarMotor);
-                    if(Foto.Original()==null && Foto.Recorte()==null) throw new InvalidOperationException("Escolha uma foto da Bella antes de ativar o avatar.");
+                    if((RetratoAtual!=null ? RetratoAtual() : Foto.Original() ?? Foto.Recorte())==null) throw new InvalidOperationException("Escolha uma foto no perfil da modelo antes de ativar o avatar.");
                 }
                 if(avatar.HasValue) novo.AvatarAnimado=avatar.Value;
                 if(avatar==false) PararVoz();
@@ -366,7 +367,9 @@ namespace Bella {
                     EsperandoVoz=true; Mudou();
                     if(AvatarEstado!=null) AvatarEstado("preparando");
                     var progresso=new Progress<string>(etapa=> { if(!quitting && EsperandoVoz && Config.AvatarAnimado && AvatarEstado!=null) AvatarEstado(etapa); });
-                    string video=await AvatarAnimado.Preparar(Config,reply,token,etapa=>((IProgress<string>)progresso).Report(etapa));
+                    string retrato=RetratoAtual!=null ? RetratoAtual() : Foto.Original() ?? Foto.Recorte();
+                    if(retrato==null) throw new InvalidOperationException("Esta modelo ainda não tem foto para animar.");
+                    string video=await AvatarAnimado.Preparar(Config,reply,token,etapa=>((IProgress<string>)progresso).Report(etapa),foto:retrato);
                     token.ThrowIfCancellationRequested();
                     Tempos["Avatar animado"]=tempo.ElapsedMilliseconds;
                     EsperandoVoz=false; Mudou();

@@ -27,6 +27,10 @@ namespace Bella {
         readonly ToolStripMenuItem itemEscuta;
         readonly Timer esconderMini=new Timer { Interval=5000 };
         readonly Timer teclaFalar=new Timer { Interval=20 };
+        readonly Timer perfilTimer=new Timer { Interval=15000 };
+        readonly RetratoModels retrato=new RetratoModels();
+        string acessoPerfil;
+        bool consultandoPerfil, repedirPerfil;
         readonly EsperaTecla esperaTecla=new EsperaTecla();
         readonly Stopwatch tempoTecla=Stopwatch.StartNew();
         readonly string pastaUi=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ui");
@@ -54,7 +58,9 @@ namespace Bella {
             tela.Recebeu+=Receber;
 
             bella=new Nucleo(this,Settings.Load());
-            foto=Foto.Recorte();
+            if(!bella.TemChave) retrato.Aplicar(new PerfilDesktop {origem="legado"});
+            foto=retrato.Remoto ? null : Foto.Recorte();
+            bella.RetratoAtual=()=>retrato.Remoto ? retrato.Foto : Foto.Original() ?? Foto.Recorte();
             bella.EstadoMudou+=AoMudar;
             bella.ReproduzirAvatar=ReproduzirAvatar;
             bella.AvatarEstado+=etapa=> {
@@ -63,6 +69,7 @@ namespace Bella {
             bella.Mensagem+=(de,texto,via,opcoes)=>{
                 var m=new { tipo="msg", de=de, texto=texto, via=via, opcoes=opcoes ?? new Opcao[0] };
                 tela.Postar(m); if(mini!=null) mini.Postar(m);
+                SolicitarPerfil();
             };
             bella.Aviso+=(texto,erro)=>tela.Postar(new { tipo="aviso", texto=texto, erro=erro });
             bella.BuscaMudou+=q=> {
@@ -99,6 +106,7 @@ namespace Bella {
 
             esconderMini.Tick+=(s,e)=>{ esconderMini.Stop(); if(mini!=null) mini.Hide(); };
             teclaFalar.Tick+=(s,e)=>ObservarTecla();
+            perfilTimer.Tick+=(s,e)=>SolicitarPerfil();
             if(IsHandleCreated) AtualizarAtalho();
             FormClosing+=(s,e)=>{
                 if(quitting) return;
@@ -188,6 +196,7 @@ namespace Bella {
             }
             if(!atalhoLivre) tela.Postar(new { tipo="aviso", texto="Ctrl + Alt + B está em uso por outro aplicativo. Use o botão do microfone.", erro=false });
             if(!recorteLivre) tela.Postar(new { tipo="aviso", texto="Ctrl + Alt + S está em uso por outro aplicativo. Para recortar a tela, use o botão ✂️ ou o menu do ícone.", erro=false });
+            SolicitarPerfil(); perfilTimer.Start();
             if(bella.TemChave) await Seguro(bella.StartListening);   // com a chave salva, ela já abre ouvindo
         }
 
@@ -266,7 +275,7 @@ namespace Bella {
                     case "salvar":
                         try { bella.SalvarAcesso(Vista.Texto(d,"servidor"),Vista.Texto(d,"chave")); }
                         catch(Exception e) { tela.Postar(new { tipo="erro_salvar", texto=e.Message }); break; }
-                        PostarConfig();
+                        retrato.Limpar(); foto=null; SolicitarPerfil(); PostarConfig();
                         tela.Postar(new { tipo="salvo", texto="Acesso salvo neste usuário do Windows." });
                         if(!bella.Escutando) await bella.StartListening();
                         break;
@@ -306,6 +315,7 @@ namespace Bella {
                         break;
                     case "foto":
                         try {
+                            if(retrato.Remoto) throw new InvalidOperationException("Troque a foto pelo perfil da modelo no Solo Models.");
                             var url=Vista.Texto(d,"dataUrl");
                             if(url==null) Foto.Remover(); else Foto.Salvar(url,Vista.Texto(d,"original"));
                             foto=Foto.Recorte();
@@ -314,7 +324,7 @@ namespace Bella {
                         } catch(Exception e) { tela.Postar(new { tipo="toast", texto=e.Message, erro=true }); }
                         break;
                     case "foto_original":
-                        tela.Postar(new { tipo="foto_original", dataUrl=Foto.Original() ?? foto });
+                        if(!retrato.Remoto) tela.Postar(new { tipo="foto_original", dataUrl=Foto.Original() ?? foto });
                         break;
                 }
             } catch(Exception e) { tela.Postar(new { tipo="aviso", texto=e.Message, erro=true }); }
@@ -333,7 +343,8 @@ namespace Bella {
                          frasesAtivacao=c.WakePhrases,
                          ativacaoRapida=c.FastWake, modoSafada=c.ModoSafada, avatarAnimado=c.AvatarAnimado, avatarDisponivel=AvatarAnimado.Disponivel(c.AvatarMotor),
                          nomeTeclaFalar=ApertarParaFalar.Nome(c.TalkKey,c.TalkModifiers),
-                         mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto, pastasArquivos=c.PastasArquivos,
+                         mini=c.MiniBella, sensibilidade=c.Threshold, aparencia=c.Aparencia ?? "foto", foto=foto,
+                         fotoModels=retrato.Remoto, modeloNome=retrato.Nome, perfilPendente=retrato.Origem=="pendente", pastasArquivos=c.PastasArquivos,
                          comandosPastas=c.ComandosPastas, modelosComandos=Navegador.Modelos() };
         }
         async Task ReproduzirAvatar(string caminho,System.Threading.CancellationToken token) {
@@ -363,6 +374,33 @@ namespace Bella {
             }
         }
         void PostarConfig() { var c=Config(); tela.Postar(c); if(mini!=null) mini.Postar(c); }
+
+        void PostarPerfil() {
+            var p=new {tipo="perfil",foto=foto,fotoModels=retrato.Remoto,modeloNome=retrato.Nome,perfilPendente=retrato.Origem=="pendente"};
+            tela.Postar(p); if(mini!=null) mini.Postar(p);
+        }
+
+        async void SolicitarPerfil() {
+            if(quitting) return;
+            if(consultandoPerfil) { repedirPerfil=true; return; }
+            consultandoPerfil=true;
+            try {
+                do {
+                    repedirPerfil=false;
+                    var c=bella.Config; string acesso=c.Server+"\n"+c.Key;
+                    if(acessoPerfil!=acesso) { acessoPerfil=acesso; retrato.Limpar(); foto=null; PostarPerfil(); }
+                    if(!bella.TemChave) { retrato.Aplicar(new PerfilDesktop {origem="legado"}); foto=Foto.Recorte(); PostarPerfil(); break; }
+                    try {
+                        using(var client=new Client(c.Server,c.Key)) {
+                            var p=await client.Perfil(retrato.FotoId);
+                            if(quitting || acesso!=bella.Config.Server+"\n"+bella.Config.Key) { repedirPerfil=!quitting; continue; }
+                            retrato.Aplicar(p); foto=retrato.Remoto ? retrato.Foto : Foto.Recorte(); PostarPerfil();
+                        }
+                    } catch(UnauthorizedAccessException) { retrato.Limpar(); foto=null; if(!quitting) PostarPerfil(); }
+                    catch(Exception) { /* Falha transitória preserva o último retrato desta conexão; próxima consulta tenta de novo. */ }
+                } while(repedirPerfil && !quitting);
+            } finally { consultandoPerfil=false; }
+        }
 
         static string NomeDoModo(Modo modo) {
             switch(modo) {
@@ -414,6 +452,7 @@ namespace Bella {
         public void Reveal() {
             Show(); if(WindowState==FormWindowState.Minimized) WindowState=FormWindowState.Normal;
             Activate(); if(mini!=null) mini.Hide();
+            SolicitarPerfil();
         }
 
         void AbrirPainel(string servidor) {
@@ -426,7 +465,7 @@ namespace Bella {
 
         public void Sair() {
             if(quitting) return;
-            quitting=true; teclaFalar.Stop(); bella.Encerrar(); tray.Visible=false;
+            quitting=true; teclaFalar.Stop(); perfilTimer.Stop(); bella.Encerrar(); tray.Visible=false;
             if(mini!=null) mini.Close();
             Close();
         }
@@ -435,7 +474,7 @@ namespace Bella {
             if(disposing) {
                 if(IsHandleCreated) { UnregisterHotKey(Handle,1); UnregisterHotKey(Handle,2); }
                 DescartarRecorte();
-                teclaFalar.Dispose(); bella.Dispose(); tray.Dispose(); esconderMini.Dispose();
+                teclaFalar.Dispose(); perfilTimer.Dispose(); bella.Dispose(); tray.Dispose(); esconderMini.Dispose();
                 if(mini!=null) mini.Dispose();
             }
             base.Dispose(disposing);

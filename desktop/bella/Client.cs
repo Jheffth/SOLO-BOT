@@ -140,6 +140,9 @@ namespace Bella {
             return Request<Reply>(HttpMethod.Post,"/api/bella/conversa",body,segundos);
         }
         public Task<GreetingSet> Greetings() { return Request<GreetingSet>(HttpMethod.Get,"/api/bella/saudacoes",null,8); }
+        public Task<PerfilDesktop> Perfil(string fotoAtual) {
+            return Request<PerfilDesktop>(HttpMethod.Get,"/api/bella/perfil?foto_atual="+Uri.EscapeDataString(fotoAtual ?? ""),null,35);
+        }
         public Task<GreetingReply> Greeting(int id) {
             return Request<GreetingReply>(HttpMethod.Post,"/api/bella/saudacao",new Dictionary<string,object> { {"id",id} },VoiceWaitSeconds,voiceCancellation);
         }

@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Literal, Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -70,6 +70,18 @@ def revogar(conta: Conta = Depends(conta_atual), db: Session = Depends(get_db)):
     conta.bella_hash = conta.bella_criado_em = conta.bella_usado_em = None
     db.commit()
     return {"ok": True}
+
+
+@router.get('/api/bella/perfil')
+def perfil_desktop(response: Response, foto_atual: str = Query(default='', max_length=120),
+                   x_bella_chave: str = Header(default=''), db: Session = Depends(get_db)):
+    conta = _autenticar(db, x_bella_chave)
+    response.headers['Cache-Control'] = 'private, no-store'
+    from nucleo import models, models_perfil
+    try:
+        return models_perfil.consultar(conta, foto_atual)
+    except models.ErroModels as exc:
+        raise HTTPException(503, str(exc)) from None
 
 
 class Pedido(BaseModel):

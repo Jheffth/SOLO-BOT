@@ -406,6 +406,19 @@ do Windows. Em monitores HDR as cores podem sair mais claras. Se outro programa 
 a Bella avisa e os demais caminhos continuam funcionando.
 
 
+## Foto da modelo selecionada no Models
+
+Com uma modelo Models selecionada no Solo Bot, a foto de perfil dela aparece no
+centro do Bella.exe, nos avatares da conversa e na Mini-Bella. A atualização ocorre
+ao abrir a janela, após mensagens e a cada 15 segundos. Trocar a capa no Models
+também atualiza o aplicativo. A opção “Só orbe” continua sendo respeitada.
+
+Troque a foto no perfil da modelo no Solo Models. Modelos sem foto usam o orbe;
+elas não herdam a foto de outra personagem. Ao voltar para Bella Legado, o aplicativo
+restaura a foto local, preservada neste computador. O avatar animado, se habilitado,
+usa a foto da personagem selecionada. Esta integração exige o backend atualizado
+e esta nova versão do Bella.exe; não altera a seleção da conta.
+
 ## Prints de corrida do Strava
 
 Anexe ou cole o print no chat e envie. A Bella identifica o Strava e registra automaticamente a corrida na conta conectada do Rotinas, com as métricas do dia. Você recebe a confirmação com data, distância e tempo. Use `/rot treino DD/MM/AAAA` na legenda para informar outra data ou acrescente caminhada/ciclismo para mudar a modalidade. Corrida é o padrão.

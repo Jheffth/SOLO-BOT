@@ -33,7 +33,7 @@ def catalogo(conta,perfil,tipo=None):
             and v.get('tipo') in ('imagem','video') and (not tipo or v['tipo']==tipo)]
 
 
-def baixar(ident,tipo):
+def baixar(ident,tipo,miniatura=False):
     """Lê apenas o arquivo autenticado do serviço, com limite durante a transferência."""
     try:
         if str(UUID(ident))!=ident:raise ValueError()
@@ -41,10 +41,10 @@ def baixar(ident,tipo):
         raise models.ErroModels('O identificador da mídia foi recusado.') from None
     mod=modulos.por_chave('models')
     if not mod or not mod.token:raise models.ErroModels('O Solo Models ainda não está configurado.')
-    limite=canal_midia.VIDEO_MAX if tipo=='video' else canal_midia.IMAGEM_MAX
+    limite=2*1024*1024 if miniatura else canal_midia.VIDEO_MAX if tipo=='video' else canal_midia.IMAGEM_MAX
     try:
         with httpx.Client(timeout=httpx.Timeout(30,connect=4),follow_redirects=False) as c:
-            with c.stream('GET',mod.url+'/api/servico/midias/'+ident+'/arquivo',headers={'X-Solo-Token':mod.token}) as r:
+            with c.stream('GET',mod.url+'/api/servico/midias/'+ident+'/arquivo'+('?miniatura=true' if miniatura else ''),headers={'X-Solo-Token':mod.token}) as r:
                 r.raise_for_status()
                 mime=r.headers.get('content-type','').split(';')[0].strip().lower()
                 permitidos=canal_midia.MIMES_VIDEO if tipo=='video' else canal_midia.MIMES_IMAGEM
