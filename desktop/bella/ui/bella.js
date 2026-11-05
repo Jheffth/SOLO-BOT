@@ -95,11 +95,13 @@
     document.body.classList.toggle("sem-foto", !comFoto);
     document.querySelectorAll("[data-avatar]").forEach(el => {
       el.style.backgroundImage = comFoto ? 'url("' + config.foto + '")' : "";
+      el.style.backgroundPosition = config.fotoModels ? "center top" : "center";
       el.classList.toggle("orbe", !comFoto);
     });
     // a prévia nas configurações mostra a foto mesmo em "Só orbe"
     document.querySelectorAll(".soltar [data-avatar]").forEach(el => {
       el.style.backgroundImage = config.foto ? 'url("' + config.foto + '")' : "";
+      el.style.backgroundPosition = config.fotoModels ? "center top" : "center";
       el.classList.toggle("orbe", !config.foto);
     });
   }

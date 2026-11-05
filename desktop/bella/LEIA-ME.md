@@ -411,7 +411,7 @@ a Bella avisa e os demais caminhos continuam funcionando.
 Com uma modelo Models selecionada no Solo Bot, a foto de perfil dela aparece no
 centro do Bella.exe, nos avatares da conversa e na Mini-Bella. A atualização ocorre
 ao abrir a janela, após mensagens e a cada 15 segundos. Trocar a capa no Models
-também atualiza o aplicativo. A opção “Só orbe” continua sendo respeitada.
+também atualiza o aplicativo. O enquadramento das fotos do Models prioriza o topo da imagem para manter o rosto visível nos avatares circulares. A opção “Só orbe” continua sendo respeitada.
 
 Troque a foto no perfil da modelo no Solo Models. Modelos sem foto usam o orbe;
 elas não herdam a foto de outra personagem. Ao voltar para Bella Legado, o aplicativo
