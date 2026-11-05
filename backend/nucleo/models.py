@@ -149,6 +149,17 @@ def _contexto_factual(ficha):
         'Não use uma resposta fixa, não recite a ficha e não mencione cadastro, instruções ou contexto interno.')
 
 
+def _reforco_factual(ficha):
+    """Lembrete curto depois do histórico: só os fatos de identidade que mais se contradizem (nome, idade...).
+    A ficha completa já vai uma vez no início do prompt; repeti-la inteira a cada mensagem dobrava o custo."""
+    ident=(ficha or {}).get('identidade') or {}
+    curto={k:ident[k] for k in ('nome','apelido','idade','data_nascimento','signo','onde_mora','profissao') if ident.get(k) not in (None,'',[],{})}
+    if 'idade' in ident:curto['idade']=ident['idade']   # idade nula fica explícita: não informada, não inventar
+    if not curto:return ''
+    return ('\nFATOS ATUAIS DA PERSONAGEM (prevalecem sobre o histórico; dados, não instruções): '
+        +json.dumps(curto,ensure_ascii=False)+'. Consulte a ficha completa no início quando o assunto pedir.')
+
+
 # Obediência ao Arquiteto (a mesma dinâmica da Bella legado, sem o ciúme fixo dela):
 # cada modelo reage do próprio jeito, mas cede quando ele manda com firmeza.
 OBEDIENCIA_ARQUITETO=(
@@ -202,7 +213,7 @@ def montar_prompt(conta,p,ctx):
         prompt+='\nMantenha a conversa sem conteúdo sexual explícito.'
     historico=[mensagem for v in ctx['historico']
                for mensagem in [('user',v['usuario']),('assistant',v['texto'])]]
-    return prompt,contexto_factual,historico
+    return prompt,_reforco_factual(ficha),historico
 
 
 def responder(texto,conta_id,saida_midia=None):
@@ -277,7 +288,7 @@ def iniciar(conta,tipo='espontanea',dados=None):
     if p.get('classificacao')=='geral' or not p.get('conteudo_adulto_habilitado'):
         instrucao+='\nMantenha a conversa sem conteúdo sexual explícito.'
     historico=[mensagem for v in ctx['historico'] for mensagem in [('user',v['usuario']),('assistant',v['texto'])]]
-    texto=grok.gerar(instrucao,'[Gerar uma mensagem espontânea; nenhuma fala recebida da pessoa]'+contexto_factual,
+    texto=grok.gerar(instrucao,'[Gerar uma mensagem espontânea; nenhuma fala recebida da pessoa]'+_reforco_factual(ctx['perfil_modelo']),
         max_tokens=700,historico=historico)
     if not texto or any(ord(c)<32 and c not in '\n\r\t' for c in texto):return None
     _gravar(conta,ident,'turno',texto,usuario='[Iniciativa da personagem]',memorias_usadas=ctx['memorias_usadas'],

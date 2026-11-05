@@ -70,10 +70,12 @@ def test_outros_pedidos_continuam_na_conversa(logado, monkeypatch, pergunta):
     assert 'FICHA FACTUAL ATUAL DA PERSONAGEM' in p['instrucao']
     assert p['instrucao'].index('FICHA FACTUAL ATUAL DA PERSONAGEM') > p['instrucao'].index('Contexto autorizado desta relação')
     import json
-    for destino in (p['instrucao'], p['pergunta']):
-        assert json.dumps(ficha, ensure_ascii=False) in destino
-        assert 'Antes de elaborar cada resposta' in destino
-        assert 'Responda livremente' in destino
+    # A ficha completa vai uma vez no início; depois do histórico, só o lembrete curto da identidade (custo menor).
+    assert json.dumps(ficha, ensure_ascii=False) in p['instrucao']
+    assert json.dumps(ficha, ensure_ascii=False) not in p['pergunta']
+    assert '"idade": 19' in p['pergunta'] and 'FATOS ATUAIS DA PERSONAGEM' in p['pergunta']
+    assert 'Antes de elaborar cada resposta' in p['instrucao']
+    assert 'Responda livremente' in p['instrucao']
     assert p['pergunta'].startswith(pergunta+'\n\n')
     assert gravacoes[-1]['usuario'] == pergunta
     assert gravacoes[-1]['texto'] == resposta
