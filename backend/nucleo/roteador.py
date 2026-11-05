@@ -286,6 +286,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/galeria` — (Arquiteto) fotos e vídeos · `/iniciativa bomdia` — bom dia automático às 08:00",
         "▸ `/perfil` (ou `/bio`) — seu perfil pessoal compartilhado com as modelos: `add Campo: valor`, `definir`, `apagar N`",
         "▸ `/construtivo` — (Arquiteto, Models) consulta o cartão vivo; `ligar`, `desligar` ou `aprovacao`",
+        "▸ `/addmodel Nome` · `/removemodel Nome` · `/modelos` — (Arquiteto) cena com outra modelo",
         "▸ `/iniciativa` — (Arquiteto) a Bella puxa assunto sozinha, poucas vezes por dia: `ligar`, `desligar`, `max N`, `janela 09:00 22:00`, `testar`",
         "▸ `/historia` — a nossa história guardada por dia · `/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias` apaga só esses dias",
         "▸ `/emocoes` — a galeria de sentimentos da Bella (o que desperta cada um e as duas reações). `/emocao <nome>` (Arquiteto) define na hora",
@@ -564,10 +565,13 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     except models.ErroModels as e:return Resposta().diz(str(e))
     if cmd=='/construtivo' and not selecao_models:
         return Resposta().diz('Escolha uma modelo em Models para usar o cartão vivo com /construtivo.')
+    if cmd in ('/addmodel','/removemodel','/modelos','/quem') and not selecao_models:
+        return Resposta().diz('Escolha uma modelo em Models para chamar outra para a conversa com /addmodel Nome.')
     if selecao_models and cmd in ("/memoria","/lembrar","/eternizar","/permanente",
             "/narrador","/esquecer","/eliminarmemo","/eliminarmemoria","/eliminarmemória","/historia",
-            "/temperatura","/sentimentos","/emocoes","/emocao","/construtivo"):
-        return Resposta().diz(models.comando(conta,cmd,resto.strip()))
+            "/temperatura","/sentimentos","/emocoes","/emocao","/construtivo",
+            "/addmodel","/removemodel","/modelos","/quem"):
+        return resposta_models(models.comando(conta,cmd,resto.strip()))
     if cmd == "/clonarvoz":
         return _cmd_clonarvoz(conta, canal, origem, resto.strip())
     if cmd == "/apagarvoz":
@@ -1248,8 +1252,28 @@ def _bella_responder(db, conta: Conta, canal: str, txt: str, so_se_responder: bo
         _registrar(db, conta, canal, None, "bella", "conversa")
     if not texto:
         return Resposta().diz("😶 Não consegui responder agora. Tente de novo em instantes.")
+    if getattr(texto, "falas", None):
+        return resposta_models(texto)
     r = Resposta().diz(texto, midia=extra[0] if extra else None)
     r.mensagens[-1]["literal"] = True        # a voz LÊ o que a Bella disse; nunca passa por resumo de IA
+    return r
+
+
+def resposta_models(texto) -> "Resposta":
+    """Uma cena (/addmodel) vira uma mensagem por fala, com o nome na frente e a voz da própria modelo;
+    a narração sai sem voz. Qualquer outro texto vira uma mensagem só."""
+    falas = getattr(texto, "falas", None)
+    if not falas:
+        return Resposta().diz(texto if texto is not None else "")
+    r = Resposta()
+    for f in falas:
+        corpo = (f"*{f['nome']}:* " if f.get("nome") else "") + f["texto"]
+        r.diz(corpo)
+        m = r.mensagens[-1]
+        if f.get("voz"):
+            m["modelo_voz"] = f["voz"]
+            m["falado"] = f["texto"]
+            m["literal"] = True
     return r
 
 

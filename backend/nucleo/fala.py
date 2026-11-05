@@ -679,6 +679,18 @@ def falar_resposta(conta, canal: str, resposta, entrada_audio: bool, forcar: boo
                 m.pop("audio", None)
         return
     from nucleo import models
+    vozes = [m for m in resposta.mensagens if m.get("modelo_voz")]
+    if len(vozes) > 1:
+        # Cena com várias modelos: cada fala com a voz da própria modelo, na ordem.
+        for m in vozes:
+            try:
+                audio = models.sintetizar(o_que_falar([{"falado": m.get("falado") or m.get("texto"), "literal": True}]),
+                                          canal, m["modelo_voz"])
+                if audio:
+                    m["audio"] = audio
+            except Exception:
+                log.warning('Voz do Models indisponível numa fala da cena; texto preservado.')
+        return
     voz_models = models.voz_das_mensagens(resposta.mensagens)
     if voz_models:
         try:

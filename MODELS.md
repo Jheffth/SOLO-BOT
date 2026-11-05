@@ -87,3 +87,25 @@ extração automática do cartão. Não consulta persona, galeria, sentimentos o
 memórias legadas, nem cria fatos de rotina sem uma deixa real. Horário de silêncio,
 canal com avisos, limite de mensagens sem resposta e preferências de voz continuam
 valendo. O controle de conversa ativa usa somente metadados do canal da conta.
+
+## Cena com várias modelos (`/addmodel`)
+
+Só o Arquiteto, com uma modelo do Models selecionada.
+
+- `/addmodel Kellen` chama outra modelo para a conversa, no mesmo chat. O narrador
+  (sem voz) descreve a chegada a partir da conversa recente: se o Arquiteto pediu
+  para a anfitriã chamar a Kellen, a cena mostra a ligação e a chegada. Em seguida a
+  Kellen diz a primeira fala e a anfitriã reage. Até 3 modelos.
+- `/removemodel Kellen` narra a saída, a Kellen se despede e sai. Com uma só
+  restante, a conversa volta a ser individual com ela (se a anfitriã saiu, a
+  restante passa a ser a modelo selecionada).
+- `/modelos` (ou `/quem`) mostra quem está na cena.
+- Diretor de turno (código): quem foi chamada pelo nome fala primeiro; sem nome, a
+  anfitriã. Cada modelo fala de 1 a 2 vezes por rodada, só enquanto houver assunto
+  (quem é citada na fala da outra responde; quem não tem nada a acrescentar fica em
+  silêncio). Uma chamada ao Grok por fala, com o contexto da própria modelo montado
+  pelo Solo Models (`presentes` = a cena). A primeira montagem de cada modelo na
+  rodada atualiza o humor dela; as seguintes usam origem `iniciativa`.
+- Uma mensagem por fala, com `*Nome:*` na frente e o áudio na voz da própria modelo
+  (`fala.falar_resposta` sintetiza cada fala separadamente). A rodada é gravada no
+  Models (`/cena/rodada`), que guarda a memória em cada modelo presente.
