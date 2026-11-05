@@ -16,7 +16,7 @@ log = logging.getLogger("solobot.models_cena")
 
 LIMITE_PADRAO = 2          # falas de cada modelo por rodada (de 1 a 2, enquanto houver assunto)
 SILENCIO = "[silêncio]"
-MAX_FALA = 900
+MAX_FALA = 1800
 # O Bella.exe desiste em 25 s e não recebe mensagens depois: só começa outra fala se ainda houver tempo.
 TEMPO_SINCRONO = 10
 # Nestes canais a primeira fala sai na hora e as reações chegam depois, uma de cada vez.
@@ -34,8 +34,15 @@ def _norm(t):
     return "".join(c for c in unicodedata.normalize("NFD", (t or "").casefold()) if unicodedata.category(c) != "Mn")
 
 
+def _formas(nome):
+    """O nome completo e o primeiro nome ("Kellen Iara" também atende por "Kellen")."""
+    nome = (nome or "").strip()
+    return [n for n in dict.fromkeys([nome, nome.split(" ")[0] if nome else ""]) if len(n) >= 3]
+
+
 def _citado(nome, texto):
-    return bool(nome) and re.search(r"(?<!\w)" + re.escape(_norm(nome)) + r"(?!\w)", _norm(texto)) is not None
+    alvo = _norm(texto)
+    return any(re.search(r"(?<!\w)" + re.escape(_norm(n)) + r"(?!\w)", alvo) for n in _formas(nome))
 
 
 def _voz(p):
@@ -58,8 +65,11 @@ def cena_ativa(conta, ident):
 def _limpar(texto, nome, outros):
     """Só a fala dela: tira o prefixo com o próprio nome e corta onde começaria a fala de outra pessoa."""
     texto = (texto or "").strip()
-    texto = re.sub(r"^\s*\**\s*" + re.escape(nome) + r"\s*\**\s*:\s*", "", texto, flags=re.I)
-    for outro in [*outros, "Arquiteto", "Narração", "Narrador"]:
+    texto = re.sub(r"^\s*\[[^\]]{0,60}\]\s*", "", texto)          # "[Fala de Kellen Iara]"
+    for n in _formas(nome):
+        texto = re.sub(r"^\s*\**\s*" + re.escape(n) + r"\s*\**\s*:\s*", "", texto, flags=re.I)
+    rotulos = [f for o in outros for f in _formas(o)] + ["Arquiteto", "Narração", "Narrador"]
+    for outro in rotulos:
         corte = re.search(r"(?:^|\s)\**\s*" + re.escape(outro) + r"\s*\**\s*:", texto, flags=re.I)
         if corte:
             texto = texto[:corte.start()].strip()
@@ -78,10 +88,12 @@ def _fala(conta, modelo_id, presentes, nomes, mensagem, ja_ditas, instrucao="", 
     ctx = m._montar_contexto(conta, modelo_id, mensagem or "[Cena]", origem="usuario" if primeira else "iniciativa",
                              presentes=presentes)
     prompt, factual, historico = m.montar_prompt(conta, p, ctx)
-    prompt += ("\nVocê está numa cena com mais de uma modelo. Escreva SOMENTE a sua próxima fala, em primeira pessoa, "
-               "curta e natural (até 600 caracteres), sem o seu nome na frente e sem escrever falas ou ações das outras. "
-               "Seja você mesma, com criatividade: aja, provoque, brinque, discorde. Não repita frases, bordões ou ideias "
-               "que você ou as outras já disseram na cena, e não resuma o que já aconteceu.")
+    prompt += ("\nVocê está numa cena com mais de uma modelo. Na sua vez, escreva SOMENTE a sua parte, em primeira pessoa, "
+               "sem o seu nome na frente: o que você está fazendo agora (ações e gestos entre asteriscos, como na conversa "
+               "a dois), o que sente e o que diz nesse momento, com o mesmo nível de detalhe e de intensidade que você "
+               "usaria a sós com o Arquiteto. Foque na ação e no que está acontecendo, não em comentar o que as outras "
+               "disseram nem em discutir a cena com o Arquiteto. Faça a cena andar. Nunca escreva falas, ações ou "
+               "pensamentos das outras. Não repita frases, ideias ou bordões já ditos na cena (por você ou pelas outras).")
     if pode_calar:
         prompt += f" Se agora não tiver nada relevante a acrescentar, responda exatamente {SILENCIO}."
     partes = []
@@ -90,19 +102,20 @@ def _fala(conta, modelo_id, presentes, nomes, mensagem, ja_ditas, instrucao="", 
     anteriores = [f for f in ja_ditas if f is not reagir]
     if anteriores:
         partes.append("Antes, nesta rodada:\n" + "\n".join(f"{f['nome']}: {f['texto']}" for f in anteriores))
+    if mensagem and not reagir:
+        partes.append("[Situação, não é fala de ninguém] Faça o que o Arquiteto pediu, com a sua ação.")
     if reagir:
-        partes.append(f"{reagir['nome']} acabou de dizer: \"{reagir['texto']}\"\n"
-                      f"[Situação, não é fala de ninguém] Responda a essa fala de {reagir['nome']} (e ao Arquiteto, se fizer "
-                      "sentido) do seu jeito. Traga algo novo: não repita nem parafraseie o que ela disse e não reuse as "
-                      "expressões dela.")
+        partes.append(f"Agora mesmo, {reagir['nome']}: {reagir['texto']}\n"
+                      "[Situação, não é fala de ninguém] Isso é o que acabou de acontecer. Continue a partir daí com a SUA "
+                      "ação: não responda nem repita o que ela disse; faça a sua parte na cena.")
     if instrucao:
         partes.append("[Situação, não é fala de ninguém] " + instrucao)
     partes.append(f"Agora é a sua vez, {p['nome']}.")
     pergunta = "\n\n".join(partes) + ("\n\n[CONTEXTO INTERNO ATUAL — não é fala da pessoa]" + factual if factual else "")
-    saida = grok.gerar(prompt, pergunta, max_tokens=600, historico=historico)
+    saida = grok.gerar(prompt, pergunta, max_tokens=1200, historico=historico)
     if (saida and conta.admin and p.get("obediencia_arquiteto", True) is not False and mensagem
             and m._ordem_firme(mensagem) and _citado(p["nome"], mensagem) and m._recusou(saida)):
-        outra = grok.gerar(prompt + m.LEMBRETE_OBEDECER, pergunta, max_tokens=600, historico=historico)
+        outra = grok.gerar(prompt + m.LEMBRETE_OBEDECER, pergunta, max_tokens=1200, historico=historico)
         if outra and not m._recusou(outra):
             saida = outra
     outros = [n for i, n in nomes.items() if i != modelo_id]
@@ -166,9 +179,10 @@ def _continuar(conta, texto, presentes, nomes, ordem, limite, falas, prazo=None,
         if geracao is not None and not _vigente(conta.id, geracao):
             break
         ultima = falas[-1]
-        citadas = [p for p in presentes if p != ultima["modelo_id"] and contagem[p] < limite and _citado(nomes[p], ultima["texto"])]
+        # Cada uma uma vez por mensagem, na ordem: a cena anda pela ação, não por uma responder à fala da outra.
         novas = [p for p in ordem if contagem[p] == 0 and p != ultima["modelo_id"] and p not in caladas]
-        proxima = next(iter(citadas + novas), None)
+        citadas = []
+        proxima = next(iter(novas), None)
         if not proxima:
             break
         try:

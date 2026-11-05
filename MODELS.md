@@ -100,14 +100,18 @@ Só o Arquiteto, com uma modelo do Models selecionada.
   restante, a conversa volta a ser individual com ela (se a anfitriã saiu, a
   restante passa a ser a modelo selecionada).
 - `/modelos` (ou `/quem`) mostra quem está na cena.
-- Diretor de turno (código): quem foi chamada pelo nome fala primeiro; sem nome, a
-  anfitriã. Uma fala de cada vez: a primeira responde ao Arquiteto, a outra responde
-  ao que a primeira acabou de dizer (sem repetir as expressões dela), e assim por
-  diante. Depois de todas terem falado, só continua quem foi citada pelo nome, até
-  2 falas de cada. Uma fala que só ecoa outra (mesmas palavras) é descartada.
-  Uma chamada ao Grok por fala, com o contexto da própria modelo montado pelo Solo
-  Models (`presentes` = a cena). A primeira montagem de cada modelo na rodada
-  atualiza o humor dela; as seguintes usam origem `iniciativa`.
+- Diretor de turno (código): quem foi chamada pelo nome (o primeiro nome basta:
+  "Kellen" chama a "Kellen Iara") fala primeiro; sem nome, a anfitriã. Uma vez cada
+  por mensagem, uma de cada vez. Cada uma faz a SUA parte na cena: narra entre
+  asteriscos o que está fazendo, o que sente e o que diz, com a mesma intensidade da
+  conversa a dois. A seguinte recebe o que acabou de acontecer como situação, não
+  como fala a responder, e continua pela própria ação, sem repetir nem comentar a
+  outra. Uma fala que só ecoa outra (mesmas palavras) é descartada. Uma chamada ao
+  Grok por fala, com o contexto da própria modelo montado pelo Solo Models
+  (`presentes` = a cena).
+- Intimidade entre elas: depende do vínculo do par no portal do Models (Mente →
+  Pares, "Podem estar juntas em cena íntima"). Desmarcado, o contexto diz que a outra
+  não participa de nada íntimo.
 - Tempo: no WhatsApp e no Telegram a primeira fala sai na hora e as reações são
   geradas depois, em segundo plano, e entregues uma a uma. No Bella.exe (que desiste
   em 25 s e não recebe mensagens depois) só começa outra fala se ainda estiver dentro

@@ -93,10 +93,10 @@ def test_rodada_chamada_pelo_nome_e_conversa_entre_elas_com_limite(logado, monke
     r = models.responder('Kellen, vem cá', 1)
     assert r.falas[0]['nome'] == 'Kellen'
     nomes = [f['nome'] for f in r.falas]
-    assert nomes.count('Kellen') <= 2 and nomes.count('Bella') <= 2 and len(nomes) == 4
+    assert nomes == ['Kellen', 'Bella']                     # uma vez cada, pela ação; citar a outra não puxa outra rodada
     # a primeira montagem de cada uma atualiza o humor; as seguintes não
     origens = [(m['modelo_id'], m.get('origem', 'usuario')) for m in montagens]
-    assert origens[0] == (KELLEN, 'usuario') and (KELLEN, 'iniciativa') in origens
+    assert origens == [(KELLEN, 'usuario'), (BELLA, 'usuario')]
 
 
 def test_silencio_encerra_a_rodada(logado, monkeypatch):
@@ -148,8 +148,8 @@ def test_a_outra_responde_ao_que_a_primeira_disse(logado, monkeypatch):
     monkeypatch.setattr(grok, 'gerar', gerar)
     r = models.responder('quem me beija primeiro?', 1)
     assert [f['nome'] for f in r.falas] == ['Bella', 'Kellen']
-    assert 'Bella acabou de dizer: "Quero ver quem tem coragem primeiro."' in perguntas['Kellen']
-    assert 'não repita' in perguntas['Kellen']
+    assert 'Agora mesmo, Bella: Quero ver quem tem coragem primeiro.' in perguntas['Kellen']
+    assert 'não responda nem repita' in perguntas['Kellen']
 
 
 def test_eco_da_outra_nao_vira_mensagem(logado, monkeypatch):
@@ -193,3 +193,21 @@ def test_mensagem_nova_interrompe_a_rodada_anterior(logado, monkeypatch):
     models.responder('segunda', 1, canal='whatsapp')
     alvo, args = tarefas[0]; alvo(*args)
     assert not entregues
+
+
+def test_primeiro_nome_chama_e_fala_da_outra_nao_vaza():
+    assert models_cena._citado('Kellen Iara', 'Fala pra mim Kellen, como está?')
+    assert not models_cena._citado('Kellen Iara', 'Fala pra mim, Bella')
+    texto = '[Fala de Kellen Iara]\n*me ajoelho devagar* Assim? Bella: Deitada eu fico.'
+    assert models_cena._limpar(texto, 'Kellen Iara', ['Bella']) == '*me ajoelho devagar* Assim?'
+    assert models_cena._limpar('Kellen: oi. Bella Costa: tchau', 'Kellen Iara', ['Bella Costa']) == 'oi.'
+
+
+def test_quem_foi_chamada_pelo_primeiro_nome_fala_primeiro(logado, monkeypatch):
+    ambiente(logado, monkeypatch, cena_inicial=True)
+    vistos = []
+    monkeypatch.setattr(grok, 'gerar', lambda p, q, **kw: vistos.append(p.split('.')[0]) or 'Uma ação nova e diferente desta vez.' + str(len(vistos)))
+    monkeypatch.setattr(models_cena, 'cena_ativa', lambda conta, ident: {'ativa': True, 'limite_falas': 2, 'presentes': [
+        {'modelo_id': BELLA, 'nome': 'Bella', 'anfitria': True}, {'modelo_id': KELLEN, 'nome': 'Kellen Iara'}]})
+    r = models.responder('Fala pra mim Kellen, o que você está fazendo?', 1)
+    assert r.falas[0]['voz']['voice_id'] == 'voz-kellen'
