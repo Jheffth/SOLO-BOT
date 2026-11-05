@@ -211,3 +211,27 @@ def test_quem_foi_chamada_pelo_primeiro_nome_fala_primeiro(logado, monkeypatch):
         {'modelo_id': BELLA, 'nome': 'Bella', 'anfitria': True}, {'modelo_id': KELLEN, 'nome': 'Kellen Iara'}]})
     r = models.responder('Fala pra mim Kellen, o que você está fazendo?', 1)
     assert r.falas[0]['voz']['voice_id'] == 'voz-kellen'
+
+
+def test_na_cena_quem_desconversa_refaz_obedecendo(logado, monkeypatch):
+    ambiente(logado, monkeypatch, cena_inicial=True)
+    prompts = []
+
+    def gerar(prompt, pergunta, **kw):
+        prompts.append((_quem_fala(prompt), prompt))
+        if _quem_fala(prompt) == 'Kellen':
+            if '[CORREÇÃO]' in prompt:
+                return '*passo a língua devagar* Ela está quente e treme a cada volta que eu dou.'
+            return 'Arquiteto, eu não falo com plateia. Quem quiser saber, vem conferir.'
+        return '*seguro o lençol e arqueio as costas* Não para, Kellen.'
+    monkeypatch.setattr(grok, 'gerar', gerar)
+    r = models.responder('Fala pra mim Kellen, descreve o que você está fazendo', 1)
+    assert r.falas[0]['texto'].startswith('*passo a língua')
+    assert 'O Arquiteto dirige esta cena' in prompts[0][1]
+    assert sum(1 for q, p in prompts if q == 'Kellen') == 2       # uma tentativa a mais, só para quem desconversou
+
+
+def test_esquiva_reconhecida():
+    assert models_cena._desobedeceu('Não vou ficar aqui ditando manual pra plateia.')
+    assert models_cena._desobedeceu('Quer saber? Então para de perguntar e vem conferir.')
+    assert not models_cena._desobedeceu('*me ajoelho* Assim, devagar, do jeito que você mandou.')

@@ -109,6 +109,13 @@ Só o Arquiteto, com uma modelo do Models selecionada.
   outra. Uma fala que só ecoa outra (mesmas palavras) é descartada. Uma chamada ao
   Grok por fala, com o contexto da própria modelo montado pelo Solo Models
   (`presentes` = a cena).
+- Linguagem: com o clima sexual (temperatura 3 ou mais) e conteúdo adulto liberado,
+  a modelo fala de forma explícita, chamando o corpo e o sexo pelo nome, sozinha ou
+  na cena. Abaixo disso, ou com classificação geral, nada muda.
+- Obediência na cena: toda mensagem do Arquiteto é direção da cena. O que ele manda
+  ou diz que acontece, acontece; se pede para descrever, ela descreve. Quem recusa ou
+  desconversa ("vem conferir", "não falo com plateia", "não vou ditar manual") tenta
+  de novo uma vez, com correção. Vale para quem tem obediência ao Arquiteto ligada.
 - Intimidade entre elas: depende do vínculo do par no portal do Models (Mente →
   Pares, "Podem estar juntas em cena íntima"). Desmarcado, o contexto diz que a outra
   não participa de nada íntimo.
