@@ -250,6 +250,15 @@ Não há medição de tempo real da VPS nos testes locais.
 Imagens recebidas por WhatsApp, Telegram e Bella.exe são encaminhadas ao Rotinas para identificação antes de entrar como referências de prompts. Pedidos explícitos de prompt preservam seu fluxo. Prints do Strava completos registram a corrida automaticamente na conta vinculada; imagens incompletas e falhas de leitura não viram referências. A data usa o dia do envio para Hoje/Ontem e pode ser substituída na legenda. Contrato e limites: [INTEGRACAO_TREINOS.md](INTEGRACAO_TREINOS.md).
 
 
+## TV LG de casa (ponte local)
+
+`nucleo/tv_lg.py` entende pedidos de TV em português e guarda a fila de comandos; só a conta
+administradora usa, em qualquer modo, antes do roteamento aos sistemas. A ponte
+(`ponte_tv/ponte.py`, no notebook de casa) faz long-poll autenticado em `routers/ponte_tv.py`
+com `PONTE_TV_TOKEN`; o bot nunca abre conexão para a casa. A fila é em memória (um processo
+uvicorn). Ações, segurança e pareamento: [ponte_tv/LEIA-ME.md](ponte_tv/LEIA-ME.md).
+
+
 ## Cópia privada das memórias para o Models
 
 A seleção entre Bella (Legado) e o canal Models está documentada em [MODELS.md](MODELS.md).

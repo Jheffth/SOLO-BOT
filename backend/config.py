@@ -174,3 +174,7 @@ VOICESTUDIO_TIMEOUT = _inteiro("VOICESTUDIO_TIMEOUT", 35, 5, 300)
 VOICESTUDIO_STEPS = _inteiro("VOICESTUDIO_STEPS", 5, 1, 128)
 # Criar uma voz clonada é mais lento que falar: o VoiceStudio transcreve a amostra antes de gravar o perfil.
 VOICESTUDIO_CLONE_TIMEOUT = _inteiro("VOICESTUDIO_CLONE_TIMEOUT", 240, 30, 900)
+
+# ── TV LG de casa (ponte local no notebook; ver ponte_tv/LEIA-ME.md) ─────
+# Token secreto que a ponte manda em "Authorization: Bearer …". Vazio = controle da TV desligado.
+PONTE_TV_TOKEN = _env("PONTE_TV_TOKEN")

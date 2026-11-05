@@ -609,6 +609,15 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if cmd == "/emocao":
         return _cmd_emocao(conta, resto.strip())
 
+    # TV de casa: só a conta administradora, em qualquer modo (a ponte fica no notebook dela)
+    from nucleo import tv_lg
+    if cmd == "/tv" and not conta.admin:
+        return Resposta().diz("🔒 O controle da TV é só da conta administradora.")
+    if conta.admin and (cmd == "/tv" or tv_lg.ativo()):
+        resposta_tv = tv_lg.atender(txt)
+        if resposta_tv:
+            return Resposta().diz(resposta_tv)
+
     if cmd.startswith("/"):
         mod = _comando_de_modulo(cmd)
         if mod:

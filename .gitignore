@@ -26,3 +26,8 @@ galeria/**/*.jpeg
 galeria/**/*.png
 galeria/**/*.webp
 galeria/**/*.mp4
+
+# ponte da TV LG: client-key e token ficam só no notebook
+ponte_tv/tv_config.json
+ponte_tv/tv_config.tmp
+ponte_tv/*.log
