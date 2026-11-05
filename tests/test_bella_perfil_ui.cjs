@@ -6,7 +6,7 @@ function elemento() {
   return {style: {}, classList: {toggle() {}}, setAttribute(k, v) { this[k] = v; }};
 }
 const ids = Object.fromEntries(['btn-recortar', 'btn-remover', 'arquivo', 'soltar', 'btn-escolher',
-  'btn-trocar-foto', 'foto-origem', 'modelo-nome', 'cfg-chave', 'cfg-servidor'].map(id => [id, elemento()]));
+  'btn-trocar-foto', 'foto-origem', 'modelo-nome', 'foto-nome', 'cfg-chave', 'cfg-servidor'].map(id => [id, elemento()]));
 ids['cfg-chave'].value = 'chave em edição';
 ids['cfg-servidor'].value = 'servidor em edição';
 const avatares = [elemento(), elemento(), elemento()]; // principal, resposta e Mini-Bella
@@ -22,6 +22,7 @@ contexto.aplicarPerfil({foto: 'data:image/jpeg;base64,AAAA', fotoModels: true, m
 assert.ok(avatares.every(a => a.style.backgroundImage.includes('AAAA')));
 assert.equal(ids.arquivo.disabled, true);
 assert.equal(ids['modelo-nome'].textContent, 'Kellen Iara');
+assert.equal(ids['foto-nome'].textContent, 'Foto de Kellen Iara');
 assert.ok(ids['foto-origem'].textContent.includes('Kellen Iara'));
 contexto.aplicarPerfil({foto: 'data:image/jpeg;base64,BBBB', fotoModels: true, modeloNome: 'Bella'});
 assert.ok(avatares.every(a => a.style.backgroundImage.includes('BBBB') && !a.style.backgroundImage.includes('AAAA')));

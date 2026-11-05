@@ -113,6 +113,7 @@
     config = Object.assign(config, c);
     aplicarAvatar();
     $("modelo-nome").textContent = nomeModelo();
+    $("foto-nome").textContent = config.perfilPendente ? "Foto da modelo" : "Foto de " + nomeModelo();
     if (MINI) { atualizarMini(); return; }
     $("btn-recortar").disabled = !config.foto || !!config.fotoModels;
     $("btn-remover").disabled = !config.foto || !!config.fotoModels;
