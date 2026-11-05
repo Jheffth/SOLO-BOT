@@ -4,13 +4,17 @@ Cada TV tem um apelido ("sala", "quarto") em tv_config.json, que fica fora do Gi
 porque guarda o client-key do pareamento e o token da ponte.
 """
 import asyncio
+import concurrent.futures as cf
 import json
+import logging
 import os
 import re
 import socket
+import subprocess
 import unicodedata
 from pathlib import Path
 
+log = logging.getLogger("ponte_tv")
 CONFIG = Path(os.environ.get("TV_CONFIG", Path(__file__).with_name("tv_config.json")))
 
 # Apps aceitos: nome falado → ids conhecidos e trecho do título para procurar na TV.
@@ -179,6 +183,47 @@ def porta_aberta(ip, porta=3001, espera=0.8):
         return False
 
 
+def _ip_pelo_mac(mac):
+    """IP atual do MAC na tabela ARP do notebook (Windows usa “-”, Linux/macOS usam “:”)."""
+    mac = mac_normalizado(mac)
+    try:
+        saida = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=5).stdout.lower()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for linha in saida.splitlines():
+        if mac in linha or mac.replace(":", "-") in linha:
+            m = re.search(r"\b(\d{1,3}(?:\.\d{1,3}){3})\b", linha)
+            if m:
+                return m.group(1)
+    return None
+
+
+def _varrer(base):
+    """Quem tem a porta da TV aberta na sub-rede (isso também preenche a tabela ARP)."""
+    ips = [f"{base}.{i}" for i in range(1, 255)]
+    with cf.ThreadPoolExecutor(64) as ex:
+        return {ip for ip, aberta in zip(ips, ex.map(lambda ip: porta_aberta(ip, 3001, 0.5), ips)) if aberta}
+
+
+def localizar(nome, tv, cfg, varrer=True):
+    """Confere se a TV responde. Se o roteador deu outro IP a ela, acha pelo MAC e grava o novo."""
+    if porta_aberta(tv["ip"]):
+        return True
+    novo = _ip_pelo_mac(tv["mac"])
+    if not (novo and novo != tv["ip"] and porta_aberta(novo)):
+        if not varrer:
+            return False
+        abertos = _varrer(".".join(tv["ip"].split(".")[:3]))
+        novo = _ip_pelo_mac(tv["mac"])
+        if novo not in abertos:
+            return False
+    log.info("TV %s mudou de IP: %s → %s", nome, tv["ip"], novo)
+    tv["ip"] = novo
+    cfg["tvs"][nome]["ip"] = novo
+    salvar_config(cfg)
+    return True
+
+
 async def _cliente(tv, parear=False):
     """Abre a conexão com a TV. Sem client-key, a TV mostra o pedido de pareamento."""
     from bscpylgtv import WebOsClient
@@ -289,18 +334,21 @@ async def executar(acao, args=None, apelido=None):
         return {"ok": True, "tv": nome, "mensagem": _gerir_favoritos(cfg, acao, args)}
 
     if acao == "ligar":
-        if porta_aberta(tv["ip"]):
+        if await asyncio.to_thread(localizar, nome, tv, cfg):
             return {"ok": True, "tv": nome, "mensagem": f"A TV {nome} já está ligada."}
         wake_on_lan(tv["mac"], tv["ip"])
-        for _ in range(20):
+        for segundo in range(1, 21):
             await asyncio.sleep(1)
-            if porta_aberta(tv["ip"]):
+            if await asyncio.to_thread(localizar, nome, tv, cfg, segundo % 5 == 0):
                 return {"ok": True, "tv": nome, "mensagem": f"TV {nome} ligada."}
         raise TVDesligada("Mandei o sinal para ligar, mas a TV não respondeu. "
                           "Confira se “Ligar via Wi-Fi” está ativo nas configurações da TV.")
 
-    if acao == "desligar" and not porta_aberta(tv["ip"]):
-        return {"ok": True, "tv": nome, "mensagem": f"A TV {nome} já está desligada."}
+    # O roteador pode ter dado outro IP à TV: procura pelo MAC antes de concluir que está desligada.
+    if not await asyncio.to_thread(localizar, nome, tv, cfg):
+        if acao == "desligar":
+            return {"ok": True, "tv": nome, "mensagem": f"Não achei a TV {nome} na rede: ela já parece desligada."}
+        raise TVDesligada(f"Não achei a TV {nome} na rede: ela parece desligada.")
 
     from bscpylgtv.exceptions import PyLGTVCmdException
     cliente = await _cliente(tv)

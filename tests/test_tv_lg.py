@@ -280,9 +280,42 @@ def test_tv_desligada_na_ponte(monkeypatch, tmp_path):
     monkeypatch.setattr(lgtv, "CONFIG", tmp_path / "tv_config.json")
     lgtv.salvar_config({"tvs": {"sala": {"ip": "10.0.0.9", "mac": "f0:86:20:f2:26:1e", "client_key": "k"}}})
     monkeypatch.setattr(lgtv, "porta_aberta", lambda *a, **k: False)
+    monkeypatch.setattr(lgtv, "_ip_pelo_mac", lambda mac: None)
     with pytest.raises(lgtv.TVDesligada):
         asyncio.run(lgtv.executar("volume", {"modo": "subir"}, "sala"))
-    assert asyncio.run(lgtv.executar("desligar", {}, "sala"))["mensagem"] == "A TV sala já está desligada."
+    assert asyncio.run(lgtv.executar("desligar", {}, "sala"))["mensagem"] == \
+        "Não achei a TV sala na rede: ela já parece desligada."
+
+
+def test_tv_que_mudou_de_ip_e_achada_pelo_mac(monkeypatch, tmp_path):
+    """O roteador trocou o IP (13 → 6): a ponte acha pelo MAC, grava e desliga a TV certa."""
+    monkeypatch.setattr(lgtv, "CONFIG", tmp_path / "tv_config.json")
+    lgtv.salvar_config({"tvs": {"sala": {"ip": "192.168.1.13", "mac": "f0:86:20:f2:26:1e", "client_key": "k"}}})
+    monkeypatch.setattr(lgtv, "porta_aberta", lambda ip, *a, **k: ip == "192.168.1.6")
+    monkeypatch.setattr(lgtv, "_ip_pelo_mac", lambda mac: "192.168.1.6")
+    usados = []
+
+    class Cliente:
+        async def power_off(self):
+            pass
+
+        async def disconnect(self):
+            pass
+
+    async def cliente(tv, parear=False):
+        usados.append(tv["ip"])
+        return Cliente()
+    monkeypatch.setattr(lgtv, "_cliente", cliente)
+    monkeypatch.setitem(sys.modules, "bscpylgtv.exceptions", types.SimpleNamespace(PyLGTVCmdException=RuntimeError))
+    assert asyncio.run(lgtv.executar("desligar", {}, "sala"))["mensagem"] == "TV sala desligada."
+    assert usados == ["192.168.1.6"] and lgtv.carregar_config()["tvs"]["sala"]["ip"] == "192.168.1.6"
+
+
+def test_ip_pelo_mac_le_a_tabela_arp(monkeypatch):
+    saida = "  192.168.1.6           f0-86-20-f2-26-1e     dinâmico\n  192.168.1.1  aa-bb-cc-dd-ee-ff  dinâmico\n"
+    monkeypatch.setattr(lgtv.subprocess, "run", lambda *a, **k: types.SimpleNamespace(stdout=saida))
+    assert lgtv._ip_pelo_mac("F0:86:20:F2:26:1E") == "192.168.1.6"
+    assert lgtv._ip_pelo_mac("00:11:22:33:44:55") is None
 
 
 def test_pacote_magico(monkeypatch):
