@@ -4,6 +4,8 @@
   python tv.py sala volume definir 15
   python tv.py sala abrir_app youtube
   python tv.py sala aviso "Oi da Bella"
+  python tv.py sala favorito_salvar The Chosen https://www.netflix.com/watch/81622759
+  python tv.py sala favorito_abrir the chosen
   python tv.py lista
   python tv.py token https://solobot.duckdns.org   (gera o token da ponte)
 """
@@ -23,6 +25,10 @@ def _args(acao, resto):
         return {"hdmi": resto[0] if resto else ""}
     if acao == "aviso":
         return {"texto": " ".join(resto)}
+    if acao == "favorito_salvar":
+        return {"nome": " ".join(resto[:-1]), "link": resto[-1] if resto else ""}
+    if acao in ("favorito_abrir", "favorito_apagar"):
+        return {"nome": " ".join(resto)}
     return {}
 
 

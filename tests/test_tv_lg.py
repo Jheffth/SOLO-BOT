@@ -67,6 +67,14 @@ def _ponte_falsa(fila, respostas=None, tvs=("sala", "quarto"), vezes=1):
     ("desliga a tv do escritorio", ("tv.desligar", {}, "escritorio")),
     ("/tv volume 20", ("tv.volume", {"modo": "definir", "valor": 20}, None)),
     ("tira a tv do mudo", ("tv.volume", {"modo": "som"}, None)),
+    ("abre The Chosen na tv", ("tv.favorito_abrir", {"nome": "the chosen"}, None)),
+    ("Abra a Netflix em The Chosen", ("tv.favorito_abrir", {"nome": "the chosen"}, None)),
+    ("coloca o youtube no clipe da festa na tv sala", ("tv.favorito_abrir", {"nome": "clipe da festa"}, "sala")),
+    ("abre o youtube na tv", ("tv.abrir_app", {"app": "youtube"}, None)),
+    ("/tv favorito The Chosen https://www.netflix.com/watch/81622759?trackId=284616272",
+     ("tv.favorito_salvar", {"nome": "The Chosen", "link": "https://www.netflix.com/watch/81622759?trackId=284616272"}, None)),
+    ("/tv favoritos", ("tv.favoritos", {}, None)),
+    ("/tv esquecer The Chosen", ("tv.favorito_apagar", {"nome": "The Chosen"}, None)),
 ])
 def test_entende_pedidos(texto, esperado):
     assert tv_lg.interpretar(texto, tvs=["sala", "quarto"]) == esperado
@@ -100,10 +108,50 @@ def test_bot_e_ponte_validam_igual():
 
 
 # ── fila e execução ───────────────────────────────────────────────
-def test_app_fora_da_lista_e_recusado_sem_chamar_a_ponte(fila):
-    fila.visto_em = __import__("time").monotonic()
-    assert "Esse app eu não abro" in tv_lg.atender("abre a calculadora na tv")
-    assert fila.proximo(0) is None
+def test_favorito_so_aceita_netflix_e_youtube():
+    assert tv_lg.validar("tv.favorito_salvar", {"nome": "The Chosen", "link": "https://www.netflix.com/br/title/81622759"}) \
+        == {"nome": "The Chosen", "link": "https://www.netflix.com/watch/81622759"}
+    assert tv_lg.validar("tv.favorito_salvar", {"nome": "Clipe", "link": "https://youtu.be/dQw4w9WgXcQ?t=3"}) \
+        == {"nome": "Clipe", "link": "https://youtu.be/dQw4w9WgXcQ"}
+    for link in ("https://evil.example/netflix.com", "file:///c:/x", "https://www.netflix.com/browse"):
+        with pytest.raises(tv_lg.ErroTV):
+            tv_lg.validar("tv.favorito_salvar", {"nome": "x", "link": link})
+    with pytest.raises(tv_lg.ErroTV):
+        tv_lg.validar("tv.favorito_abrir", {"nome": "x" * 61})
+    assert "Esse app eu não abro" in str(pytest.raises(tv_lg.ErroTV, tv_lg.validar, "tv.abrir_app", {"app": "cmd"}).value)
+
+
+def test_ponte_guarda_abre_e_tira_favoritos(monkeypatch, tmp_path):
+    monkeypatch.setattr(lgtv, "CONFIG", tmp_path / "tv_config.json")
+    lgtv.salvar_config({"tvs": {"sala": {"ip": "10.0.0.9", "mac": "f0:86:20:f2:26:1e", "client_key": "k"}}})
+    args = tv_lg.validar("tv.favorito_salvar", {"nome": "The Chosen", "link": "https://www.netflix.com/watch/81622759"})
+    r = asyncio.run(lgtv.executar("favorito_salvar", args, "sala"))
+    assert r["mensagem"] == "Favorito salvo: The Chosen (Netflix)."
+    assert lgtv.carregar_config()["favoritos"] == {"the chosen": {"titulo": "The Chosen", "app": "netflix", "codigo": "81622759"}}
+
+    abertos = []
+
+    class Cliente:
+        async def get_apps(self):
+            return [{"id": "netflix", "title": "Netflix"}]
+
+        async def launch_app_with_content_id(self, app, conteudo):
+            abertos.append((app, conteudo))
+
+        async def disconnect(self):
+            pass
+
+    async def cliente(tv, parear=False):
+        return Cliente()
+    monkeypatch.setattr(lgtv, "_cliente", cliente)
+    monkeypatch.setitem(sys.modules, "bscpylgtv.exceptions", types.SimpleNamespace(PyLGTVCmdException=RuntimeError))
+    r = asyncio.run(lgtv.executar("favorito_abrir", {"nome": "chosen"}, "sala"))
+    assert abertos == [("netflix", "m=https://www.netflix.com/watch/81622759&source_type=4")]
+    assert r["mensagem"] == "Abrindo The Chosen no Netflix da TV sala."
+    with pytest.raises(lgtv.ErroTV, match="Favoritos: The Chosen"):
+        asyncio.run(lgtv.executar("favorito_abrir", {"nome": "calculadora"}, "sala"))
+    assert "Tirei The Chosen" in asyncio.run(lgtv.executar("favorito_apagar", {"nome": "o the chosen"}, "sala"))["mensagem"]
+    assert lgtv.carregar_config()["favoritos"] == {}
 
 
 def test_executa_pela_ponte(fila):

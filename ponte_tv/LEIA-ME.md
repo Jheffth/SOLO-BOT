@@ -55,9 +55,26 @@ python tv.py sala pause                  # play · pause · desligar · ligar
 - Só saída: a ponte chama `GET /api/ponte-tv/proximo` (espera até 25 s) e `POST /api/ponte-tv/resultado`.
 - Token secreto em `Authorization: Bearer`, comparado em tempo constante; exige `https://` (exceto localhost).
 - Lista fechada de ações e valores, conferida no bot **e** na ponte (`ligar, desligar, volume, abrir_app,
-  entrada, aviso, play, pause, estado`). Nada de comando livre.
+  entrada, aviso, play, pause, estado` e os favoritos). Nada de comando livre; favorito só aceita
+  link da Netflix ou do YouTube.
 - Comando não buscado em 30 s é descartado: a TV não liga horas depois porque o notebook acordou.
 - No bot, só a conta administradora comanda a TV.
+
+## Favoritos (Netflix e YouTube)
+
+Um favorito guarda só o **código** do título (Netflix) ou do vídeo (YouTube), em `tv_config.json`,
+e vale para todas as TVs. Ao abrir, o app já vai para o título.
+
+```text
+/tv favorito The Chosen https://www.netflix.com/watch/81622759   guarda (aceita /watch/ e /title/)
+abre The Chosen na tv  ·  abra a netflix em The Chosen             abre
+/tv favoritos  ·  /tv esquecer The Chosen                         lista · tira
+python tv.py sala favorito_salvar The Chosen <link>               o mesmo, sem o bot
+```
+
+Perfis e controle de maturidade continuam com a Netflix: se ela pedir o perfil, escolha no
+controle. A ponte nunca escolhe perfil nem digita PIN (um perfil infantil continua protegido).
+O YouTube abre o vídeo por `contentTarget`; isso ainda não foi testado nesta TV.
 
 ## Pelo bot
 
@@ -65,4 +82,5 @@ python tv.py sala pause                  # play · pause · desligar · ligar
 “desliga a tv”, “liga a tv do quarto”, “volume 15 na tv”, “tv no mudo”, “abre o netflix na tv”,
 “tv hdmi 2”, “pausa a tv”, “/tv aviso O jantar está pronto”.
 Ações para o agente: `tv.ligar`, `tv.desligar`, `tv.volume`, `tv.abrir_app`, `tv.entrada`,
-`tv.aviso`, `tv.play`, `tv.pause`, `tv.estado` (em `backend/nucleo/tv_lg.py`, `tv_lg.executar`).
+`tv.aviso`, `tv.play`, `tv.pause`, `tv.estado`, `tv.favorito_abrir`, `tv.favorito_salvar`,
+`tv.favoritos`, `tv.favorito_apagar` (em `backend/nucleo/tv_lg.py`, `tv_lg.executar`).

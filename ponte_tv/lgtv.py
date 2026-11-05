@@ -8,6 +8,7 @@ import json
 import os
 import re
 import socket
+import unicodedata
 from pathlib import Path
 
 CONFIG = Path(os.environ.get("TV_CONFIG", Path(__file__).with_name("tv_config.json")))
@@ -21,9 +22,34 @@ APPS = {
 }
 
 # O que a ponte aceita executar. Qualquer outra coisa é recusada antes de falar com a TV.
-ACOES = ("ligar", "desligar", "volume", "abrir_app", "entrada", "aviso", "play", "pause", "estado")
+ACOES = ("ligar", "desligar", "volume", "abrir_app", "entrada", "aviso", "play", "pause", "estado",
+         "favorito_abrir", "favorito_salvar", "favoritos", "favorito_apagar")
 VOLUME_MODOS = ("subir", "descer", "mudo", "som", "definir")
 AVISO_MAX = 200
+NOME_MAX = 60
+
+# Links aceitos nos favoritos: só o código do título/vídeo é guardado.
+LINKS = (
+    ("netflix", re.compile(r"netflix\.com/(?:[a-z]{2}(?:-[a-z]{2})?/)?(?:watch|title)/(\d{5,12})", re.I)),
+    ("youtube", re.compile(r"(?:youtube\.com/(?:watch\?(?:[^#\s]*&)?v=|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})", re.I)),
+)
+
+
+def ler_link(link):
+    """Link da Netflix ou do YouTube → (app, código). Qualquer outro link é recusado."""
+    for app, padrao in LINKS:
+        m = padrao.search(str(link or ""))
+        if m:
+            return app, m.group(1)
+    raise ErroTV("Favorito: mande um link da Netflix (netflix.com/watch/… ou /title/…) ou de um vídeo do YouTube.")
+
+
+def chave_nome(nome):
+    """Nome do favorito comparável: sem acento, minúsculas, sem artigo no começo."""
+    s = unicodedata.normalize("NFKD", str(nome or "").lower())
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = re.sub(r"[^a-z0-9]+", " ", s).strip()
+    return re.sub(r"^(?:o|a|os|as)\s+", "", s)
 
 
 class ErroTV(Exception):
@@ -112,6 +138,14 @@ def validar(acao, args):
         if not texto:
             raise ErroTV("Aviso: falta o texto.")
         return {"texto": texto[:AVISO_MAX]}
+    if acao in ("favorito_abrir", "favorito_salvar", "favorito_apagar"):
+        nome = re.sub(r"\s+", " ", str(args.get("nome", ""))).strip(" .,:;!?\"'")
+        if not chave_nome(nome) or len(nome) > NOME_MAX:
+            raise ErroTV(f"Favorito: diga um nome de até {NOME_MAX} letras.")
+        if acao != "favorito_salvar":
+            return {"nome": nome}
+        app, codigo = ler_link(args.get("link"))
+        return {"nome": nome, "app": app, "codigo": codigo}
     return {}
 
 
@@ -203,11 +237,56 @@ async def _app_id(cliente, app):
     raise ErroTV(f"O app {app} não está instalado nesta TV.")
 
 
+def _lista_favoritos(cfg):
+    favs = cfg.get("favoritos", {})
+    return ", ".join(f["titulo"] for f in favs.values()) or "nenhum ainda"
+
+
+def achar_favorito(cfg, nome):
+    """Pelo nome exato (sem acento/artigo) ou por um pedaço que só um favorito tenha."""
+    favs = cfg.get("favoritos", {})
+    chave = chave_nome(nome)
+    if chave in favs:
+        return favs[chave]
+    parecidos = [f for k, f in favs.items() if chave in k or k in chave]
+    if len(parecidos) == 1:
+        return parecidos[0]
+    raise ErroTV(f"Não tenho o favorito “{nome}”. Favoritos: {_lista_favoritos(cfg)}.")
+
+
+def _gerir_favoritos(cfg, acao, args):
+    favs = cfg.setdefault("favoritos", {})
+    if acao == "favoritos":
+        return f"Favoritos: {_lista_favoritos(cfg)}."
+    chave = chave_nome(args["nome"])
+    if acao == "favorito_apagar":
+        fav = achar_favorito(cfg, args["nome"])
+        favs.pop(chave_nome(fav["titulo"]), None)
+        salvar_config(cfg)
+        return f"Tirei {fav['titulo']} dos favoritos."
+    favs[chave] = {"titulo": args["nome"], "app": args["app"], "codigo": args["codigo"]}
+    salvar_config(cfg)
+    return f"Favorito salvo: {args['nome']} ({args['app'].capitalize()})."
+
+
+async def _abrir_conteudo(cliente, fav):
+    """Abre o app já no título. Perfil e controle de maturidade continuam com a Netflix."""
+    if fav["app"] == "netflix":
+        await cliente.launch_app_with_content_id(
+            await _app_id(cliente, "netflix"), f"m=https://www.netflix.com/watch/{fav['codigo']}&source_type=4")
+    else:
+        await cliente.launch_app_with_params(
+            await _app_id(cliente, "youtube"), {"contentTarget": f"https://www.youtube.com/tv?v={fav['codigo']}"})
+
+
 async def executar(acao, args=None, apelido=None):
     """Executa uma ação permitida na TV pelo apelido. Devolve {ok, mensagem, tv}."""
     args = validar(acao, args)
     cfg = carregar_config()
     nome, tv = tv_do_apelido(cfg, apelido)
+
+    if acao in ("favorito_salvar", "favoritos", "favorito_apagar"):
+        return {"ok": True, "tv": nome, "mensagem": _gerir_favoritos(cfg, acao, args)}
 
     if acao == "ligar":
         if porta_aberta(tv["ip"]):
@@ -247,6 +326,10 @@ async def executar(acao, args=None, apelido=None):
         elif acao == "abrir_app":
             await cliente.launch_app(await _app_id(cliente, args["app"]))
             msg = f"Abrindo {args['app'].capitalize()} na TV {nome}."
+        elif acao == "favorito_abrir":
+            fav = achar_favorito(cfg, args["nome"])
+            await _abrir_conteudo(cliente, fav)
+            msg = f"Abrindo {fav['titulo']} no {fav['app'].capitalize()} da TV {nome}."
         elif acao == "entrada":
             await cliente.set_input(f"HDMI_{args['hdmi']}")
             msg = f"TV {nome} no HDMI {args['hdmi']}."

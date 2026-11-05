@@ -36,10 +36,21 @@ ACOES_AGENTE = {
     "tv.play": "Continua o que está tocando.",
     "tv.pause": "Pausa o que está tocando.",
     "tv.estado": "Diz se está ligada, o volume e o app aberto.",
+    "tv.favorito_abrir": "Abre um favorito pelo nome, já no título (Netflix) ou no vídeo (YouTube).",
+    "tv.favorito_salvar": "Guarda um favorito: nome e link da Netflix ou do YouTube.",
+    "tv.favoritos": "Lista os favoritos guardados na ponte.",
+    "tv.favorito_apagar": "Tira um favorito pelo nome.",
 }
 APPS = ("youtube", "netflix", "globoplay", "prime")
 VOLUME_MODOS = ("subir", "descer", "mudo", "som", "definir")
 AVISO_MAX = 200
+NOME_MAX = 60
+LINKS = (
+    ("https://www.netflix.com/watch/{}",
+     re.compile(r"netflix\.com/(?:[a-z]{2}(?:-[a-z]{2})?/)?(?:watch|title)/(\d{5,12})", re.I)),
+    ("https://youtu.be/{}",
+     re.compile(r"(?:youtube\.com/(?:watch\?(?:[^#\s]*&)?v=|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})", re.I)),
+)
 ESPERA_RESULTADO = 30       # segundos que o bot espera a ponte responder
 VALIDADE_COMANDO = 30       # comando não buscado nesse tempo é descartado (nada de ligar a TV horas depois)
 PONTE_ONLINE = 60           # sem buscar há mais que isso, a ponte é considerada desligada
@@ -90,6 +101,17 @@ def validar(acao: str, args: Optional[dict]) -> dict:
         if not texto:
             raise ErroTV("Aviso: falta o texto.")
         return {"texto": texto[:AVISO_MAX]}
+    if acao in ("tv.favorito_abrir", "tv.favorito_salvar", "tv.favorito_apagar"):
+        nome = re.sub(r"\s+", " ", str(args.get("nome", ""))).strip(" .,:;!?\"'")
+        if not re.search(r"[0-9A-Za-zÀ-ÿ]", nome) or len(nome) > NOME_MAX:
+            raise ErroTV(f"Favorito: diga um nome de até {NOME_MAX} letras.")
+        if acao != "tv.favorito_salvar":
+            return {"nome": nome}
+        for modelo, padrao in LINKS:          # só o código vai para a ponte, num link limpo
+            m = padrao.search(str(args.get("link") or ""))
+            if m:
+                return {"nome": nome, "link": modelo.format(m.group(1))}
+        raise ErroTV("Favorito: mande um link da Netflix (netflix.com/watch/… ou /title/…) ou de um vídeo do YouTube.")
     return {}
 
 
@@ -197,7 +219,18 @@ APP_FALADO = {"youtube": "youtube", "you tube": "youtube", "netflix": "netflix",
 
 VOCABULARIO = {"a", "o", "e", "da", "do", "de", "na", "no", "em", "pra", "para", "tv", "liga", "ligar", "desliga",
                "desligar", "volume", "som", "mudo", "aumenta", "abaixa", "sobe", "desce", "abre", "abrir", "hdmi",
-               "entrada", "pausa", "pause", "play", "estado", "status", "aviso", *APP_FALADO}
+               "entrada", "pausa", "pause", "play", "estado", "status", "aviso", "favorito", "favoritos",
+               "esquecer", *APP_FALADO}
+VERBO_ABRIR = r"(?:abre|abrir|abra|coloca|coloque|bota|poe|passa|bota)"
+RE_FAV_APP = re.compile(r"\b(?:netflix|youtube|you tube)\s+(?:em|no|na|com)\s+(.+)$")
+RE_FAV_TV = re.compile(rf"\b{VERBO_ABRIR}\s+(.+?)\s+(?:na|no)\s+(?:tv|televisao)\b")
+
+
+def _nome_favorito(trecho: str) -> str:
+    """Limpa o nome dito: tira artigo do começo e “na tv (da sala)” do fim."""
+    nome = re.sub(r"\s*\b(?:na|no)\s+(?:tv|televisao)\b.*$", "", trecho.strip())
+    nome = re.sub(r"^(?:o|a|os|as)\s+", "", nome).strip(" .,!?")
+    return "" if re.match(r"^(?:tv|televisao)\b", nome) else nome
 
 
 def _apelido(t: str, tvs) -> Optional[str]:
@@ -216,10 +249,22 @@ def interpretar(texto: str, tvs=None) -> Optional[tuple]:
     """Entende um pedido de TV. Devolve (acao, args, apelido) ou None se não for sobre a TV."""
     bruto = (texto or "").strip()
     t = _norm(bruto)
-    if not RE_TV.search(t):
+    pede_favorito = re.match(rf"{VERBO_ABRIR}\b", t) and RE_FAV_APP.search(t)    # "abre a netflix em The Chosen"
+    if not RE_TV.search(t) and not pede_favorito:
         return None
     if not t.startswith("/tv") and len(t.split()) > PALAVRAS_MAX:
         return None           # frase longa que só cita a TV ("vi na tv que…") não vira comando
+
+    # Favoritos guardados na ponte (valem para todas as TVs)
+    salvar = re.match(r"^/tv\s+favorito\s+(.+?)\s+(\S*(?:netflix|youtu)\S*)\s*$", bruto, re.I)
+    if salvar:
+        return "tv.favorito_salvar", {"nome": salvar.group(1), "link": salvar.group(2)}, None
+    if re.match(r"^/tv\s+favoritos?\s*$", t):
+        return "tv.favoritos", {}, None
+    apagar = re.match(r"^/tv\s+(?:esquecer|apagar favorito|tirar favorito)\s+(.+)$", bruto, re.I)
+    if apagar:
+        return "tv.favorito_apagar", {"nome": apagar.group(1)}, None
+
     apelido = _apelido(t, tvs if tvs is not None else FILA.tvs)
 
     m = RE_AVISO.search(t)
@@ -242,12 +287,16 @@ def interpretar(texto: str, tvs=None) -> Optional[tuple]:
         return "tv.volume", {"modo": "subir"}, apelido
     if re.search(r"\b(abaixa|abaixar|diminui|diminuir|desce|descer|mais baixo)\b", t):
         return "tv.volume", {"modo": "descer"}, apelido
+    fav = RE_FAV_APP.search(t)
+    if fav and _nome_favorito(fav.group(1)):
+        return "tv.favorito_abrir", {"nome": _nome_favorito(fav.group(1))}, apelido
     for falado, app in APP_FALADO.items():
         if re.search(rf"\b{falado}\b", t):
             return "tv.abrir_app", {"app": app}, apelido
-    outro = re.search(r"\b(?:abre|abrir|abra|coloca|coloque|bota|poe)\s+(?:o |a )?([a-z0-9]+)", t)
-    if outro and outro.group(1) not in ("tv", "televisao") and not re.search(r"\b(?:hdmi|volume|som)\b", t):
-        return "tv.abrir_app", {"app": outro.group(1)}, apelido      # a validação recusa com a lista de apps
+    fav = RE_FAV_TV.search(t)
+    if fav and _nome_favorito(fav.group(1)) and not re.search(r"\b(?:hdmi|volume|som)\b", t):
+        # "abre The Chosen na tv": a ponte procura o favorito e, se não houver, diz quais existem
+        return "tv.favorito_abrir", {"nome": _nome_favorito(fav.group(1))}, apelido
     hdmi = re.search(r"\bhdmi\s*(\d)\b", t)
     if hdmi:
         return "tv.entrada", {"hdmi": int(hdmi.group(1))}, apelido
@@ -268,7 +317,12 @@ def ajuda() -> str:
                "▸ `volume 15` na tv · `aumenta o volume da tv` · `tv no mudo`",
                "▸ `abre o netflix na tv` (youtube, netflix, globoplay, prime)",
                "▸ `tv hdmi 2` · `pausa a tv` · `play na tv` · `/tv estado`",
-               "▸ `/tv aviso O jantar está pronto`"]
+               "▸ `/tv aviso O jantar está pronto`",
+               "", "Favoritos (Netflix e YouTube):",
+               "▸ `/tv favorito The Chosen https://www.netflix.com/watch/…` — guarda",
+               "▸ `abre The Chosen na tv` · `abre a netflix em The Chosen` — abre já no título",
+               "▸ `/tv favoritos` — lista · `/tv esquecer The Chosen` — tira",
+               "_Se a Netflix pedir o perfil, escolha no controle: a Bella não mexe em perfil nem PIN._"]
     return "\n".join(linhas)
 
 
