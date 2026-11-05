@@ -105,10 +105,15 @@
       el.classList.toggle("orbe", !config.foto);
     });
   }
+  function nomeModelo() {
+    if (config.perfilPendente) return "Carregando…";
+    return config.fotoModels ? (config.modeloNome || "Modelo") : "Bella Legado";
+  }
   function aplicarPerfil(c) {
     config = Object.assign(config, c);
     aplicarAvatar();
-    if (MINI) return;
+    $("modelo-nome").textContent = nomeModelo();
+    if (MINI) { atualizarMini(); return; }
     $("btn-recortar").disabled = !config.foto || !!config.fotoModels;
     $("btn-remover").disabled = !config.foto || !!config.fotoModels;
     $("arquivo").disabled = !!config.fotoModels;
@@ -460,7 +465,7 @@
     }
     const t = textosEstado();
     const resposta = !estado.segurando && (estado.modo === "falando" || (estado.modo === "espera" && !config.apertarParaFalar) || estado.modo === "pausada") && ultimaResposta ? ultimaResposta : t[0] + (t[1] ? " · " + t[1] : "");
-    $("mini-ouvido").textContent = ultimoOuvido ? "“" + ultimoOuvido + "”" : "Bella";
+    $("mini-ouvido").textContent = ultimoOuvido ? "“" + ultimoOuvido + "”" : nomeModelo();
     $("mini-resposta").textContent = resposta;
   }
 

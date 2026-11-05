@@ -408,6 +408,8 @@ a Bella avisa e os demais caminhos continuam funcionando.
 
 ## Foto da modelo selecionada no Models
 
+O nome abaixo da foto acompanha o cadastro da modelo selecionada no Models. Ao voltar para o Legado, o título passa a ser “Bella Legado”.
+
 Com uma modelo Models selecionada no Solo Bot, a foto de perfil dela aparece no
 centro do Bella.exe, nos avatares da conversa e na Mini-Bella. A atualização ocorre
 ao abrir a janela, após mensagens e a cada 15 segundos. Trocar a capa no Models
