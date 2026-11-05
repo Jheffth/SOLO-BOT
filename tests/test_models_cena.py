@@ -235,3 +235,52 @@ def test_esquiva_reconhecida():
     assert models_cena._desobedeceu('Não vou ficar aqui ditando manual pra plateia.')
     assert models_cena._desobedeceu('Quer saber? Então para de perguntar e vem conferir.')
     assert not models_cena._desobedeceu('*me ajoelho* Assim, devagar, do jeito que você mandou.')
+
+
+def test_removermodel_pelo_primeiro_nome_e_com_apelido_do_comando(logado, monkeypatch):
+    pedidos, _, estado = ambiente(logado, monkeypatch, cena_inicial=True)
+    estado['presentes'][1]['nome'] = 'Kellen Iara'
+    monkeypatch.setattr(grok, 'gerar', lambda p, t, **kw: 'Ela se despede e sai.' if _quem_fala(p) == 'Narrador' else 'Tchau.')
+    with SessionLocal() as db:
+        r = roteador.resposta_models(models.comando(db.get(Conta, 1), roteador.APELIDOS_CENA['/removermodel'], 'Kellen'))
+    assert [p['modelo_id'] for p in estado['presentes']] == [BELLA]
+    assert any('segue só com Bella' in m['texto'] for m in r.mensagens)
+
+
+def test_portal_marca_e_desmarca_modelos_da_cena(logado, monkeypatch):
+    pedidos, _, estado = ambiente(logado, monkeypatch)
+    r = logado.put('/api/conta/models/cena', json={'modelos': [BELLA, KELLEN]})
+    assert r.status_code == 200 and r.json() == {'modelo_id': BELLA, 'presentes': [BELLA, KELLEN]}
+    adicionar = next(c for m, rota, c in pedidos if rota.endswith('/cena/adicionar'))
+    assert adicionar == {'outra_modelo_id': KELLEN}
+    assert logado.get('/api/conta/models').json()['presentes'] == [BELLA, KELLEN]
+    r = logado.put('/api/conta/models/cena', json={'modelos': [BELLA]})      # desmarcou a Kellen: ela sai
+    assert r.status_code == 200 and r.json()['presentes'] == []
+    assert [p['modelo_id'] for p in estado['presentes']] == [BELLA]
+    assert models.selecionado(1) == BELLA
+
+
+def test_portal_nao_junta_as_duas_bellas_nem_libera_cena_para_quem_nao_e_arquiteto(logado, monkeypatch):
+    ambiente(logado, monkeypatch)
+    monkeypatch.setitem(NOMES, KELLEN, 'Bella Costa')
+    r = logado.put('/api/conta/models/cena', json={'modelos': [BELLA, KELLEN]})
+    assert r.status_code == 422 and 'duas Bellas' in r.json()['detail']
+    monkeypatch.setitem(NOMES, KELLEN, 'Kellen')
+    with SessionLocal() as db:
+        db.get(Conta, 1).admin = False; db.commit()
+    r = logado.put('/api/conta/models/cena', json={'modelos': [BELLA, KELLEN]})
+    assert r.status_code == 422 and 'somente para o Arquiteto' in r.json()['detail']
+
+
+def test_removermodel_digitado_no_chat_funciona(logado, monkeypatch):
+    _, _, estado = ambiente(logado, monkeypatch, cena_inicial=True)
+    estado['presentes'][1]['nome'] = 'Kellen Iara'
+    monkeypatch.setattr(grok, 'gerar', lambda p, t, **kw: 'Ela sai.' if _quem_fala(p) == 'Narrador' else 'Tchau.')
+    from database import CanalVinculo
+    with SessionLocal() as db:
+        if not db.query(CanalVinculo).filter_by(conta_id=1, canal='telegram').first():
+            db.add(CanalVinculo(conta_id=1, canal='telegram', origem='99887766')); db.commit()
+        origem = db.query(CanalVinculo).filter_by(conta_id=1, canal='telegram').first().origem
+        r = roteador.atender_texto(db, 'telegram', origem, '/removermodel Kellen Iara')
+    assert [p['modelo_id'] for p in estado['presentes']] == [BELLA]
+    assert any('segue só com Bella' in m['texto'] for m in r.mensagens)

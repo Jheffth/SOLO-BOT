@@ -369,7 +369,8 @@ def remover(db, conta, ident, nome):
         return "Não há outra modelo na conversa agora."
     nomes = {p["modelo_id"]: p["nome"] for p in cena["presentes"]}
     presentes = list(nomes)
-    sai = next((i for i, n in nomes.items() if _norm(n) == _norm(nome)), None)
+    alvo = _norm(nome)
+    sai = next((i for i, n in nomes.items() if alvo in [_norm(f) for f in _formas(n)]), None)
     if not sai:
         return f'{nome or "Essa modelo"} não está na cena. Veja quem está com /modelos.'
     narracao = _narrar(conta, ident, presentes, f"{nomes[sai]} se despede e sai da cena (vai embora, desliga ou sai do lugar), "
@@ -415,3 +416,66 @@ def quem(conta, ident):
         return f"Só {nome} está na conversa. Chame outra com /addmodel Nome."
     nomes = [p["nome"] + (" (anfitriã)" if p.get("anfitria") else "") for p in cena["presentes"]]
     return "Na cena: " + ", ".join(nomes) + ". Fale com uma delas pelo nome; /removemodel Nome faz alguém sair."
+
+
+def _mesma_bella(nomes):
+    """As duas Bellas (a do Models e a legada, ou duas modelos chamadas Bella) não ficam juntas na cena."""
+    primeiros = [_norm(n).split(" ")[0] for n in nomes]
+    return primeiros.count("bella") > 1
+
+
+def definir_presentes(db, conta, ids):
+    """Portal: a lista marcada vira a cena. Uma só = conversa individual; duas ou três = cena sem narração.
+
+    A anfitriã é a modelo já selecionada, se continuar marcada; senão, a primeira da lista.
+    Devolve {"modelo_id": anfitriã, "presentes": [...]}.
+    """
+    m = _m()
+    ids = list(dict.fromkeys(i for i in ids if i))
+    if not ids:
+        raise m.ErroModels("Marque ao menos uma modelo.")
+    if len(ids) > 1 and not conta.admin:
+        raise m.ErroModels("Cenas com várias modelos estão disponíveis somente para o Arquiteto.")
+    if len(ids) > 3:
+        raise m.ErroModels("A cena comporta até 3 modelos.")
+    pacotes = {i: m.pacote(conta, i) for i in ids}
+    for i, p in pacotes.items():
+        if not _voz(p):
+            raise m.ErroModels(f"{p['nome']} ainda não possui uma voz principal ativa.")
+    if _mesma_bella([p["nome"] for p in pacotes.values()]):
+        raise m.ErroModels("As duas Bellas não podem ficar juntas na mesma cena.")
+    atual = m.selecionado(conta.id)
+    anfitria = atual if atual in ids else ids[0]
+    cena = cena_ativa(conta, atual) if (atual and conta.admin) else None
+    presentes = [p["modelo_id"] for p in cena["presentes"]] if cena else []
+    if cena and anfitria not in presentes:
+        _encerrar(conta, atual)
+        presentes = []
+    m.escolher(db, conta, anfitria)
+    for i in presentes:
+        if i not in ids:
+            _remover_silencioso(conta, anfitria, i)
+    for i in ids:
+        if i != anfitria and i not in presentes:
+            m._requisicao("POST", m._rota(conta, anfitria) + "/cena/adicionar", conta, anfitria, {"outra_modelo_id": i})
+    if len(ids) == 1 and cena:
+        _encerrar(conta, anfitria)
+    return {"modelo_id": anfitria, "presentes": ids if len(ids) > 1 else []}
+
+
+def _encerrar(conta, ident):
+    m = _m()
+    if not ident:
+        return
+    try:
+        m._requisicao("POST", m._rota(conta, ident) + "/cena/encerrar", conta, ident, {})
+    except m.ErroModels:
+        pass
+
+
+def presentes_no_portal(conta, ident):
+    """IDs da cena aberta (para marcar no portal), ou []."""
+    if not (conta.admin and ident):
+        return []
+    cena = cena_ativa(conta, ident)
+    return [p["modelo_id"] for p in cena["presentes"]] if cena else []

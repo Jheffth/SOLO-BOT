@@ -100,6 +100,14 @@ Só o Arquiteto, com uma modelo do Models selecionada.
   restante, a conversa volta a ser individual com ela (se a anfitriã saiu, a
   restante passa a ser a modelo selecionada).
 - `/modelos` (ou `/quem`) mostra quem está na cena.
+- O primeiro nome basta nos comandos (`/removemodel Kellen` tira a "Kellen Iara"), e
+  variações como `/removermodel` e `/addmodelo` também funcionam.
+- Portal (Configurações → Com quem conversar), só para o Arquiteto: cada modelo tem uma
+  chave. Com cena aberta, as presentes aparecem ligadas. Desligar uma tira ela da cena
+  (sem narração); ligar duas ou três monta a cena. A anfitriã é a já selecionada, se
+  continuar ligada. Desligar todas volta à Bella (Legado), que conversa sozinha e nunca
+  entra em cena; duas modelos chamadas Bella não ficam juntas. Trocar de modelo pelo
+  portal fecha a cena aberta.
 - Diretor de turno (código): quem foi chamada pelo nome (o primeiro nome basta:
   "Kellen" chama a "Kellen Iara") fala primeiro; sem nome, a anfitriã. Uma vez cada
   por mensagem, uma de cada vez. Cada uma faz a SUA parte na cena: narra entre

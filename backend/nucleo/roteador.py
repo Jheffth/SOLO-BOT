@@ -563,6 +563,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     from nucleo import models
     try:selecao_models=models.selecionado(conta.id)
     except models.ErroModels as e:return Resposta().diz(str(e))
+    cmd = APELIDOS_CENA.get(cmd, cmd)
     if cmd=='/construtivo' and not selecao_models:
         return Resposta().diz('Escolha uma modelo em Models para usar o cartão vivo com /construtivo.')
     if cmd in ('/addmodel','/removemodel','/modelos','/quem') and not selecao_models:
@@ -1257,6 +1258,12 @@ def _bella_responder(db, conta: Conta, canal: str, txt: str, so_se_responder: bo
     r = Resposta().diz(texto, midia=extra[0] if extra else None)
     r.mensagens[-1]["literal"] = True        # a voz LÊ o que a Bella disse; nunca passa por resumo de IA
     return r
+
+
+# Variações que as pessoas digitam para os comandos de cena.
+APELIDOS_CENA = {"/removermodel": "/removemodel", "/removemodelo": "/removemodel", "/removermodelo": "/removemodel",
+                 "/tirarmodel": "/removemodel", "/addmodelo": "/addmodel", "/adicionarmodel": "/addmodel",
+                 "/adicionarmodelo": "/addmodel"}
 
 
 def resposta_models(texto) -> "Resposta":

@@ -24,8 +24,10 @@ def listar_models(conta: Conta = Depends(conta_atual)):
     try:atual=models.selecionado(conta.id)
     except models.ErroModels as e:raise HTTPException(503,str(e)) from None
     try:
+        from nucleo import models_cena
         return {"modelo_id":atual,"origem":"models" if atual else "legado",
-                "modelos":models.catalogo(conta),"disponivel":True}
+                "modelos":models.catalogo(conta),"disponivel":True,
+                "cena_disponivel":bool(conta.admin),"presentes":models_cena.presentes_no_portal(conta,atual)}
     except models.ErroModels as e:
         return {"modelo_id":atual,"origem":"models" if atual else "legado",
                 "modelos":[],"disponivel":False,"aviso":str(e)}
@@ -39,13 +41,37 @@ class EscolhaModels(BaseModel):
 def escolher_models(p: EscolhaModels,conta: Conta = Depends(conta_atual),db: Session = Depends(get_db)):
     from nucleo import models
     try:
+        anterior=models.selecionado(conta.id)
+        if conta.admin and anterior and anterior!=p.modelo_id:
+            from nucleo import models_cena
+            models_cena._encerrar(conta,anterior)        # trocar de modelo pelo portal fecha a cena aberta
         escolha=models.escolher(db,conta,p.modelo_id)
-        destinos=[(c.canal,c.origem) for c in conta.canais]+[('bella','bella:'+str(conta.id))]
-        for canal,origem in destinos:
-            s=roteador.sessao_de(db,canal,origem)
-            roteador._entrar_modo(db,s,roteador.MODO_BELLA)
+        _modo_bella(db,conta)
         return escolha
     except models.ErroModels as e:raise HTTPException(503,str(e)) from None
+
+
+def _modo_bella(db,conta):
+    destinos=[(c.canal,c.origem) for c in conta.canais]+[('bella','bella:'+str(conta.id))]
+    for canal,origem in destinos:
+        s=roteador.sessao_de(db,canal,origem)
+        roteador._entrar_modo(db,s,roteador.MODO_BELLA)
+
+
+class EscolhaCena(BaseModel):
+    modelos: list[str] = Field(min_length=1,max_length=3)
+
+
+@router.put("/models/cena")
+def escolher_cena(p: EscolhaCena,conta: Conta = Depends(conta_atual),db: Session = Depends(get_db)):
+    """Marca uma, duas ou três modelos: a lista marcada vira a conversa (individual ou cena)."""
+    from nucleo import models,models_cena
+    if any(len(i)>36 or not i for i in p.modelos):raise HTTPException(422,"Modelo inválido.")
+    try:
+        r=models_cena.definir_presentes(db,conta,p.modelos)
+        _modo_bella(db,conta)
+        return r
+    except models.ErroModels as e:raise HTTPException(422,str(e)) from None
 
 
 def _canal_publico(c: Optional[CanalVinculo], canal: str) -> dict:
