@@ -101,11 +101,18 @@ Só o Arquiteto, com uma modelo do Models selecionada.
   restante passa a ser a modelo selecionada).
 - `/modelos` (ou `/quem`) mostra quem está na cena.
 - Diretor de turno (código): quem foi chamada pelo nome fala primeiro; sem nome, a
-  anfitriã. Cada modelo fala de 1 a 2 vezes por rodada, só enquanto houver assunto
-  (quem é citada na fala da outra responde; quem não tem nada a acrescentar fica em
-  silêncio). Uma chamada ao Grok por fala, com o contexto da própria modelo montado
-  pelo Solo Models (`presentes` = a cena). A primeira montagem de cada modelo na
-  rodada atualiza o humor dela; as seguintes usam origem `iniciativa`.
+  anfitriã. Uma fala de cada vez: a primeira responde ao Arquiteto, a outra responde
+  ao que a primeira acabou de dizer (sem repetir as expressões dela), e assim por
+  diante. Depois de todas terem falado, só continua quem foi citada pelo nome, até
+  2 falas de cada. Uma fala que só ecoa outra (mesmas palavras) é descartada.
+  Uma chamada ao Grok por fala, com o contexto da própria modelo montado pelo Solo
+  Models (`presentes` = a cena). A primeira montagem de cada modelo na rodada
+  atualiza o humor dela; as seguintes usam origem `iniciativa`.
+- Tempo: no WhatsApp e no Telegram a primeira fala sai na hora e as reações são
+  geradas depois, em segundo plano, e entregues uma a uma. No Bella.exe (que desiste
+  em 25 s e não recebe mensagens depois) só começa outra fala se ainda estiver dentro
+  de 10 s. Uma mensagem nova do Arquiteto interrompe as reações da rodada anterior.
+  A rodada é gravada uma vez no fim, com todas as falas.
 - Uma mensagem por fala, com `*Nome:*` na frente e o áudio na voz da própria modelo
   (`fala.falar_resposta` sintetiza cada fala separadamente). A rodada é gravada no
   Models (`/cena/rodada`), que guarda a memória em cada modelo presente.

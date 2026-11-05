@@ -176,7 +176,7 @@ def test_cumprimento_na_conversa_models_nao_abre_menu(logado,monkeypatch):
     db=SessionLocal();db.add(CanalVinculo(conta_id=1,canal='whatsapp',origem='111'));db.commit()
     logado.put('/api/conta/models',json={'modelo_id':IDENT})
     perguntas=[]
-    monkeypatch.setattr(models,'responder',lambda texto,conta_id:perguntas.append(texto) or 'Resposta Models')
+    monkeypatch.setattr(models,'responder',lambda texto,conta_id,**kw:perguntas.append(texto) or 'Resposta Models')
     for texto in ['Oi?','Oi ?','Olá','Bom dia']:
         r=roteador.atender_texto(db,'whatsapp','111',texto)
         assert r.mensagens[0]['texto']=='Resposta Models'

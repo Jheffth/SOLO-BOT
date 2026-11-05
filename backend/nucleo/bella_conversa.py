@@ -135,7 +135,8 @@ def responder(texto, conta_id=None, numero_conta=None, saida_midia=None):
             from nucleo import models_galeria
             if models_galeria.detectar(texto):
                 return models.responder(texto,numero_conta,saida_midia=saida_midia)
-        return models.responder(texto,numero_conta)
+        canal = conta_id.split(":", 1)[0] if isinstance(conta_id, str) and ":" in conta_id else None
+        return models.responder(texto,numero_conta,canal=canal)
     estado = bella_estado.avancar(numero_conta, texto)
     nota, midia, gasto = "", None, 0
     if saida_midia is not None and estado and bella_estado.eh_arquiteto(numero_conta):

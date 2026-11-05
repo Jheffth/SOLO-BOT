@@ -7,6 +7,8 @@ Só o Arquiteto usa cenas por enquanto.
 """
 import logging
 import re
+import threading
+import time
 import unicodedata
 from uuid import uuid4
 
@@ -15,6 +17,12 @@ log = logging.getLogger("solobot.models_cena")
 LIMITE_PADRAO = 2          # falas de cada modelo por rodada (de 1 a 2, enquanto houver assunto)
 SILENCIO = "[silêncio]"
 MAX_FALA = 900
+# O Bella.exe desiste em 25 s e não recebe mensagens depois: só começa outra fala se ainda houver tempo.
+TEMPO_SINCRONO = 10
+# Nestes canais a primeira fala sai na hora e as reações chegam depois, uma de cada vez.
+CANAIS_DEPOIS = ("whatsapp", "telegram")
+_geracao = {}            # conta -> número da rodada; uma mensagem nova interrompe a rodada anterior
+_geracao_lock = threading.Lock()
 
 
 def _m():
@@ -58,7 +66,8 @@ def _limpar(texto, nome, outros):
     return texto[:MAX_FALA].strip()
 
 
-def _fala(conta, modelo_id, presentes, nomes, mensagem, ja_ditas, instrucao="", primeira=True, pode_calar=True):
+def _fala(conta, modelo_id, presentes, nomes, mensagem, ja_ditas, instrucao="", primeira=True, pode_calar=True,
+          reagir=None):
     """Uma fala da modelo, gerada com o contexto dela. Devolve dict ou None (silêncio)."""
     from nucleo import grok
     m = _m()
@@ -70,22 +79,30 @@ def _fala(conta, modelo_id, presentes, nomes, mensagem, ja_ditas, instrucao="", 
                              presentes=presentes)
     prompt, factual, historico = m.montar_prompt(conta, p, ctx)
     prompt += ("\nVocê está numa cena com mais de uma modelo. Escreva SOMENTE a sua próxima fala, em primeira pessoa, "
-               "curta e natural (até 600 caracteres), sem o seu nome na frente e sem escrever falas ou ações das outras.")
+               "curta e natural (até 600 caracteres), sem o seu nome na frente e sem escrever falas ou ações das outras. "
+               "Seja você mesma, com criatividade: aja, provoque, brinque, discorde. Não repita frases, bordões ou ideias "
+               "que você ou as outras já disseram na cena, e não resuma o que já aconteceu.")
     if pode_calar:
         prompt += f" Se agora não tiver nada relevante a acrescentar, responda exatamente {SILENCIO}."
     partes = []
     if mensagem:
         partes.append("Arquiteto: " + mensagem)
-    if ja_ditas:
-        partes.append("Nesta rodada já disseram:\n" + "\n".join(f"{f['nome']}: {f['texto']}" for f in ja_ditas))
+    anteriores = [f for f in ja_ditas if f is not reagir]
+    if anteriores:
+        partes.append("Antes, nesta rodada:\n" + "\n".join(f"{f['nome']}: {f['texto']}" for f in anteriores))
+    if reagir:
+        partes.append(f"{reagir['nome']} acabou de dizer: \"{reagir['texto']}\"\n"
+                      f"[Situação, não é fala de ninguém] Responda a essa fala de {reagir['nome']} (e ao Arquiteto, se fizer "
+                      "sentido) do seu jeito. Traga algo novo: não repita nem parafraseie o que ela disse e não reuse as "
+                      "expressões dela.")
     if instrucao:
         partes.append("[Situação, não é fala de ninguém] " + instrucao)
     partes.append(f"Agora é a sua vez, {p['nome']}.")
     pergunta = "\n\n".join(partes) + ("\n\n[CONTEXTO INTERNO ATUAL — não é fala da pessoa]" + factual if factual else "")
-    saida = grok.gerar(prompt, pergunta, max_tokens=900, historico=historico)
+    saida = grok.gerar(prompt, pergunta, max_tokens=600, historico=historico)
     if (saida and conta.admin and p.get("obediencia_arquiteto", True) is not False and mensagem
             and m._ordem_firme(mensagem) and _citado(p["nome"], mensagem) and m._recusou(saida)):
-        outra = grok.gerar(prompt + m.LEMBRETE_OBEDECER, pergunta, max_tokens=900, historico=historico)
+        outra = grok.gerar(prompt + m.LEMBRETE_OBEDECER, pergunta, max_tokens=600, historico=historico)
         if outra and not m._recusou(outra):
             saida = outra
     outros = [n for i, n in nomes.items() if i != modelo_id]
@@ -116,39 +133,125 @@ def _ordem(texto, presentes, nomes, anfitria):
     return primeiras + [p for p in presentes if p not in primeiras]
 
 
-def rodada(conta, ident, texto, cena):
-    """Uma rodada da cena: cada modelo de 1 a 2 falas, enquanto houver assunto."""
+def _palavras(t):
+    return {w for w in re.findall(r"\w+", _norm(t)) if len(w) > 3}
+
+
+def _repetida(texto, falas):
+    """Fala que só ecoa outra (mesmas palavras) não vale uma mensagem nova."""
+    novas = _palavras(texto)
+    if len(novas) < 4:
+        return False
+    return any(len(novas & _palavras(f["texto"])) / len(novas | _palavras(f["texto"])) >= 0.6 for f in falas)
+
+
+def _nova_geracao(conta_id):
+    with _geracao_lock:
+        _geracao[conta_id] = _geracao.get(conta_id, 0) + 1
+        return _geracao[conta_id]
+
+
+def _vigente(conta_id, geracao):
+    return _geracao.get(conta_id) == geracao
+
+
+def _continuar(conta, texto, presentes, nomes, ordem, limite, falas, prazo=None, entregar=None, geracao=None):
+    """Uma fala de cada vez, cada uma respondendo à anterior, enquanto houver assunto, limite e tempo."""
     m = _m()
+    contagem = {p: sum(1 for f in falas if f["modelo_id"] == p) for p in presentes}
+    caladas = set()
+    while len(falas) < limite * len(presentes):
+        if prazo is not None and time.monotonic() > prazo:
+            break
+        if geracao is not None and not _vigente(conta.id, geracao):
+            break
+        ultima = falas[-1]
+        citadas = [p for p in presentes if p != ultima["modelo_id"] and contagem[p] < limite and _citado(nomes[p], ultima["texto"])]
+        novas = [p for p in ordem if contagem[p] == 0 and p != ultima["modelo_id"] and p not in caladas]
+        proxima = next(iter(citadas + novas), None)
+        if not proxima:
+            break
+        try:
+            f = _fala(conta, proxima, presentes, nomes, texto, falas, primeira=contagem[proxima] == 0,
+                      pode_calar=True, reagir=ultima)
+        except m.ErroModels:
+            break
+        if not f or _repetida(f["texto"], falas):
+            caladas.add(proxima)
+            if proxima in citadas:
+                break
+            continue
+        if geracao is not None and not _vigente(conta.id, geracao):
+            break
+        falas.append(f)
+        contagem[proxima] += 1
+        if entregar:
+            entregar(f)
+    return falas
+
+
+def _em_segundo_plano(alvo, *args):
+    threading.Thread(target=alvo, args=args, daemon=True, name="cena-models").start()
+
+
+def _seguir_depois(conta_id, ident, texto, presentes, nomes, ordem, limite, falas, canal, geracao):
+    """Gera as reações depois que a primeira fala já saiu e manda cada uma assim que fica pronta."""
+    from canais import entrega
+    from database import Conta, SessionLocal
+    from nucleo import roteador
+    m = _m()
+    db = SessionLocal()
+    try:
+        conta = db.get(Conta, conta_id)
+        vinculo = next((c for c in conta.canais if c.canal == canal), None) if conta else None
+        if not vinculo:
+            return
+
+        def entregar(f):
+            r = roteador.resposta_models(m.CenaModels([{"nome": f["nome"], "texto": f["texto"], "voz": f["voz"]}]))
+            try:
+                entrega.entregar(db, canal, vinculo.origem, r)
+            except Exception:  # noqa: BLE001  a entrega nunca derruba a cena
+                log.exception("Falha ao entregar fala da cena")
+
+        _continuar(conta, texto, presentes, nomes, ordem, limite, falas, entregar=entregar, geracao=geracao)
+        _registrar(conta, ident, texto, falas)
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao continuar a cena")
+        try:
+            _registrar(conta, ident, texto, falas)
+        except Exception:  # noqa: BLE001
+            pass
+    finally:
+        db.close()
+
+
+def rodada(conta, ident, texto, cena, canal=None):
+    """Uma rodada da cena: uma modelo responde à mensagem; a outra responde ao que ela disse, e assim por diante.
+
+    Cada fala é gerada depois da anterior, com o contexto da própria modelo. No WhatsApp e no Telegram a primeira
+    fala sai na hora e as seguintes chegam uma a uma; no Bella.exe só cabe o que ficar pronto a tempo.
+    """
+    m = _m()
+    inicio = time.monotonic()
+    geracao = _nova_geracao(conta.id)
     presentes = [p["modelo_id"] for p in cena["presentes"]]
     nomes = {p["modelo_id"]: p["nome"] for p in cena["presentes"]}
     anfitria = next((p["modelo_id"] for p in cena["presentes"] if p.get("anfitria")), ident)
     limite = max(1, min(2, int(cena.get("limite_falas") or LIMITE_PADRAO)))
-    fila = _ordem(texto, presentes, nomes, anfitria)
-    chamadas = set(fila[: max(1, len([p for p in presentes if _citado(nomes[p], texto)]))])
-    contagem = {p: 0 for p in presentes}
-    falas = []
+    ordem = _ordem(texto, presentes, nomes, anfitria)
     try:
-        while fila and len(falas) < limite * len(presentes):
-            atual = fila.pop(0)
-            if contagem[atual] >= limite:
-                continue
-            obrigatoria = atual in chamadas and contagem[atual] == 0
-            f = _fala(conta, atual, presentes, nomes, texto, falas, primeira=contagem[atual] == 0,
-                      pode_calar=not obrigatoria)
-            if not f:
-                continue
-            falas.append(f)
-            contagem[atual] += 1
-            # Quem foi citada na fala responde em seguida (é o "assunto" que mantém a conversa entre elas).
-            for outra in presentes:
-                if outra != atual and _citado(nomes[outra], f["texto"]) and contagem[outra] < limite and outra not in fila[:1]:
-                    fila.insert(0, outra)
+        primeira = _fala(conta, ordem[0], presentes, nomes, texto, [], primeira=True, pode_calar=False)
     except m.ErroModels as e:
-        if not falas:
-            return str(e)
-    if not falas:
+        return str(e)
+    if not primeira:
         return "A cena ficou em silêncio. Fale com uma delas pelo nome."
-    _registrar(conta, ident, texto, falas)
+    falas = [primeira]
+    if canal in CANAIS_DEPOIS:
+        _em_segundo_plano(_seguir_depois, conta.id, ident, texto, presentes, nomes, ordem, limite, list(falas), canal, geracao)
+    else:
+        _continuar(conta, texto, presentes, nomes, ordem, limite, falas, prazo=inicio + TEMPO_SINCRONO, geracao=geracao)
+        _registrar(conta, ident, texto, falas)
     return m.CenaModels([{"nome": f["nome"], "texto": f["texto"], "voz": f["voz"]} for f in falas])
 
 

@@ -87,7 +87,8 @@ def test_rodada_chamada_pelo_nome_e_conversa_entre_elas_com_limite(logado, monke
 
     def gerar(prompt, pergunta, **kw):
         quem = _quem_fala(prompt); contagem[quem] += 1
-        return f'Ei, {"Bella" if quem == "Kellen" else "Kellen"}, fala {contagem[quem]}'   # sempre citam a outra
+        assuntos = ['pipoca', 'filme', 'sofá', 'controle', 'janela']
+        return f'Ei, {"Bella" if quem == "Kellen" else "Kellen"}, olha {assuntos[sum(contagem.values()) - 1]}'   # sempre citam a outra
     monkeypatch.setattr(grok, 'gerar', gerar)
     r = models.responder('Kellen, vem cá', 1)
     assert r.falas[0]['nome'] == 'Kellen'
@@ -135,3 +136,60 @@ def test_removemodel_despede_e_volta_ao_individual(logado, monkeypatch):
     assert [f['nome'] for f in r.falas][:2] == ['', 'Kellen'] and 'segue só com Bella' in r.falas[-1]['texto']
     assert [p['modelo_id'] for p in estado['presentes']] == [BELLA]
     assert models.selecionado(1) == BELLA
+
+
+def test_a_outra_responde_ao_que_a_primeira_disse(logado, monkeypatch):
+    ambiente(logado, monkeypatch, cena_inicial=True)
+    perguntas = {}
+
+    def gerar(prompt, pergunta, **kw):
+        quem = _quem_fala(prompt); perguntas.setdefault(quem, pergunta)
+        return 'Quero ver quem tem coragem primeiro.' if quem == 'Bella' else 'Coragem eu tenho de sobra, só falta o sofá.'
+    monkeypatch.setattr(grok, 'gerar', gerar)
+    r = models.responder('quem me beija primeiro?', 1)
+    assert [f['nome'] for f in r.falas] == ['Bella', 'Kellen']
+    assert 'Bella acabou de dizer: "Quero ver quem tem coragem primeiro."' in perguntas['Kellen']
+    assert 'não repita' in perguntas['Kellen']
+
+
+def test_eco_da_outra_nao_vira_mensagem(logado, monkeypatch):
+    ambiente(logado, monkeypatch, cena_inicial=True)
+    monkeypatch.setattr(grok, 'gerar', lambda p, t, **kw: 'Cada uma no seu tempo, sem leilão nenhum aqui.' if _quem_fala(p) == 'Bella'
+                        else 'Cada uma no seu tempo, sem leilão nenhum, viu?')
+    r = models.responder('oi, gente', 1)
+    assert [f['nome'] for f in r.falas] == ['Bella']
+
+
+def test_whatsapp_primeira_fala_na_hora_e_a_reacao_chega_depois(logado, monkeypatch):
+    pedidos, _, _ = ambiente(logado, monkeypatch, cena_inicial=True)
+    monkeypatch.setattr(grok, 'gerar', lambda p, t, **kw: 'Kellen, você viu isso?' if _quem_fala(p) == 'Bella' else 'Vi e não acreditei.')
+    tarefas, entregues = [], []
+    monkeypatch.setattr(models_cena, '_em_segundo_plano', lambda alvo, *a: tarefas.append((alvo, a)))
+    from canais import entrega
+    monkeypatch.setattr(entrega, 'entregar', lambda db, canal, origem, r, **kw: entregues.append((canal, r.mensagens[0]['texto'])))
+    from database import CanalVinculo
+    with SessionLocal() as db:
+        if not db.query(CanalVinculo).filter_by(conta_id=1, canal='whatsapp').first():
+            db.add(CanalVinculo(conta_id=1, canal='whatsapp', origem='5561999999999@s.whatsapp.net')); db.commit()
+    r = models.responder('oi, gente', 1, canal='whatsapp')
+    assert [f['nome'] for f in r.falas] == ['Bella']                 # a resposta não espera a Kellen
+    assert not any(rota.endswith('/cena/rodada') for _, rota, _ in pedidos)
+    alvo, args = tarefas[0]; alvo(*args)
+    assert entregues == [('whatsapp', '*Kellen:* Vi e não acreditei.')]
+    rodada = next(c for _, rota, c in pedidos if rota.endswith('/cena/rodada'))
+    assert [f['texto'] for f in rodada['falas']] == ['Kellen, você viu isso?', 'Vi e não acreditei.']
+    assert rodada['usuario'] == 'oi, gente'
+
+
+def test_mensagem_nova_interrompe_a_rodada_anterior(logado, monkeypatch):
+    ambiente(logado, monkeypatch, cena_inicial=True)
+    monkeypatch.setattr(grok, 'gerar', lambda p, t, **kw: 'Kellen, e aí?' if _quem_fala(p) == 'Bella' else 'Tô aqui.')
+    tarefas = []
+    monkeypatch.setattr(models_cena, '_em_segundo_plano', lambda alvo, *a: tarefas.append((alvo, a)))
+    entregues = []
+    from canais import entrega
+    monkeypatch.setattr(entrega, 'entregar', lambda *a, **kw: entregues.append(a))
+    models.responder('primeira', 1, canal='whatsapp')
+    models.responder('segunda', 1, canal='whatsapp')
+    alvo, args = tarefas[0]; alvo(*args)
+    assert not entregues

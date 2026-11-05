@@ -216,7 +216,7 @@ def montar_prompt(conta,p,ctx):
     return prompt,_reforco_factual(ficha),historico
 
 
-def responder(texto,conta_id,saida_midia=None):
+def responder(texto,conta_id,saida_midia=None,canal=None):
     from nucleo import grok
     db=SessionLocal()
     try:
@@ -236,7 +236,7 @@ def responder(texto,conta_id,saida_midia=None):
         if conta.admin:
             from nucleo import models_cena
             cena=models_cena.cena_ativa(conta,ident)
-            if cena:return models_cena.rodada(conta,ident,texto,cena)
+            if cena:return models_cena.rodada(conta,ident,texto,cena,canal=canal)
         ctx=_montar_contexto(conta,ident,texto)
         prompt,contexto_factual,historico=montar_prompt(conta,p,ctx)
         # Reforço junto da mensagem atual, depois do histórico, para todos os campos.
