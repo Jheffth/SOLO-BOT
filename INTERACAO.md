@@ -713,3 +713,8 @@ mas precisa ser publicada no servidor usado pela Bella.
 A Conta Solo também abre o perfil pessoal no Models por `/models/perfil`. O Models inicia a entrada com estado e desafio; o Bot exige a sessão da própria conta e devolve um código curto, de uso único, com validade de dois minutos. O resgate em `/interno/models/portal/resgatar` exige o token do Models e o verificador do desafio. Não há compartilhamento de senha, cookie ou chave de sessão entre os dois sistemas.
 
 O retorno identifica dono, nome e a condição administrativa verificada no Bot. O Models só reconhece o Arquiteto quando essa condição corresponde à identidade permanente já vinculada; as demais contas recebem somente seu perfil e suas fotos. Criar ou editar modelos e vozes continua exclusivo do Arquiteto. O endereço de retorno é fixado por `MODELS_PORTAL_URL` (padrão: portal de produção), sem aceitar destino enviado pelo navegador.
+
+
+## Selecionar modelos pelo catálogo
+
+Abra **Models** pela Conta Solo e ligue a chave no card ou na prévia de uma modelo publicada. O Arquiteto pode manter até três na conversa; contas comuns escolhem uma por vez. Desligar retira a modelo da conversa. Sem nenhuma ligada, fica disponível a Bella Legado. A escolha vale para os canais e o aplicativo da mesma Conta Solo, sem misturar memórias ou fotos entre modelos. O painel do Solo Bot oferece apenas **Usar Bella Legado** e o link para selecionar no Models. Os comandos de conversa existentes permanecem compatíveis.

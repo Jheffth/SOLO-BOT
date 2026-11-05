@@ -18,6 +18,13 @@ log = logging.getLogger("solobot.conta")
 router = APIRouter(prefix="/api/conta", tags=["conta"])
 
 
+@router.get('/models/estado')
+def estado_models(conta:Conta=Depends(conta_atual)):
+    from nucleo import models
+    try:return {'origem':'models' if models.selecionado(conta.id) else 'legado'}
+    except models.ErroModels as e:raise HTTPException(503,str(e)) from None
+
+
 @router.get("/models")
 def listar_models(conta: Conta = Depends(conta_atual)):
     from nucleo import models

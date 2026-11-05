@@ -268,3 +268,10 @@ no serviço Models, isoladas por dono e modelo, sem alterar a memória legada.
 GET /interno/bella/memorias exporta somente histórias (/eternizar, /narrador e passado), lembranças, arquivo de conversas e resumos da própria conta administradora. Exige o token do módulo models e X-Solo-Contexto HS256 com MODELS_CONTEXTO_KEY, emissor solo-models, destinatário solo-bot-memorias, dono solo-bot:conta:ID, modelo, emissão e expiração em até 120 segundos. O Models resolve o dono pelo mapeamento importado; a rota recusa contas comuns e outros serviços. A chave coincide com CONTEXTO_SERVICE_KEY do Models.
 
 O Models mantém o arquivo consultável em Minhas memórias, agrupado por ano, mês e dia, com cópia JSON no volume privado e sincronização opcional a cada minuto. O Bot continua gravando e recuperando essas memórias para a conversa normalmente; a sincronização não chama IA nem altera os comandos de memória. Nenhum conteúdo de memória ou credencial é registrado nos logs dessa exportação.
+
+
+## Seleção no portal Models
+
+O catálogo do Solo Models oferece uma chave no card e na prévia da modelo. O portal usa a sessão da própria Conta Solo e aplica a seleção nos canais e no Bella.exe pelo Bot; o painel do Solo Bot mantém somente a Bella Legado e um link para o Models. Cenas e suas memórias continuam persistidas no Models. A seleção técnica da anfitriã no Bot permanece por conta, para o roteamento dos canais.
+
+`GET/PUT /interno/models/portal/selecao` exige o token do módulo Models e uma afirmação HS256 assinada com `MODELS_CONTEXTO_KEY`, com dono `solo-bot:conta:N`, método, rota, emissor `solo-models`, audiência `solo-bot-selecao` e validade de até 90 segundos. O navegador não recebe esse token nem escolhe o dono. O servidor busca a conta ativa e suas permissões reais. Até três participantes para o Arquiteto; contas comuns selecionam individualmente. A revisão da seleção recusa gravações de abas antigas. O retorno não inclui memórias, persona ou conteúdo da cena. Erros de leitura não viram seleção vazia. Nenhuma fala ou síntese de voz é disparada ao marcar as chaves.

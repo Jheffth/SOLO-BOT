@@ -123,6 +123,8 @@ def test_favorito_so_aceita_netflix_e_youtube():
 
 def test_ponte_guarda_abre_e_tira_favoritos(monkeypatch, tmp_path):
     monkeypatch.setattr(lgtv, "CONFIG", tmp_path / "tv_config.json")
+    # A conexão já é simulada abaixo; a descoberta também não deve consultar a rede real.
+    monkeypatch.setattr(lgtv, "localizar", lambda *a, **kw: "10.0.0.9")
     lgtv.salvar_config({"tvs": {"sala": {"ip": "10.0.0.9", "mac": "f0:86:20:f2:26:1e", "client_key": "k"}}})
     args = tv_lg.validar("tv.favorito_salvar", {"nome": "The Chosen", "link": "https://www.netflix.com/watch/81622759"})
     r = asyncio.run(lgtv.executar("favorito_salvar", args, "sala"))
