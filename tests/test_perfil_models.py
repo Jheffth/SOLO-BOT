@@ -18,8 +18,12 @@ def ambiente(logado, monkeypatch):
             modelo_id=rota.split('/')[-2]
             return {'modelo':{'id':modelo_id,'nome':modelo_id,'persona':'PERSONA '+modelo_id,
                 'classificacao':'geral','vozes_por_conta':[{'ativa':True,'principal':True,'provedor':'voicestudio'}]}}
-        if rota.endswith('/contexto'):
-            return {'memorias':[{'texto':'MEMORIA PRIVADA '+modelo_id,'tipo':'bella_memorias'}],'historico':[]}
+        if rota=='/api/servico/contexto/montar':
+            return {'formato':1,'perfil_modelo':{},'perfil_pessoa':B.perfil_compartilhado(conta),
+                'blocos':[{'tipo':'episodios','texto':'MEMORIA PRIVADA '+modelo_id}],
+                'historico':[],'memorias_usadas':['episodio-'+modelo_id],
+                'estado':{'temperatura':0,'bloco':''},'construtivo':{'ligado':False,'modo':'automatico'},
+                'orcamento':{'limite':8000,'usado':50}}
         if metodo=='POST' and rota.endswith('/registros'):return {'id':'registro-novo'}
         raise AssertionError(rota)
     monkeypatch.setattr(models,'_requisicao',pedir)
@@ -39,7 +43,7 @@ def test_perfil_em_todas_modelos_atualizado_sem_copiar_memorias(logado,monkeypat
     assert models.responder('Olá de novo',1)=='Resposta fictícia'
     assert 'PERFIL ATUALIZADO' in prompts[-1] and 'CIDADE DO DONO' not in prompts[-1]
     assert 'MEMORIA PRIVADA modelo-b' in prompts[-1] and 'MEMORIA PRIVADA modelo-a' not in prompts[-1]
-    gravacoes=[c for c in chamadas if c[0]=='POST']
+    gravacoes=[c for c in chamadas if c[0]=='POST' and c[1].endswith('/registros')]
     assert len(gravacoes)==2 and all(c[2]['tipo']=='turno' for c in gravacoes)
     assert '/modelo-a/' in gravacoes[0][1] and '/modelo-b/' in gravacoes[1][1]
     assert all('bio' not in c[2] for c in gravacoes)

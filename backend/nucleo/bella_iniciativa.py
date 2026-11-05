@@ -228,6 +228,10 @@ def _gerar(conta_id: int, tipo: str, dados: dict, noticia: Optional[str] = None,
 
 # ── Enviar ──────────────────────────────────────────────────────
 def _em_conversa(conta_id: int, agora_utc: datetime) -> bool:
+    from nucleo import models
+    if models.selecionado(conta_id):
+        contato=_ultimo_contato_models(conta_id)
+        return bool(contato and agora_utc-contato<CONVERSA_ATIVA)
     from database import BellaEstado
     db = SessionLocal()
     try:
@@ -238,15 +242,51 @@ def _em_conversa(conta_id: int, agora_utc: datetime) -> bool:
 
 
 def _respondeu_depois(conta_id: int, dados: dict) -> bool:
-    from database import BellaEstado
     if not dados.get("ultimo_envio"):
         return True
+    from nucleo import models
+    if models.selecionado(conta_id):
+        contato=_ultimo_contato_models(conta_id)
+        return bool(contato and contato>datetime.fromisoformat(dados['ultimo_envio']))
+    from database import BellaEstado
     db = SessionLocal()
     try:
         e = db.get(BellaEstado, conta_id)
         return bool(e and e.ultimo_contato and e.ultimo_contato > datetime.fromisoformat(dados["ultimo_envio"]))
     finally:
         db.close()
+
+
+def _ultimo_contato_models(conta_id):
+    """Metadado do canal; não lê estado, histórico ou lembranças da Bella legada."""
+    from database import Atividade
+    db=SessionLocal()
+    try:
+        r=db.query(Atividade).filter(Atividade.conta_id==conta_id,Atividade.tipo=='bella',
+            Atividade.resumo=='conversa').order_by(Atividade.criado_em.desc()).first()
+        return r.criado_em if r else None
+    finally:db.close()
+
+
+def _enviar_models(db,conta,dados,canal,tipo):
+    from canais import entrega
+    from nucleo import models,avisos,roteador
+    try:texto=models.iniciar(conta,tipo or 'espontanea',dados)
+    except models.ErroModels:return None
+    if not texto:return None
+    r=roteador.Resposta().diz(texto)
+    r.mensagens[-1]['literal']=True
+    s=roteador.sessao_de(db,canal.canal,canal.origem)
+    roteador._entrar_modo(db,s,roteador.MODO_BELLA)
+    voz=avisos.quer_voz(conta,None)
+    entrega.entregar(db,canal.canal,canal.origem,r,falar=voz,forcar_voz=voz)
+    if tipo!='bom_dia':
+        dados['tipos']=(dados.get('tipos') or [])[-4:]+['models']
+        dados['enviadas']=dados.get('enviadas',0)+1
+        dados['sem_resposta']=dados.get('sem_resposta',0)+1
+        dados['ultimo_envio']=datetime.utcnow().isoformat()
+    roteador._registrar(db,conta,canal.canal,'models','iniciativa','Modelo ativa puxou assunto')
+    return texto
 
 
 def enviar_agora(db, conta: Conta, dados: dict, tipo: Optional[str] = None) -> Optional[str]:
@@ -257,6 +297,10 @@ def enviar_agora(db, conta: Conta, dados: dict, tipo: Optional[str] = None) -> O
     if not canais:
         return None
     canal = sorted(canais, key=lambda c: c.canal != "whatsapp")[0]
+    from nucleo import models
+    try:ativo=models.selecionado(conta.id)
+    except models.ErroModels:return None
+    if ativo:return _enviar_models(db,conta,dados,canal,tipo)
     tipo = tipo or escolher_tipo(dados, config.BELLA_CONTEUDO_ADULTO)
     noticia = None
     midia = None

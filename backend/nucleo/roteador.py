@@ -280,11 +280,12 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/bella` (ou `/safada`) — conversa com a Bella: flerte, humor e, se estiver liberado, conteúdo adulto. "
         "Fica nesse modo até você mandar `/sair`",
         "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
-        "▸ `/sincronizarmemorias` — (Arquiteto) copia da Bella ativa para sua outra versão: Legado ↔ Models, pelo ID permanente; outras modelos ficam isoladas",
-        "▸ `/memoria` — lista o que ela lembra de você e as histórias dela; com texto cria o passado dela: `/memoria Bella tinha um ficante na faculdade, o Ricardo` (veja, edite ou apague por nome)",
+        "▸ `/sincronizarmemorias` — (Arquiteto) copia memórias entre Bella Legado e Bella Models; outras modelos ficam isoladas",
+        "▸ `/memoria` — lista lembranças e histórias; `/eternizar Título` guarda a conversa; `/narrador Título: fato` cria um episódio",
         "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
-        "▸ `/galeria` — (Arquiteto) as fotos e vídeos da Bella · `/iniciativa bomdia` — o bom dia com foto das 08:00",
+        "▸ `/galeria` — (Arquiteto) fotos e vídeos · `/iniciativa bomdia` — bom dia automático às 08:00",
         "▸ `/perfil` (ou `/bio`) — seu perfil pessoal compartilhado com as modelos: `add Campo: valor`, `definir`, `apagar N`",
+        "▸ `/construtivo` — (Arquiteto, Models) consulta o cartão vivo; `ligar`, `desligar` ou `aprovacao`",
         "▸ `/iniciativa` — (Arquiteto) a Bella puxa assunto sozinha, poucas vezes por dia: `ligar`, `desligar`, `max N`, `janela 09:00 22:00`, `testar`",
         "▸ `/historia` — a nossa história guardada por dia · `/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias` apaga só esses dias",
         "▸ `/emocoes` — a galeria de sentimentos da Bella (o que desperta cada um e as duas reações). `/emocao <nome>` (Arquiteto) define na hora",
@@ -292,10 +293,11 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
     ])
     bloco("🖼️ BELLA · PROMPTS DE IMAGEM", [
         "▸ `/prompt` — realismo sensual: `/prompt cozinha, cosplay de odalisca`",
-        "▸ `/promptmodelo` — modelo nova do zero (25 anos por padrão, tudo aleatório): `/promptmodelo cabelo ruivo, pele morena, biquíni na praia`. "
-        "Com uma foto junto, escreva *extrair tudo da imagem* para copiar penteado, rosto, tatuagens, joias e roupas, ou `[[extrair: pose, cenario]]` para copiar só alguns itens (modelo, roupas, pose, cenario, penteado, acessorios, tatuagens, expressao)",
+        "▸ `/promptmodelo` — modelo adulta nova: `/promptmodelo cabelo ruivo, biquíni na praia`. "
+        "Com foto: *extrair tudo da imagem* ou `[[extrair: pose, cenario]]` para escolher os itens",
         "▸ `/promptroupa` — descreve uma roupa (da foto ou do pedido) para vestir em outra imagem: `/promptroupa lingerie preta de renda`",
-        "▸ `/posehot` — pose sensual para aplicar em outra imagem: `/posehot de bruços olhando para trás` (com foto de casal/referência: extraia tudo com *extrair tudo da imagem*, ou itens específicos como `[[extrair: cenario, roupas]]`, e parceiro à escolha ou da foto com `[[parceiro: da imagem]]`)",
+        "▸ `/posehot` — pose sensual: `/posehot de bruços olhando para trás`. Com foto: *extrair tudo da imagem*, "
+        "`[[extrair: cenario, roupas]]` ou `[[parceiro: da imagem]]`",
         "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",
         "▸ `/charactersheet` — prancha de personagem em foto real, com a imagem anexa: `roupa` (só a roupa do anexo), `personagem`, `cenario` ou `tudo` (extrai tudo). Sem palavra: personagem com roupa",
         "▸ `/charactersheet2` — folha de personagem com as três vistas de corpo inteiro (frente, lado e costas), bloco de informações, paleta de cores e seis painéis de detalhe; use com a imagem da modelo anexa: `/charactersheet2 vestido preto de couro`",
@@ -560,9 +562,11 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     from nucleo import models
     try:selecao_models=models.selecionado(conta.id)
     except models.ErroModels as e:return Resposta().diz(str(e))
+    if cmd=='/construtivo' and not selecao_models:
+        return Resposta().diz('Escolha uma modelo em Models para usar o cartão vivo com /construtivo.')
     if selecao_models and cmd in ("/memoria","/lembrar","/eternizar","/permanente",
             "/narrador","/esquecer","/eliminarmemo","/eliminarmemoria","/eliminarmemória","/historia",
-            "/temperatura","/sentimentos","/emocoes","/emocao","/iniciativa"):
+            "/temperatura","/sentimentos","/emocoes","/emocao","/construtivo"):
         return Resposta().diz(models.comando(conta,cmd,resto.strip()))
     if cmd == "/clonarvoz":
         return _cmd_clonarvoz(conta, canal, origem, resto.strip())
@@ -1101,7 +1105,7 @@ def _cmd_iniciativa(db, conta: Conta, resto: str) -> Resposta:
         sub = p[1] if len(p) > 1 else ""
         if sub in ("ligar", "on"):
             d = I.configurar(conta.id, bom_dia=True)
-            return Resposta().diz(f"☀️ Vou te mandar bom dia com uma foto todo dia às {d['bom_dia_hora']}.")
+            return Resposta().diz(f"☀️ Vou te mandar uma mensagem de bom dia todo dia às {d['bom_dia_hora']}.")
         if sub in ("desligar", "off"):
             I.configurar(conta.id, bom_dia=False)
             return Resposta().diz("☀️ Ok, sem bom dia automático. `/iniciativa bomdia ligar` volta.")
@@ -1127,7 +1131,7 @@ def _cmd_iniciativa(db, conta: Conta, resto: str) -> Resposta:
     linhas = [f"💌 *Mensagens espontâneas:* {estado}", f"Limite: até {d['max']} por dia · janela {d['de']}–{d['ate']}"]
     if d["ligada"] and d["horarios"]:
         linhas.append("Hoje: " + ", ".join(d["horarios"]) + f" ({d['enviadas']} já enviada(s))")
-    linhas.append(f"Bom dia com foto: {'ligado às ' + d['bom_dia_hora'] if d['bom_dia'] else 'desligado'}")
+    linhas.append(f"Bom dia automático: {'ligado às ' + d['bom_dia_hora'] if d['bom_dia'] else 'desligado'}")
     linhas.append("`/iniciativa ligar [N]` · `desligar` · `max N` · `janela 09:00 22:00` · `testar` · `bomdia ligar|desligar|hora 08:00|testar`")
     return Resposta().diz("\n".join(linhas))
 

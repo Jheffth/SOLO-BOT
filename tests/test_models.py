@@ -25,7 +25,16 @@ def remoto(monkeypatch,historico=None):
         chamadas.append((metodo,rota,corpo))
         if rota.endswith('/pacote'):return {'modelo':{**itens[0],'persona':'Persona própria do Models',
             'vozes_por_conta':[voz]}}
-        if rota.endswith('/contexto'):return {'historico':list(historico),'memorias':[{'tipo':'bella_memorias','texto':'Gosto de chuva'}]}
+        if rota=='/api/servico/contexto/montar':
+            assert metodo=='POST' and corpo['dono_id']=='solo-bot:conta:'+str(conta.id)
+            assert corpo['modelo_id']==modelo_id
+            return {'formato':1,'contexto_id':corpo['requisicao_id'],'perfil_modelo':{},'perfil_pessoa':{'nome':'Pessoa fictícia'},
+                'historico':list(historico),'blocos':[{'tipo':'persona','texto':'Persona própria do Models'},
+                    {'tipo':'episodios','texto':'Gosto de chuva'}],
+                'memorias_usadas':['episodio-chuva'],'estado':{'temperatura':0,'bloco':''},
+                'construtivo':{'ligado':False,'modo':'automatico'},'orcamento':{'limite':8000,'usado':14}}
+        if rota.endswith('/episodios'):
+            return {'id':'episodio'} if metodo=='POST' else []
         if rota.endswith('/registros'):
             if metodo=='POST' and corpo['tipo']=='turno':
                 historico.append({'usuario':corpo['usuario'],'texto':corpo['texto']})

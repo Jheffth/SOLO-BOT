@@ -26,7 +26,8 @@ forma à resposta, sem frases prontas e sem inventar dados ausentes.
 
 A ficha entra como instrução explícita fora do JSON da persona e é reforçada junto
 da mensagem atual, depois do histórico. Esse reforço é interno: só a fala original
-da pessoa e a resposta da IA são gravadas. As conversas anteriores são preservadas.
+da pessoa e a resposta da IA são gravadas, com os IDs das memórias efetivamente
+usadas para auditoria privada. As conversas anteriores são preservadas.
 A idade não possui tratamento especial por palavra-chave nem resposta automática.
 Essa regra pertence ao modo Models; não altera a Bella Legado.
 
@@ -52,7 +53,37 @@ contexto curto assinado pela chave já compartilhada. O catálogo público, os l
 o pacote estático não incluem conversas de usuários. A escolha de voz do modelo é
 aplicada por resposta, sem mudar o motor ou a voz global do legado.
 
-Comandos de memória de Models não caem nas funções legadas. Nesta etapa,
-`/memoria` lista os registros próprios; `/lembrar`, `/eternizar`, `/narrador` e
-`/esquecer N` operam nesse arquivo. Configurações exclusivas do legado, como a
-iniciativa espontânea, continuam no legado; a escolha Models não as reconfigura.
+O contexto vem de `POST /api/servico/contexto/montar`, autenticado por dono e modelo.
+O Bot envia mensagem e elenco; o Models seleciona episódios, fatos, ligações,
+cartão, vínculos e estado emocional dentro de um orçamento. O Bot utiliza os blocos
+autorizados e não concatena o arquivo inteiro nem tenta recuperar contexto legado
+se a montagem falhar. A ficha atual recebida nessa montagem prevalece sobre uma
+versão anterior do pacote. Sinais e consolidação são tratados no Models ao gravar
+o turno; o Bot não publica os mesmos sinais uma segunda vez.
+
+Comandos de memória de Models não caem nas funções legadas. `/memoria` lista os
+episódios; `/lembrar`, `/eternizar`, `/narrador` e `/esquecer N` operam nas rotas
+de episódios da relação autorizada. A fonte original é enviada ao Models, que
+estrutura e consolida com sua IA. `/narrador segredo Título: fato` marca o episódio
+como segredo. `/eternizar Título` envia as últimas trocas autorizadas, sem um resumo
+produzido pelo Bot. A exclusão de um episódio também invalida suas dependências
+conforme as regras do Models.
+
+`/construtivo` consulta o modo do cartão vivo; `ligar`, `desligar`, `automatico` e
+`aprovacao` alteram esse modo somente para o próprio Arquiteto. O padrão é desligado.
+O estado mora no Models, não numa configuração local do Bot. `/sentimentos` lê o
+bloco emocional da relação; `/temperatura` consulta o valor e `/temperatura N`
+permite ao Arquiteto ajustar de 0 a 5. As barras detalhadas ficam no portal.
+Mensagens espontâneas e bom dia usam a modelo selecionada. Elas exigem tanto a
+iniciativa ativa no perfil do Models quanto a preferência correspondente da conta:
+`/iniciativa ligar` para mensagens espontâneas e `/iniciativa bomdia ligar` para a
+saudação. Desativar a iniciativa da modelo impede o envio; uma indisponibilidade
+não provoca retorno à Bella Legado. O bom dia Models é enviado sem mídia.
+
+A mensagem é gerada livremente com o contexto montado, as datas relevantes e a voz
+da própria modelo. Sua origem é `iniciativa`, com o marcador
+`[Iniciativa da personagem]`: não é tratada como fala do Arquiteto nem alimenta a
+extração automática do cartão. Não consulta persona, galeria, sentimentos ou
+memórias legadas, nem cria fatos de rotina sem uma deixa real. Horário de silêncio,
+canal com avisos, limite de mensagens sem resposta e preferências de voz continuam
+valendo. O controle de conversa ativa usa somente metadados do canal da conta.

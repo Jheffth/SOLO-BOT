@@ -23,8 +23,9 @@ def ambiente(logado, monkeypatch):
         resposta = requisicao(metodo, rota, conta, modelo_id, corpo)
         if rota.endswith('/pacote'):
             resposta['modelo'].update(idade=26, perfil_modelo=ficha)
-        if rota.endswith('/contexto'):
+        if rota=='/api/servico/contexto/montar':
             resposta['historico'] = [{'usuario': 'Sua idade?', 'texto': 'Tenho 26 anos.'}]
+            resposta['perfil_modelo'] = ficha
         return resposta
 
     monkeypatch.setattr(models, '_requisicao', pedir)
@@ -67,7 +68,7 @@ def test_outros_pedidos_continuam_na_conversa(logado, monkeypatch, pergunta):
     assert len(prompts) == 1
     p = prompts[0]
     assert 'FICHA FACTUAL ATUAL DA PERSONAGEM' in p['instrucao']
-    assert p['instrucao'].index('FICHA FACTUAL ATUAL DA PERSONAGEM') > p['instrucao'].index('Memórias desta relação:')
+    assert p['instrucao'].index('FICHA FACTUAL ATUAL DA PERSONAGEM') > p['instrucao'].index('Contexto autorizado desta relação')
     import json
     for destino in (p['instrucao'], p['pergunta']):
         assert json.dumps(ficha, ensure_ascii=False) in destino

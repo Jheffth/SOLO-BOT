@@ -25,7 +25,7 @@ def test_prompt_prefere_perfil_central_do_contexto(logado,monkeypatch):
     original=models._requisicao
     def pedir(metodo,rota,*args,**kwargs):
         r=original(metodo,rota,*args,**kwargs)
-        if rota.endswith('/contexto'):r['perfil_pessoa']={'nome':'ARQUITETO CENTRAL','bio':['Gostos: PERFIL CENTRAL']}
+        if rota=='/api/servico/contexto/montar':r['perfil_pessoa']={'nome':'ARQUITETO CENTRAL','bio':['Gostos: PERFIL CENTRAL']}
         return r
     monkeypatch.setattr(models,'_requisicao',pedir)
     from nucleo import grok

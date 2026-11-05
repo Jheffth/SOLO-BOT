@@ -2,6 +2,7 @@
 *.db
 __pycache__/
 .pytest_cache/
+_transfer*.tgz
 _cofre/
 desktop/bella/.cache/
 desktop/bella/dist/
