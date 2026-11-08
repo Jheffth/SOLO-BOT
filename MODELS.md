@@ -135,3 +135,10 @@ Só o Arquiteto, com uma modelo do Models selecionada.
 - Uma mensagem por fala, com `*Nome:*` na frente e o áudio na voz da própria modelo
   (`fala.falar_resposta` sintetiza cada fala separadamente). A rodada é gravada no
   Models (`/cena/rodada`), que guarda a memória em cada modelo presente.
+- Continuidade (v0.40.0 do Models): quem já se viu numa cena se conhece para sempre, mesmo em conversa a sós; o
+  Models guarda o estado da cena (local, posição, roupa e atividade de cada pessoa, em poucas linhas, atualizado por
+  uma chamada curta à IA a cada 2 turnos ou quando alguém muda de posição, roupa ou lugar) e o entrega a todas as
+  participantes no bloco `estado_cena`. Quem é chamada vê a cena como está: o narrador da chegada recebe esse estado
+  (se estavam nus ou na cama, a chegada acontece assim) e a convidada e a anfitriã reagem a ele. Cada cena fica
+  arquivada por data e hora no servidor do Models (`dados/cenas/…/AAAA-MM-DD_HH-MM_<nomes>.md`) e a modelo a consulta
+  quando perguntada ("lembra da noite com a Kellen?"), só com o que ela viveu depois de chegar.

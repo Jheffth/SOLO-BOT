@@ -284,3 +284,28 @@ def test_removermodel_digitado_no_chat_funciona(logado, monkeypatch):
         r = roteador.atender_texto(db, 'telegram', origem, '/removermodel Kellen Iara')
     assert [p['modelo_id'] for p in estado['presentes']] == [BELLA]
     assert any('segue só com Bella' in m['texto'] for m in r.mensagens)
+
+
+def test_chegada_usa_o_estado_atual_da_cena(logado, monkeypatch):
+    """Se a anfitriã estava sem roupa na cama com o Arquiteto, a chegada da outra acontece com isso."""
+    pedidos, montagens, _ = ambiente(logado, monkeypatch)
+    original = models._requisicao
+
+    def pedir(metodo, rota, conta=None, modelo_id=None, corpo=None):
+        r = original(metodo, rota, conta, modelo_id, corpo)
+        if rota == '/api/servico/contexto/montar':
+            r = {**r, 'blocos': [*r['blocos'], {'tipo': 'estado_cena', 'texto': 'ESTADO ATUAL DA CENA: Bella: deitada, sem roupa'}]}
+        return r
+    monkeypatch.setattr(models, '_requisicao', pedir)
+    vistos = []
+
+    def gerar(prompt, pergunta, **kw):
+        quem = _quem_fala(prompt); vistos.append((quem, prompt, pergunta))
+        return {'Narrador': 'Kellen entra e encontra os dois na cama.', 'Kellen': 'Nossa, estou interrompendo?', 'Bella': 'De jeito nenhum.'}[quem]
+    monkeypatch.setattr(grok, 'gerar', gerar)
+    with SessionLocal() as db:
+        models.comando(db.get(Conta, 1), '/addmodel', 'Kellen')
+    narrador = next(v for v in vistos if v[0] == 'Narrador')
+    assert 'Bella: deitada, sem roupa' in narrador[2] and 'continua assim' in narrador[1]
+    assert 'estado atual da cena' in next(v for v in vistos if v[0] == 'Kellen')[2]
+    assert 'conforme o estado atual da cena' in next(v for v in vistos if v[0] == 'Bella')[2]

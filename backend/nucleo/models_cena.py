@@ -299,10 +299,16 @@ def _narrar(conta, ident, presentes, instrucao):
     m = _m()
     ctx = m._montar_contexto(conta, ident, "[Narração da cena]", origem="iniciativa", presentes=presentes)
     recentes = "\n".join(f"Arquiteto: {v['usuario']}\nResposta: {v['texto']}" for v in ctx.get("historico", [])[-6:])
+    # O Models guarda o estado físico da cena (posição, roupa, atividade): a chegada acontece COM ele, não sobre uma cena em branco.
+    estado = next((b.get("texto", "") for b in ctx.get("blocos", []) if b.get("tipo") == "estado_cena"), "")
     sistema = ("Você é o narrador de uma conversa ficcional entre o Arquiteto e personagens adultas. Escreva de 1 a 3 frases, "
-               "em terceira pessoa e no presente, sem falas entre aspas, sem nada íntimo ou explícito, sem inventar fatos "
-               "importantes. Responda só com a narração.")
-    texto = grok.gerar(sistema, f"Conversa recente:\n{recentes or '(sem conversa recente)'}\n\nO que narrar: {instrucao}",
+               "em terceira pessoa e no presente, sem falas entre aspas, sem descrição gráfica, sem inventar fatos "
+               "importantes. Se houver um estado atual da cena, a chegada ou a saída acontece com ele (quem está sem roupa, "
+               "na cama ou no chuveiro continua assim e quem chega vê isso), mencionado de forma breve e sem detalhes explícitos. "
+               "Responda só com a narração.")
+    texto = grok.gerar(sistema, f"Conversa recente:\n{recentes or '(sem conversa recente)'}\n"
+                       + (f"\nEstado atual da cena (como as pessoas estão agora):\n{estado}\n" if estado else "")
+                       + f"\nO que narrar: {instrucao}",
                        max_tokens=300, historico=[])
     texto = (texto or "").strip().strip('"')
     return texto[:600] if texto else ""
@@ -336,12 +342,14 @@ def adicionar(conta, ident, nome):
         or f"{nomes[nova]} chega."
     falas = []
     try:
-        f = _fala(conta, nova, presentes, nomes, "", [], instrucao=f"Você acabou de chegar. {narracao} Diga sua primeira fala ao chegar.",
+        f = _fala(conta, nova, presentes, nomes, "", [], instrucao=f"Você acabou de chegar. {narracao} Você vê a cena como ela está agora (veja o estado atual da cena no "
+                            "contexto) e reage a isso. Diga sua primeira fala ao chegar.",
                   pode_calar=False)
         if f:
             falas.append(f)
         reacao = _fala(conta, ident, presentes, nomes, "", falas,
-                       instrucao=f"{nomes[nova]} acabou de chegar. {narracao} Reaja à chegada dela do seu jeito.",
+                       instrucao=f"{nomes[nova]} acabou de chegar. {narracao} Continue de onde estava (posição, roupa e o que fazia, "
+                                "conforme o estado atual da cena) e reaja à chegada dela do seu jeito.",
                        primeira=False, pode_calar=True)
         if reacao:
             falas.append(reacao)
