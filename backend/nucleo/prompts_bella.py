@@ -8,6 +8,7 @@ import base64
 import logging
 import time
 import re
+import unicodedata
 import threading
 import time
 
@@ -154,7 +155,8 @@ referência anteriores, exceto as de idade, recusa e anonimato:
 _ELEMENTOS_EXTRAIR = {
     "modelo": ("Modelo", "o rosto e o corpo: tom de pele e subtom, formato do rosto, sobrancelhas, formato dos olhos (a cor tem opção própria), nariz, boca e lábios, "
                "pescoço, porte, ombros, busto, cintura, quadris, pernas, sardas, pintas e marcas (o cabelo, a cor dos olhos, a maquiagem, a pintura corporal, os efeitos especiais e as tatuagens têm opção própria)"),
-    "roupas": ("Roupas", "a roupa peça por peça (cor, tecido, corte, decote, caimento, costuras) e os calçados"),
+    "roupas": ("Roupas", "a roupa peça por peça (cor, tecido, corte, decote, caimento, costuras) e os calçados, SEM omitir nenhum detalhe: rendas e bordados (desenho), "
+              "ligas e meias, luvas, braçadeiras e peças de armadura, ornamentos, correntes, runas ou símbolos brilhantes, aberturas, assimetrias, capas, saias em camadas e barras rasgadas"),
     "pose": ("Pose", "a pose e a posição do corpo, dos braços, das mãos, das pernas e da cabeça, e o enquadramento e o ângulo da câmera"),
     "cenario": ("Cenário", "o cenário, o fundo, a luz e a cor da cena"),
     "penteado": ("Penteado (só o formato)", "só o FORMATO do cabelo: comprimento, textura (liso, ondulado, cacheado), volume, corte, franja, repartição e estado "
@@ -169,8 +171,8 @@ _ELEMENTOS_EXTRAIR = {
     "pintura": ("Pintura corporal (se houver)", "só a pintura no corpo e no rosto que existir na imagem (body paint, pintura facial, glitter, strass colado na pele): "
                 "desenho, cores, acabamento, tamanho e local exato no corpo. NÃO é tatuagem nem maquiagem comum; se não houver pintura, não invente"),
     "efeitos": ("Efeitos especiais (se houver)", "só os efeitos de personagem que existirem na imagem: olhos brilhantes ou de lente, aura, brilho, fumaça, chamas, "
-                "relâmpagos, partículas, névoa, luz mágica, asas, chifres, cauda, garras ou próteses de maquiagem de efeito (cicatriz, pele escamosa, sangue falso); "
-                "descreva cada efeito (cor, intensidade, de onde sai). Se não houver nenhum, não invente"),
+                "relâmpagos, partículas, névoa, luz mágica, asas, chifres, cauda, orelhas pontudas ou de criatura, garras, círculo mágico ou símbolo no chão, ou próteses de maquiagem de efeito "
+                "(cicatriz, pele escamosa, sangue falso); descreva cada efeito (formato, tamanho, material, cor, brilho, de onde sai, como se prende ao corpo). Se não houver nenhum, não invente"),
     "acessorios": ("Acessórios (se houver)", "os acessórios que existirem na imagem: brincos, colares, anéis, pulseiras, relógio, óculos, piercings, cinto, bolsa; "
                    "se não houver nenhum, não invente"),
     "tatuagens": ("Tatuagens (se houver)", "as tatuagens que existirem (desenho, tamanho, cor, lado e local exato no corpo); "
@@ -215,6 +217,56 @@ def elementos_extrair(pedido):
             return limpo, [k for k in _ELEMENTOS_EXTRAIR if k in achados]
 
     return limpo, []
+
+# Elementos de criatura (asas, chifres, cauda, orelhas pontudas...): o modelo realista não tem campo para eles e o enquadramento
+# "cabeça até as coxas" os cortaria. Quando "Efeitos especiais" (ou "extrair tudo") está marcado, este bloco os traz de volta,
+# e o código confere a lista (INVENTARIO) contra o prompt entregue.
+INSTRUCAO_CRIATURA = """
+
+ELEMENTOS DE CRIATURA E PERSONAGEM (valem acima de qualquer regra anterior sobre fantasia, cosplay, anime e enquadramento):
+- Se a imagem mostra partes não humanas ou de personagem (asas, chifres, cauda, orelhas pontudas, garras, olhos brilhantes, aura,
+  armadura ou luvas blindadas, círculo mágico, runas brilhantes), NENHUMA pode ser omitida nem trocada por algo comum.
+- Faça um campo extra no modelo, logo depois de "A roupa é", chamado "Elementos de personagem:", e descreva cada peça de forma
+  concreta: formato, tamanho comparado ao corpo, material, cor, brilho, posição e como se prende ao corpo (asas saindo das costas, chifres
+  nascendo da testa, cauda saindo da base da coluna). Cite também cada ornamento da roupa que a imagem mostra.
+- Realismo: é uma foto real de uma mulher adulta num cosplay de altíssimo nível com efeitos práticos. Asas, chifres, cauda e orelhas são
+  peças físicas reais (couro, látex, silicone, resina, membrana translúcida com nervuras e articulações) com textura, peso, reflexos e
+  sombras reais, e a luz mágica é luz real que ilumina a pele ao redor. Isso NÃO é transformar em anime, é a versão fotográfica do mesmo
+  personagem. Nunca escreva "sem asas", "sem chifres" nem proibições que anulem esses elementos; tire do fim do modelo qualquer
+  proibição que os contrarie.
+- Enquadramento: se asas, cauda, chifres, saia longa ou botas aparecem na imagem, troque "da cabeça até a parte das coxas" por
+  corpo inteiro, dos pés ao topo dos chifres e das pontas das asas abertas, mantendo 9:16 vertical. Afaste a câmera o necessário
+  e deixe de lado o ângulo de cima para baixo e a selfie; nada pode sair do quadro.
+- PRIMEIRA LINHA DA SUA RESPOSTA (obrigatória): "INVENTARIO: " seguida de todos os elementos de criatura, de roupa e de ornamento
+  que a imagem mostra, cada um numa ou duas palavras, separados por ponto e vírgula (por exemplo: asas; chifres; cauda; orelhas pontudas;
+  luvas blindadas; ligas; renda; círculo mágico). Depois pule uma linha e entregue o prompt. Todo item do inventário deve aparecer no prompt.
+  O sistema remove essa linha antes de mostrar o resultado."""
+
+_INVENTARIO_RE = re.compile(r"^\s*invent[aá]rio\s*:\s*(.+?)\s*(?:\n|$)", re.I)
+
+
+def _sem_acento(texto):
+    return "".join(c for c in unicodedata.normalize("NFD", texto.lower()) if unicodedata.category(c) != "Mn")
+
+
+def separar_inventario(saida):
+    """(prompt sem a linha INVENTARIO, lista de itens). Sem a linha, a lista vem vazia."""
+    m = _INVENTARIO_RE.match(saida or "")
+    if not m:
+        return saida, []
+    itens = [i.strip(" .") for i in re.split(r"[;,\n]", m.group(1)) if i.strip(" .")]
+    return saida[m.end():].lstrip(), itens[:16]
+
+
+def itens_ausentes(prompt, itens):
+    """Itens do inventário que não aparecem no prompt (confere o radical de cada palavra, sem acento)."""
+    texto = _sem_acento(prompt)
+    faltam = []
+    for item in itens:
+        palavras = [w for w in re.findall(r"[a-z0-9]+", _sem_acento(item)) if len(w) >= 4]
+        if palavras and not all(re.search(r"\b" + re.escape(w[:-1] if len(w) <= 5 else w[:-2]), texto) for w in palavras):
+            faltam.append(item)
+    return faltam
 
 
 _PARCEIRO_RE = re.compile(r"\[\[\s*parceiro\s*:\s*(.+?)\s*\]\]", re.I | re.S)
@@ -1039,6 +1091,7 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         tudo, elementos = False, list(_ELEMENTOS_EXTRAIR)
     tudo_ativo = tudo and (modelo_novo or pose) and bool(ref)
     seletivo_ativo = bool(elementos) and (modelo_novo or realista or pose) and bool(ref) and not tudo_ativo
+    criatura = bool(ref) and (modelo_novo or realista) and (tudo_ativo or (seletivo_ativo and "efeitos" in elementos))
     if tudo_ativo:
         if pose:
             entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
@@ -1119,6 +1172,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         base = INSTRUCAO_MODELO + (INSTRUCAO_REFERENCIA_MODELO if ref else "") + (INSTRUCAO_REFERENCIA_MODELO_TOTAL if tudo_ativo else "") + (instrucao_seletiva(elementos) if seletivo_ativo else "")
     else:
         base = INSTRUCAO + (INSTRUCAO_REFERENCIA if ref else "") + (EXTRA_CRIATIVO if criativo else "") + (instrucao_seletiva(elementos) if seletivo_ativo else "")
+    if criatura and not (roupa or pose or ficha):
+        base += INSTRUCAO_CRIATURA
     if suave:
         if pose:
             if tudo_ativo or seletivo_ativo:
@@ -1170,6 +1225,9 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         saida = re.sub(r"\s*Ela se exibe sem falar nada.*$", "", saida, flags=re.S | re.I).rstrip()
         if saida.upper().startswith("RECUSA"):
             raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "a referência não serve")
+        inventario = []
+        if criatura:
+            saida, inventario = separar_inventario(saida)
         if roupa or pose or ficha:   # troca de roupa/pose e ficha: sem 9:16 e sem a tag de movimento
             inicios = (("crie uma prancha de personagem",) if ficha else ("vista a pessoa", "dress the person") if roupa
                        else ("recrie a pessoa", "recrie as pessoas", "recrie a cena", "recrie o casal", "recrie a modelo", "recreate the person", "recreate the scene", "recreate the people"))
@@ -1187,7 +1245,9 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
                     _lembrar(chave, categoria)
                 return saida
         else:
+            faltam = itens_ausentes(saida, inventario) if criatura else []
             motivo = ("curto demais" if len(saida) < 800 else "longo demais" if len(saida) + len(TAG_FINAL) + 1 > MAX_PROMPT
+                      else "sem estes elementos da imagem: " + ", ".join(faltam) if faltam
                       else "sem a proporção 9:16 do modelo" if "9:16" not in saida
                       else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")
             if not motivo and suave and _TERMOS_SENSUAIS.search(saida):
@@ -1202,7 +1262,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         grok.registrar_motivo(f"o prompt veio {motivo} ({len(saida)} caracteres)")
         log.warning("Prompt %s rejeitado na tentativa %d: %s (%d caracteres)", categoria, tentativa, motivo, len(saida))
         aviso = ("\nATENÇÃO: sua resposta anterior foi rejeitada porque veio " + motivo + ". Entregue o prompt completo seguindo o "
-                 "MODELO, com todo o texto fixo (incluindo 9:16), em texto simples e com no máximo 6500 caracteres.")
+                 "MODELO, com todo o texto fixo (incluindo 9:16), em texto simples e com no máximo 6500 caracteres."
+                 + (" Comece pela linha INVENTARIO: e descreva no prompt todos os itens dela." if criatura and faltam else ""))
     return None
 
 FALADO = "Pronto, o prompt está na tela. Quer outro? Diga próximo aleatório."

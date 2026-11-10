@@ -988,3 +988,50 @@ def test_charactersheet2_suave_troca_o_sensual(monkeypatch):
     assert "sensual" not in pronto
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: pronto)
     assert pb.criar("", "g3", "ficha2", suave=True) == pronto
+
+
+def test_prompt_com_referencia_traz_de_volta_asas_chifres_e_cauda(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pb.guardar_referencia("cr", "image/png", b"abc")
+    vistos = []
+    corpo = _prompt_valido("com asas de dragão, chifres curvos, cauda escamosa, orelhas pontudas e luvas blindadas, corpo inteiro")
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto)) or
+                        "INVENTARIO: asas; chifres; cauda; orelhas pontudas; luvas blindadas\n\n" + corpo)
+    texto = pb.criar("[[extrair: modelo, roupas, efeitos]]", "cr")
+    assert texto and not texto.lower().startswith("inventario") and "asas de dragão" in texto
+    assert "ELEMENTOS DE CRIATURA" in vistos[0][0] and "INVENTARIO" in vistos[0][0]
+    assert "asas" in vistos[0][0] and "corpo inteiro" in vistos[0][0]      # o enquadramento deixa de cortar as asas
+
+
+def test_prompt_rejeita_quando_o_grok_omite_um_elemento_do_inventario(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pb.guardar_referencia("cr2", "image/png", b"abc")
+    respostas = iter([
+        "INVENTARIO: asas; chifres; cauda\n" + _prompt_valido("com chifres e cauda"),                    # sem asas: rejeita
+        "INVENTARIO: asas; chifres; cauda\n" + _prompt_valido("com asas, chifres e cauda escamosa"),     # completo
+    ])
+    avisos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: avisos.append(texto) or next(respostas))
+    texto = pb.criar("[[extrair-tudo]]", "cr2")
+    assert texto and "asas" in texto and "INVENTARIO" not in texto
+    assert len(avisos) == 2 and "asas" in avisos[1] and "rejeitada" in avisos[1]
+
+
+def test_prompt_sem_efeitos_marcados_nao_ganha_o_bloco_de_criatura(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pb.guardar_referencia("cr3", "image/png", b"abc")
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append(instr) or _prompt_valido())
+    assert pb.criar("[[extrair: roupas]]", "cr3")
+    assert "ELEMENTOS DE CRIATURA" not in vistos[0]
+
+
+def test_inventario_confere_radicais_sem_acento():
+    from nucleo import prompts_bella as pb
+    prompt, itens = pb.separar_inventario("INVENTÁRIO: Asas; orelhas pontudas; círculo mágico.\nResto do prompt")
+    assert prompt == "Resto do prompt" and itens == ["Asas", "orelhas pontudas", "círculo mágico"]
+    assert pb.itens_ausentes("Asa de dragão, orelha pontuda e circulo magico no chão", itens) == []
+    assert pb.itens_ausentes("só chifres", itens) == itens
