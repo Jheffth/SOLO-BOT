@@ -286,6 +286,31 @@ def test_removermodel_digitado_no_chat_funciona(logado, monkeypatch):
     assert any('segue só com Bella' in m['texto'] for m in r.mensagens)
 
 
+def test_falou_com_uma_a_outra_reage_sem_achar_que_e_com_ela(logado, monkeypatch):
+    ambiente(logado, monkeypatch, cena_inicial=True)
+    perguntas, prompts = {}, {}
+
+    def gerar(prompt, pergunta, **kw):
+        quem = _quem_fala(prompt); perguntas.setdefault(quem, pergunta); prompts.setdefault(quem, prompt)
+        return '*subo a escada* Tô indo pro banho.' if quem == 'Kellen' else '*cruzo os braços* Hum, olha só ela toda feliz.'
+    monkeypatch.setattr(grok, 'gerar', gerar)
+    r = models.responder('Kellen, vai pro seu quarto, toma banho e me espera.', 1)
+    assert [f['nome'] for f in r.falas] == ['Kellen', 'Bella']
+    assert 'O Arquiteto falou com Kellen, NÃO com você' in perguntas['Bella']
+    assert 'O Arquiteto dirige esta cena' not in prompts['Bella']          # a ordem não é para ela
+    assert 'O Arquiteto dirige esta cena' in prompts['Kellen']
+    assert 'NÃO com você' not in perguntas['Kellen']
+
+
+def test_destinatarias():
+    nomes = {'a': 'Bella', 'k': 'Kellen Iara'}
+    assert models_cena._destinatarias('Kellen, vem cá', ['a', 'k'], nomes) == ['k']
+    assert models_cena._destinatarias('Vocês duas, venham', ['a', 'k'], nomes) == ['a', 'k']
+    assert models_cena._destinatarias('boa noite', ['a', 'k'], nomes) == ['a', 'k']
+    assert models_cena._ordem('Bella e Kellen, venham', ['a', 'k'], nomes, 'a')[0] == 'a'
+    assert models_cena._ordem('Kellen e Bella, venham', ['a', 'k'], nomes, 'a')[0] == 'k'
+
+
 def test_chegada_usa_o_estado_atual_da_cena(logado, monkeypatch):
     """Se a anfitriã estava sem roupa na cama com o Arquiteto, a chegada da outra acontece com isso."""
     pedidos, montagens, _ = ambiente(logado, monkeypatch)

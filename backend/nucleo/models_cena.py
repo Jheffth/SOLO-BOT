@@ -115,7 +115,10 @@ def _fala(conta, modelo_id, presentes, nomes, mensagem, ja_ditas, instrucao="", 
                "usaria a sós com o Arquiteto. Foque na ação e no que está acontecendo, não em comentar o que as outras "
                "disseram nem em discutir a cena com o Arquiteto. Faça a cena andar. Nunca escreva falas, ações ou "
                "pensamentos das outras. Não repita frases, ideias ou bordões já ditos na cena (por você ou pelas outras).")
-    obediente = bool(conta.admin and p.get("obediencia_arquiteto", True) is not False)
+    # Com quem o Arquiteto falou: as citadas pelo nome ("vocês", "as duas" = todas); sem nome, com todas.
+    destinatarias = _destinatarias(mensagem, presentes, nomes)
+    comigo = modelo_id in destinatarias
+    obediente = bool(conta.admin and p.get("obediencia_arquiteto", True) is not False and comigo)
     if obediente:
         prompt += DIRECAO_ARQUITETO
     if pode_calar:
@@ -126,7 +129,13 @@ def _fala(conta, modelo_id, presentes, nomes, mensagem, ja_ditas, instrucao="", 
     anteriores = [f for f in ja_ditas if f is not reagir]
     if anteriores:
         partes.append("Antes, nesta rodada:\n" + "\n".join(f"{f['nome']}: {f['texto']}" for f in anteriores))
-    if mensagem and not reagir:
+    if mensagem and not comigo:
+        com_quem = " e ".join(nomes[i] for i in destinatarias)
+        partes.append(f"[Situação, não é fala de ninguém] O Arquiteto falou com {com_quem}, NÃO com você. Não responda "
+                      "como se fosse com você, não aceite nem cumpra o que ele pediu a ela e não repita o que ela fez. "
+                      "Você está ali e ouviu: reaja do seu jeito, como você mesma (ciúme, provocação, apoio, um comentário, "
+                      "ou seguir com o que estava fazendo).")
+    elif mensagem and not reagir:
         partes.append("[Situação, não é fala de ninguém] Faça o que o Arquiteto pediu, com a sua ação.")
     if reagir:
         partes.append(f"Agora mesmo, {reagir['nome']}: {reagir['texto']}\n"
@@ -163,11 +172,27 @@ def _registrar(conta, ident, usuario, falas, narracao=""):
 def _ordem(texto, presentes, nomes, anfitria):
     """Quem fala primeiro: as chamadas pelo nome, na ordem em que aparecem; sem nome, a anfitriã."""
     citadas = sorted((p for p in presentes if _citado(nomes[p], texto)),
-                     key=lambda p: _norm(texto).find(_norm(nomes[p])))
+                     key=lambda p: _posicao(nomes[p], texto))
     if re.search(r"\b(?:voces|todas|meninas|as duas|as tres)\b", _norm(texto)):
         citadas = citadas or list(presentes)
     primeiras = citadas or [anfitria]
     return primeiras + [p for p in presentes if p not in primeiras]
+
+
+def _destinatarias(mensagem, presentes, nomes):
+    """Modelos com quem o Arquiteto falou nesta mensagem. Ninguém citado ou "vocês/as duas": todas."""
+    if not mensagem:
+        return list(presentes)
+    if re.search(r"\b(?:voces|todas|meninas|as duas|as tres|vcs)\b", _norm(mensagem)):
+        return list(presentes)
+    citadas = [p for p in presentes if _citado(nomes[p], mensagem)]
+    return citadas or list(presentes)
+
+
+def _posicao(nome, texto):
+    alvo = _norm(texto)
+    achados = [alvo.find(_norm(f)) for f in _formas(nome) if _norm(f) in alvo]
+    return min(achados) if achados else len(alvo)
 
 
 def _palavras(t):
