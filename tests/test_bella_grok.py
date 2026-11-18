@@ -649,7 +649,7 @@ def test_modelo_extracao_seletiva_so_copia_o_que_foi_marcado(monkeypatch):
     assert "[[" not in entrada and kw["imagens"] == [ref]
     assert pb.criar("cabelo ruivo [[extrair: expressao,acessorios]]", "c", "modelo", referencia_anexa=ref)
     assert vistos[1][1].startswith("Pedido: cabelo ruivo\n") and "SOMENTE: Acessórios (se houver), Expressão da face." in vistos[1][1]
-    todos = "[[extrair: modelo, roupas, pose, cenario, penteado, cor, olhos, maquiagem, pintura, efeitos, acessorios, tatuagens, expressao]]"
+    todos = "[[extrair: modelo, roupas, pose, camera, cenario, penteado, cor, olhos, maquiagem, pintura, efeitos, acessorios, tatuagens, expressao]]"
     assert pb.criar(todos, "c", "modelo", referencia_anexa=ref)
     assert "MODO EXTRAÇÃO TOTAL" in vistos[2][0] and "SELETIVA" not in vistos[2][0] and vistos[2][2]["max_tokens"] == 8000
     assert pb.criar("ruiva [[extrair: pose]]", "c", "modelo")

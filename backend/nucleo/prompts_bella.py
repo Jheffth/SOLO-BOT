@@ -142,7 +142,8 @@ referência anteriores, exceto as de idade, recusa e anonimato:
   tamanho, cor, lado e local exato no corpo); PIERCINGS (tipo, material e local); anéis, colares, brincos, pulseiras,
   relógio e outras joias; unhas (formato e cor); maquiagem (olhos, batom, blush, contorno); roupa peça por peça (cor,
   tecido, corte, decote, caimento, costuras), calçados e acessórios.
-- Também use da imagem a expressão e a direção do olhar, a pose e a posição das mãos, o cenário, o fundo, a luz e a
+- Também use da imagem a expressão e a direção do olhar, a pose e a posição das mãos, a posição da câmera (altura, ângulo,
+  distância, enquadramento, lente e tipo de foto, trocando as frases fixas de câmera do modelo), o cenário, o fundo, a luz e a
   cor da cena (aqui o cenário DA IMAGEM é usado, em vez de sortear um novo).
 - Coloque cada informação no campo certo entre colchetes e AMPLIE os campos quanto for preciso para caber tudo
   (frases curtas e específicas), sem apagar o texto fixo do modelo. Se o espaço apertar, mantenha todo o texto fixo e
@@ -157,7 +158,11 @@ _ELEMENTOS_EXTRAIR = {
                "pescoço, porte, ombros, busto, cintura, quadris, pernas, sardas, pintas e marcas (o cabelo, a cor dos olhos, a maquiagem, a pintura corporal, os efeitos especiais e as tatuagens têm opção própria)"),
     "roupas": ("Roupas", "a roupa peça por peça (cor, tecido, corte, decote, caimento, costuras) e os calçados, SEM omitir nenhum detalhe: rendas e bordados (desenho), "
               "ligas e meias, luvas, braçadeiras e peças de armadura, ornamentos, correntes, runas ou símbolos brilhantes, aberturas, assimetrias, capas, saias em camadas e barras rasgadas"),
-    "pose": ("Pose", "a pose e a posição do corpo, dos braços, das mãos, das pernas e da cabeça, e o enquadramento e o ângulo da câmera"),
+    "pose": ("Pose", "a pose e a posição do corpo, dos braços, das mãos, das pernas e da cabeça (a posição da câmera tem opção própria)"),
+    "camera": ("Posição da câmera", "só a posição da câmera: altura (acima da pessoa, na linha dos olhos, abaixo), ângulo e inclinação (de cima para baixo, de baixo para cima, "
+               "frontal, lateral, três quartos, por trás, câmera inclinada), distância e enquadramento (close no rosto, busto, meio corpo, até as coxas, corpo inteiro), "
+               "lente e perspectiva (grande-angular de selfie com leve distorção, normal, teleobjetiva com fundo comprimido) e o tipo de foto (selfie com o braço estendido, "
+               "selfie no espelho, foto tirada por outra pessoa, câmera apoiada). NÃO copie a pose nem o cenário: eles têm opção própria"),
     "cenario": ("Cenário", "o cenário, o fundo, a luz e a cor da cena"),
     "penteado": ("Penteado (só o formato)", "só o FORMATO do cabelo: comprimento, textura (liso, ondulado, cacheado), volume, corte, franja, repartição e estado "
                  "(solto, preso, molhado). NÃO copie a cor do cabelo: a cor vem do pedido ou da modelo (ou sorteie), nunca da imagem"),
@@ -200,6 +205,7 @@ def elementos_extrair(pedido):
             "cenario": r"\b(?:cen[aá]rios?|ambientes?|fundos?|ilumina[cç][aã]o|luz)\b",
             "modelo": r"\b(?:modelos?|rostos?|corpos?)\b",
             "pose": r"\b(?:poses?|posturas?)\b",
+            "camera": r"\b(?:c[aâ]meras?|[aâ]ngulos?(?:\s+da\s+c[aâ]mera)?|enquadramentos?|perspectiva)\b",
             "penteado": r"\b(?:penteados?|corte\s+de\s+cabelo)\b",
             "cor": r"\b(?:cor\s+do\s+cabelo|perucas?)\b",
             "olhos": r"\b(?:olhos|lentes?)\b",
@@ -374,6 +380,7 @@ referência anteriores, exceto as de idade, recusa e anonimato:
 {copiar}
 - Todo o resto ({", ".join(resto)}) NÃO deve ser copiado da imagem: invente de forma nova e coerente (ou sorteie), como se a imagem não mostrasse isso.
 {"- Cabelo: copie só o formato (penteado), e a COR do cabelo fica nova, diferente da imagem." if "penteado" in elementos and "cor" not in elementos else "- Cabelo: copie só a cor (peruca), e o formato do cabelo fica novo, diferente da imagem." if "cor" in elementos and "penteado" not in elementos else ""}
+{"- Câmera: troque as frases fixas de câmera, perspectiva e enquadramento do modelo (altura e ângulo da câmera, distorção de lente, “da cabeça até a parte das coxas”, selfie) pela posição da câmera da imagem, mantendo a proporção 9:16. Não copie a pose por causa disso, a menos que Pose esteja marcada." if "camera" in elementos else "- A posição da câmera NÃO vem da imagem: mantenha as frases fixas de câmera e enquadramento do modelo (ou as do pedido)."}
 - Descreva só o que se vê nos itens marcados. Nunca invente tatuagens, piercings ou acessórios que não existam; se um item marcado "se houver" não aparecer, omita-o.
 - Coloque cada informação no campo certo entre colchetes e não deixe colchetes no resultado.
 - Se alguma frase fixa contradisser uma categoria marcada (por exemplo, impedir a cor do cabelo, maquiagem, tatuagens ou expressão selecionadas), adapte essa frase para respeitar a seleção. Preserve a estrutura, as regras de idade e os limites de conteúdo. Não deixe uma proibição genérica anular um item marcado.
@@ -567,6 +574,8 @@ A pose parece espontânea e íntima, não de ensaio fotográfico: peso do corpo 
     if detalhes_itens:
         blocos.append(f"Detalhes extraídos da imagem: [DETALHES: {', '.join(detalhes_itens)} extraídos fielmente da imagem de referência, ou 'nenhum' se não houver].")
 
+    if "camera" in elementos:
+        blocos.append("Câmera: [CÂMERA: altura, ângulo, distância, enquadramento, lente e tipo de foto extraídos fielmente da imagem de referência; o enquadramento da pose segue essa câmera].")
     blocos.append(corpo_pose)
 
     regras_nao = (
@@ -587,6 +596,7 @@ MODO EXTRAÇÃO TOTAL NO /POSEHOT:
   • Roupas: descreva PEÇA POR PEÇA as roupas, lingerie ou trajes que aparecem na imagem (cores exatas, tecidos, texturas, transparência, decotes, caimento, calçados e acessórios) de ambas as pessoas.
   • Cenário e iluminação: descreva em detalhes o ambiente exato (cômodo, móveis, cama, sofá, chão, paredes, decoração), a iluminação da cena (temperatura, sombras, fontes de luz direta ou difusa) e o fundo da foto original.
   • Detalhes e marcas: descreva tatuagens visíveis na pele (desenhos, locais e cores), piercings, joias e relógios que aparecerem na imagem.
+  • Câmera: no campo de enquadramento, reproduza a posição da câmera da imagem (altura, ângulo, distância, enquadramento e lente).
   • Pose: se o pedido escrito trouxer uma pose específica (ex.: de quatro, missionary, etc.), aplique essa pose pedida mantendo o casal, roupas e cenário da imagem. Se o pedido de pose for vazio ou pedir para copiar a pose, reproduza fielmente a pose sensual do casal/pessoa da imagem de referência.
 - Se a imagem tiver apenas uma pessoa (a modelo): descreva a modelo, roupas, acessórios e o cenário da imagem original, e adicione o parceiro masculino na pose (o parceiro padrão, ou o parceiro pedido se houver).
 - Preencha cada campo entre colchetes sem deixar colchetes no resultado. Descreva tudo de forma concreta, visual e realista.
@@ -610,8 +620,10 @@ MODO EXTRAÇÃO SELETIVA NO /POSEHOT (o dono marcou só alguns itens para copiar
   • Se 'acessorios' estiver marcado: copie os acessórios visíveis (joias, relógio, etc.).
   • Se 'tatuagens' estiver marcado: copie as tatuagens visíveis na pele.
   • Se 'expressao' estiver marcado: copie a expressão facial e o olhar de prazer da foto.
+  • Se 'camera' estiver marcado: copie a posição da câmera da imagem (altura, ângulo, distância, enquadramento, lente) no campo de câmera, e o campo de enquadramento da pose segue essa câmera.
 - Se 'pose' NÃO estiver marcado: a pose NÃO deve ser copiada da imagem: use a pose pedida no texto pelo dono (ou invente uma pose sensual variada se não foi pedida).
 - Se 'cenario' NÃO estiver marcado: o cenário NÃO deve ser copiado da imagem: crie ou sorteie um ambiente novo coerente.
+- Se 'camera' NÃO estiver marcado: a posição da câmera NÃO deve ser copiada da imagem: escolha o ângulo e o enquadramento que melhor mostram a pose.
 - Se 'roupas' NÃO estiver marcado: as roupas NÃO devem ser copiadas da imagem: crie roupas ou lingerie novas adequadas à cena.
 - Preencha todos os campos entre colchetes do modelo sem deixar colchetes no resultado.
 - Continue respeitando as regras de 18+, anonimato e recusa."""
@@ -1096,11 +1108,11 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         if pose:
             entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
                 "Modo extração total: extraia TUDO da imagem de referência (casal ou modelo, parceiro se houver casal, roupas, "
-                "acessórios, tatuagens, expressão, pose, cenário, fundo e luz) e descreva a cena com o máximo de fidelidade.")
+                "acessórios, tatuagens, expressão, pose, posição da câmera, cenário, fundo e luz) e descreva a cena com o máximo de fidelidade.")
         else:
             entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
                 "Modo extração total: extraia TUDO da imagem de referência (rosto, cabelo, pele, corpo, tatuagens, piercings, joias, "
-                "roupa, expressão, pose, cenário, fundo e luz) e descreva a modelo e a cena com o máximo de fidelidade.")
+                "roupa, expressão, pose, posição da câmera, cenário, fundo e luz) e descreva a modelo e a cena com o máximo de fidelidade.")
     elif seletivo_ativo:
         entrada = (("Pedido: " + pedido[:600] + "\n") if pedido else "") + (
             "Modo extração seletiva: copie da imagem de referência SOMENTE: " + ", ".join(_ELEMENTOS_EXTRAIR[k][0] for k in elementos if k in _ELEMENTOS_EXTRAIR)
