@@ -302,6 +302,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",
         "▸ `/charactersheet` — prancha de personagem em foto real, com a imagem anexa: `roupa` (só a roupa do anexo), `personagem`, `cenario` ou `tudo` (extrai tudo). Sem palavra: personagem com roupa",
         "▸ `/charactersheet2` — folha de personagem com as três vistas de corpo inteiro (frente, lado e costas), bloco de informações, paleta de cores e seis painéis de detalhe; use com a imagem da modelo anexa: `/charactersheet2 vestido preto de couro`",
+        "▸ `/estilo` — transforma a foto anexa em outro estilo de arte, mantendo a pessoa, a roupa e a pose: `/estilo GTA V` (dá para acrescentar: `/estilo GTA V numa praia ao pôr do sol`)",
         "    _Mande a foto junto para usar de referência. A opção *Sem sensualização* (prompts neutros) fica no painel do Solo Bot._",
     ])
     bloco("🔊 VOZ DAS RESPOSTAS", [
@@ -540,8 +541,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_voz(db, conta, resto.strip().lower())
     if cmd == "/ia":
         return _cmd_ia(db, conta, resto.strip().lower())
-    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo", "/charactersheet", "/fichapersonagem", "/charactersheet2", "/fichapersonagem2"):
-        padrao = {"/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose", "/promptcriativo": "criativo",
+    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo", "/charactersheet", "/fichapersonagem", "/charactersheet2", "/fichapersonagem2", "/estilo", "/style"):
+        padrao = {"/estilo": "estilo", "/style": "estilo", "/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose", "/promptcriativo": "criativo",
                   "/charactersheet": "ficha", "/fichapersonagem": "ficha", "/charactersheet2": "ficha2", "/fichapersonagem2": "ficha2"}.get(cmd, "realismo")
         pedido = prompts_bella_pedido(txt, canal, conta) or (padrao, "")
         return _prompt_responder(db, conta, canal, pedido[1], pedido[0])
@@ -1419,6 +1420,7 @@ def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: 
         "`/promptroupa` descreve toda a roupa da foto para vestir em outra imagem.\n"
         "`/posehot` copia a pose da foto (ou use *extrair tudo*, `[[extrair: cenario, roupas]]` para capturar itens da foto/casal, e `[[parceiro: da imagem]]` para o parceiro).\n"
         "`/promptcriativo` usa a foto como roupa e inventa o resto.\n"
+        "`/estilo GTA V` transforma a foto em arte no estilo GTA V.\n"
         "`/prompt sem referência ...` descarta a imagem.")
 
 

@@ -408,7 +408,7 @@ def test_posehot_reconhece_pedido_e_cria_pose(monkeypatch):
 def test_todo_prompt_sai_marcado_para_a_caixa_de_copiar(monkeypatch):
     """Regra: toda categoria de prompt (inclusive as futuras) é marcada, para o Bella.exe abrir a caixa de copiar."""
     from nucleo import prompts_bella as pb, roteador
-    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "criativo": "/promptcriativo x", "ficha": "/charactersheet x", "ficha2": "/charactersheet2 x"}
+    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "criativo": "/promptcriativo x", "ficha": "/charactersheet x", "ficha2": "/charactersheet2 x", "estilo": "/estilo GTA V"}
     assert set(comandos) == set(pb.CATEGORIAS), "categoria nova: registre o comando aqui e em CATEGORIAS"
     monkeypatch.setattr(pb, "criar", lambda *a, **k: "texto do prompt")
     monkeypatch.setattr(roteador, "_registrar", lambda *a, **k: None)
@@ -1035,3 +1035,43 @@ def test_inventario_confere_radicais_sem_acento():
     assert prompt == "Resto do prompt" and itens == ["Asas", "orelhas pontudas", "círculo mágico"]
     assert pb.itens_ausentes("Asa de dragão, orelha pontuda e circulo magico no chão", itens) == []
     assert pb.itens_ausentes("só chifres", itens) == itens
+
+
+def test_estilo_gta_v_transforma_a_imagem_de_referencia(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    assert pb.solicitacao("/estilo GTA V numa praia") == ("estilo", "GTA V numa praia")
+    assert pb.solicitacao("crie um prompt no estilo gta 5")[0] == "estilo"
+    assert pb.estilo_do_pedido("gta 5, de jaqueta") == ("gta", "de jaqueta")
+    assert pb.estilo_do_pedido("") == ("gta", "")
+    assert pb.estilo_do_pedido("anime")[0] is None
+    pb.guardar_referencia("es", "image/png", b"abc")
+    pronto = pb.modelo_estilo("gta").replace("[", "").replace("]", "")
+    vistos = []
+    monkeypatch.setattr(grok, "gerar", lambda instr, texto, **kw: vistos.append((instr, texto, kw)) or pronto)
+    texto = pb.criar("GTA V numa praia ao pôr do sol", "es", "estilo")
+    assert texto == pronto and "Spicy" not in texto and "9:16" not in texto
+    instr, entrada, kw = vistos[0]
+    assert "estilo GTA V" in instr and "cel-shading" in instr and "logos" in instr
+    assert "numa praia ao pôr do sol" in entrada and kw["imagens"]
+
+
+def test_estilo_sem_imagem_ou_desconhecido_explica(monkeypatch):
+    import pytest
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: pytest.fail("não deve chamar o Grok"))
+    with pytest.raises(pb.Recusa, match="mande a foto"):
+        pb.criar("GTA V", "es2", "estilo")
+    pb.guardar_referencia("es2", "image/png", b"abc")
+    with pytest.raises(pb.Recusa, match="Estilos disponíveis: GTA V"):
+        pb.criar("aquarela", "es2", "estilo")
+
+
+def test_estilo_rejeita_resposta_fora_do_modelo(monkeypatch):
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+    pb.guardar_referencia("es3", "image/png", b"abc")
+    monkeypatch.setattr(grok, "gerar", lambda *a, **k: "Recrie a pessoa " * 80)
+    assert pb.criar("GTA V", "es3", "estilo") is None
+

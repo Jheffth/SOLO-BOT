@@ -16,7 +16,9 @@
     { id: "ficha-personagem", cmd: "/charactersheet", modo: "personagem", nome: "Ficha · Personagem", dica: "Character sheet só do personagem da imagem anexa" },
     { id: "ficha-cenario", cmd: "/charactersheet", modo: "cenario", nome: "Ficha · Cenário", dica: "Character sheet com personagem, roupa e cenário da imagem anexa" },
     { id: "ficha-tudo", cmd: "/charactersheet", modo: "tudo", nome: "Ficha · Tudo", dica: "Character sheet extraindo tudo da imagem anexa" },
-    { id: "ficha2", cmd: "/charactersheet2", nome: "Ficha 2", dica: "Folha de personagem: três vistas (frente, lado, costas), informações, paleta e seis detalhes" }
+    { id: "ficha2", cmd: "/charactersheet2", nome: "Ficha 2", dica: "Folha de personagem: três vistas (frente, lado, costas), informações, paleta e seis detalhes" },
+    // Estilo: transforma a imagem anexa em outro estilo de arte. O nome do estilo vai logo depois do comando.
+    { id: "estilo-gta", cmd: "/estilo", modo: "GTA V", nome: "Estilo GTA V", dica: "Transforma a imagem anexa em arte no estilo GTA V (mesma pessoa, roupa e pose)" }
   ];
   COMANDOS.forEach(c => { c.id = c.id || c.cmd; });
   const MODOS_FICHA = /^(roupa|personagem|cenario|tudo)\b/i;
@@ -153,6 +155,7 @@
     const itensExtrair = tudo || !comExtracao ? [] : Array.from(document.querySelectorAll(".extrair-item:checked")).map(c => c.dataset.el);
     if (itensExtrair.length && !api.temAnexo()) return aviso("Anexe a imagem de referência para copiar os itens marcados dela.");
     if (cmd === "/charactersheet" && MODOS_FICHA.test(corpo || "") && !api.temAnexo()) return aviso("Anexe a imagem de referência: a ficha usa o que está nela.");
+    if (cmd === "/estilo" && !api.temAnexo()) return aviso("Anexe a imagem que vai ser transformada no estilo.");
     const parceiroFoto = $("posehot-parceiro-foto") && $("posehot-parceiro-foto").checked && cmd === "/posehot";
     if (parceiroFoto && !api.temAnexo()) return aviso("Anexe a imagem de referência para copiar o parceiro dela.");
     const campoParc = $("posehot-parceiro");

@@ -39,7 +39,8 @@ CATEGORIAS = {"realismo": "Realismo sensual (selfie de smartphone, modelo própr
               "pose": "Troca de pose em imagem externa (/posehot)",
               "criativo": "Realismo sensual criativo, fora da biblioteca (/promptcriativo)",
               "ficha": "Character sheet em fotografia real: padrão, só roupa, só personagem ou com cenário (/charactersheet)",
-              "ficha2": "Character sheet 2: três vistas (frente, lado, costas) com informações e paleta, mais seis painéis de detalhe (/charactersheet2)"}
+              "ficha2": "Character sheet 2: três vistas (frente, lado, costas) com informações e paleta, mais seis painéis de detalhe (/charactersheet2)",
+              "estilo": "Transforma a imagem de referência em outro estilo de arte, como GTA V (/estilo)"}
 # Começa o texto enviado ao Bella.exe quando a resposta é um prompt; a tela tira a marca e abre a caixa de copiar.
 MARCA_PROMPT = "[[prompt]]"
 
@@ -788,6 +789,79 @@ _PEDIDO_FICHA = re.compile(
     r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?(?:prompt\s+(?:de\s+|da\s+|para\s+)?)?"
     r"(?:character\s*sheet|ficha\s+de\s+personagem|folha\s+de\s+personagem)\b)"
     r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+# ── /estilo: transforma a imagem de referência num estilo de arte. Para um estilo novo, acrescente uma entrada em ESTILOS. ──
+# Só o estilo visual é descrito: nunca logos, títulos, textos nem personagens do jogo ou da obra.
+ESTILOS = {
+    "gta": {
+        "nome": "GTA V",
+        "apelidos": ("gta v", "gta 5", "gtav", "gta5", "gta", "grand theft auto v", "grand theft auto 5", "grand theft auto"),
+        "descricao": ("arte de tela de carregamento no estilo de GTA V: ilustração digital pintada à mão, semi-realista, com cara de pôster "
+                      "de quadrinhos; contornos escuros bem definidos e de espessura variável; sombreamento em blocos de dois ou três tons "
+                      "com transições duras (cel-shading pintado) e realces nítidos na pele, no cabelo e nos tecidos; cores saturadas e quentes, "
+                      "contraste alto; textura leve de pintura digital; anatomia realista e idealizada, traços do rosto marcados e expressão com "
+                      "atitude; fundo simplificado e estilizado, muitas vezes com céu de fim de tarde em laranja, rosa e roxo; composição de pôster, "
+                      "com a figura em destaque"),
+    },
+}
+
+
+def estilo_do_pedido(pedido):
+    """(chave do estilo ou None, resto do pedido). Pedido vazio usa o primeiro estilo da lista."""
+    texto = (pedido or "").strip()
+    if not texto:
+        return next(iter(ESTILOS)), ""
+    baixo = texto.lower()
+    achados = [(len(a), k, a) for k, e in ESTILOS.items() for a in e["apelidos"]
+               if baixo == a or re.match(re.escape(a) + r"(?![a-z0-9])", baixo)]
+    if not achados:
+        return None, texto
+    _, chave, apelido = max(achados)
+    return chave, texto[len(apelido):].strip(" ,.;:-–")
+
+
+def estilos_disponiveis():
+    return ", ".join(e["nome"] for e in ESTILOS.values())
+
+
+def modelo_estilo(chave):
+    e = ESTILOS[chave]
+    return f"""Transforme a imagem de referência em uma ilustração no estilo {e['nome']}, mantendo a mesma pessoa, a mesma roupa, a mesma pose e a mesma cena. Estilo: {e['descricao']}.
+
+A pessoa é [PESSOA: mulher ou homem adulto da imagem, tom de pele, formato do rosto, olhos, sobrancelhas, nariz, boca, cabelo (cor, comprimento, corte e penteado), porte do corpo, tatuagens, sardas e marcas visíveis], com a mesma identidade facial, agora desenhada no estilo pedido.
+
+A roupa é [ROUPA: cada peça visível, com cor, tecido, corte e caimento, mais calçados e acessórios].
+
+A pose e o enquadramento são [POSE E CÂMERA: posição do corpo, dos braços, das mãos e da cabeça, expressão e direção do olhar, ângulo da câmera e o que aparece no quadro].
+
+O cenário é [CENÁRIO: o ambiente da imagem, simplificado e estilizado no mesmo estilo, com a luz e as cores principais da cena].
+
+Mantenha a proporção da imagem de referência. Não é foto, não é render 3D e não é anime: é pintura digital no estilo {e['nome']}. Não adicionar textos, títulos, logos, marcas d'água, interface de jogo nem personagens conhecidos; não trocar a pessoa por outra; não mudar a cor do cabelo nem a cor da pele; não distorcer mãos, rosto ou proporções do corpo."""
+
+
+INSTRUCAO_ESTILO = """Você é a Bella e está ajudando seu dono a criar prompts em português para o Grok Imagine que TRANSFORMAM uma imagem
+de referência (que ele vai anexar no Grok junto do prompt) em outro estilo de arte. Junto deste pedido há a mesma imagem.
+Entregue SEMPRE um único prompt completo, seguindo exatamente o MODELO abaixo.
+
+Regras do trabalho:
+- Mantenha todo o texto fixo do modelo, inclusive a descrição do estilo. Troque só o que está entre colchetes pelo que se vê na imagem,
+  de forma concreta e fiel: a pessoa, a roupa, a pose e a câmera, o cenário. Não deixe colchetes no resultado.
+- O que muda é só o estilo: a pessoa, a roupa, a pose e a cena continuam as da imagem.
+- Se o pedido trouxer mais alguma coisa (por exemplo "numa praia ao pôr do sol" ou "de jaqueta de couro"), aplique só isso por cima da imagem.
+- Nunca diga quem é a pessoa nem use nome. Nada de logos, títulos ou personagens do jogo ou da obra: só o estilo visual.
+- Pessoas sempre adultas (18+). Se a pessoa da imagem parecer menor de idade, ou se a imagem não mostrar uma pessoa ou cena utilizável,
+  responda somente com uma linha começando por "RECUSA:" e o motivo curto, sem prompt.
+- Saída: apenas o prompt, em texto simples, sem título, sem explicações, sem Markdown e com no máximo 5000 caracteres.
+
+MODELO:
+"""
+
+
+_PEDIDO_ESTILO = re.compile(
+    r"^\s*(?:/(?:estilo|style)\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|mont[ae]r?|quero|preciso\s+d[eoa])\s+"
+    r"(?:um\s+|o\s+|outro\s+|novo\s+)?prompt\s+(?:de\s+|para\s+)?(?:transformar\s+(?:a\s+(?:imagem|foto)\s+)?)?(?:em\s+|no\s+)?estilo\b)"
+    r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+
+
 _PEDIDO_FICHA2 = re.compile(
     r"^\s*(?:/(?:charactersheet2|character_sheet2|fichapersonagem2)\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
     r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?(?:prompt\s+(?:de\s+|da\s+|para\s+)?)?"
@@ -985,7 +1059,7 @@ def solicitacao(texto, chave=None):
     texto = (texto or "").strip()
     if not texto:
         return None
-    for categoria, regra in (("ficha2", _PEDIDO_FICHA2), ("ficha", _PEDIDO_FICHA), ("criativo", _PEDIDO_CRIATIVO), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
+    for categoria, regra in (("estilo", _PEDIDO_ESTILO), ("ficha2", _PEDIDO_FICHA2), ("ficha", _PEDIDO_FICHA), ("criativo", _PEDIDO_CRIATIVO), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
         m = regra.match(texto)
         if m:
             pedido = m.group(1).strip()
@@ -1080,6 +1154,13 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
     if ficha and not ficha2:
         modo, pedido = modo_ficha(pedido)
     ref = (referencia_anexa or (referencia(chave) if chave is not None else None)) if not sem else None
+    estilo = categoria == "estilo"
+    if estilo:
+        chave_estilo, extra_estilo = estilo_do_pedido(pedido)
+        if chave_estilo is None:
+            raise Recusa(f"o estilo “{extra_estilo[:40]}” ainda não está disponível. Estilos disponíveis: {estilos_disponiveis()}. Exemplo: /estilo GTA V")
+        if not ref:
+            raise Recusa(f"o /estilo transforma uma imagem: mande a foto junto com /estilo {ESTILOS[chave_estilo]['nome']}")
     entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO
     criativo = categoria == "criativo"
     ambiente = roupa_base = None
@@ -1121,7 +1202,10 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         entrada = "Pedido: crie a modelo a partir das características da imagem de referência; cenário à sua escolha."
     elif ref and not pedido and not pose and not ficha:
         entrada = "Pedido: use a roupa da imagem de referência; cenário, luz e fundo à sua escolha."
-    if ficha:
+    if estilo:
+        base = INSTRUCAO_ESTILO + modelo_estilo(chave_estilo)
+        entrada = f"Pedido: transformar a imagem de referência no estilo {ESTILOS[chave_estilo]['nome']}." + (f" Além disso: {extra_estilo[:400]}" if extra_estilo else "")
+    elif ficha:
         if ficha2:
             modo = "padrao"
         from_img = {"padrao": "as características da modelo e a roupa", "roupa": "a roupa, copiada fielmente peça por peça",
@@ -1217,7 +1301,7 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
                 base = base_suave + (INSTRUCAO_REFERENCIA_POSE if ref else "")
                 if parceiro:
                     base += instrucao_parceiro(parceiro)
-        base = suavizar(base) + (REGRAS_SUAVES.replace("o formato, o 9:16 e", "o formato e") if ficha else REGRAS_SUAVES)
+        base = suavizar(base) + (REGRAS_SUAVES.replace("o formato, o 9:16 e", "o formato e") if (ficha or estilo) else REGRAS_SUAVES)
     orcamento = 72 if (tudo_ativo or seletivo_ativo or (ficha and modo == "tudo")) else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
     if espera:
         orcamento = max(orcamento, espera)      # quem chama sabe quanto o cliente aguenta esperar
@@ -1240,8 +1324,9 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         inventario = []
         if criatura:
             saida, inventario = separar_inventario(saida)
-        if roupa or pose or ficha:   # troca de roupa/pose e ficha: sem 9:16 e sem a tag de movimento
-            inicios = (("crie uma prancha de personagem",) if ficha else ("vista a pessoa", "dress the person") if roupa
+        if roupa or pose or ficha or estilo:   # troca de roupa/pose, ficha e estilo: sem 9:16 e sem a tag de movimento
+            inicios = (("transforme a imagem de referência", "transforme a imagem", "transform the reference image") if estilo
+                       else ("crie uma prancha de personagem",) if ficha else ("vista a pessoa", "dress the person") if roupa
                        else ("recrie a pessoa", "recrie as pessoas", "recrie a cena", "recrie o casal", "recrie a modelo", "recreate the person", "recreate the scene", "recreate the people"))
             motivo = ("curto demais" if len(saida) < (900 if ficha else 600) else "longo demais" if len(saida) > MAX_PROMPT
                       else "não começa pelo texto fixo do modelo" if not saida.lower().startswith(inicios)

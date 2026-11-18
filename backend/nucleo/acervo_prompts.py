@@ -16,8 +16,8 @@ from nucleo import modulos
 log = logging.getLogger("solobot.acervo")
 
 APP = "prompts"
-_CATEGORIAS = {"realismo": "realismo", "modelo": "modelo", "roupa": "roupa", "pose": "pose", "criativo": "criativo", "ficha": "ficha", "ficha2": "ficha"}
-_ROTULOS = {"realismo": "Prompt", "modelo": "Modelo", "roupa": "Roupa", "pose": "Pose", "criativo": "Criativo", "ficha": "Character sheet", "ficha2": "Character sheet 2"}
+_CATEGORIAS = {"realismo": "realismo", "modelo": "modelo", "roupa": "roupa", "pose": "pose", "criativo": "criativo", "ficha": "ficha", "ficha2": "ficha", "estilo": "outro"}   # o Solo Prompts não tem a categoria estilo: vai como outro, com a tag
+_ROTULOS = {"realismo": "Prompt", "modelo": "Modelo", "roupa": "Roupa", "pose": "Pose", "criativo": "Criativo", "ficha": "Character sheet", "ficha2": "Character sheet 2", "estilo": "Estilo"}
 
 
 def _titulo(categoria: str, pedido: str, texto: str) -> str:
