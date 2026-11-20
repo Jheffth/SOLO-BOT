@@ -240,3 +240,38 @@ def test_chamar_pelo_nome_para_conversar_nao_vai_a_sistema(catalogo, monkeypatch
     monkeypatch.setattr(intencao, "interpretar", lambda *a, **k: pytest.fail("não deve gastar a IA de roteamento"))
     assert roteador._pedido_de_secretaria(None, SimpleNamespace(id=1), "telegram", "1", None, "Bella, te amo sabia?", False) is None
 
+
+@pytest.mark.parametrize("frase", ["chupa meu pau", "tira a roupa pra mim", "quero te foder agora", "senta no meu colo nua"])
+def test_frase_intima_e_conversa_mesmo_com_verbo(frase):
+    assert roteador._intimo(frase)
+
+
+@pytest.mark.parametrize("frase", ["transfira 380 reais para o Mercado Pago", "paga o DAS", "gastei 30 no almoço", "/hoje"])
+def test_pedido_de_sistema_nao_e_intimo(frase):
+    assert not roteador._intimo(frase)
+
+
+def test_bella_chupa_nao_vira_pedido_nem_gasta_ia(catalogo, monkeypatch):
+    monkeypatch.setattr(models_persona, "ativa", lambda db, conta: True)
+    monkeypatch.setattr(roteador, "_sistemas_da_conta", lambda db, conta: pytest.fail("não deve olhar os sistemas"))
+    monkeypatch.setattr(intencao, "interpretar", lambda *a, **k: pytest.fail("não deve gastar a IA de roteamento"))
+    for frase in ("Bella chupa meu pau", "Bella, tira a roupa", "Júlia, mostra os peitos"):
+        assert roteador._pedido_de_secretaria(None, SimpleNamespace(id=1), "telegram", "1", None, frase, False) is None
+
+
+def test_frase_intima_curta_num_modo_de_sistema_volta_para_ela(monkeypatch):
+    monkeypatch.setattr(models_persona, "ativa", lambda db, conta: True)
+    assert roteador._papo_com_a_modelo(None, SimpleNamespace(id=1), "chupa meu pau", [])
+    assert not roteador._papo_com_a_modelo(None, SimpleNamespace(id=1), "Mercado Pago", [])   # escolha de conta: sistema
+
+
+def test_fora_de_modo_frase_intima_vai_para_ela_sem_ia(dois, sistemas, caixa, monkeypatch):
+    from test_intencao import _ia
+    chamadas = _ia(monkeypatch, {"app": "fin", "mensagem": "/saldo", "confianca": 0.95})
+    respondidas = []
+    monkeypatch.setattr(roteador, "_bella_responder", lambda db, conta, canal, txt, so_se_responder=False:
+                        respondidas.append(txt) or roteador.Resposta().diz("hmm 😏"))
+    recebidos = len(sistemas.recebidos)
+    _tg(dois, "chupa meu pau")
+    assert respondidas == ["chupa meu pau"] and chamadas == [] and len(sistemas.recebidos) == recebidos
+

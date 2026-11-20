@@ -455,6 +455,15 @@ def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulo
     return r
 
 
+def _intimo(txt: str) -> bool:
+    """Frase íntima ou sexual (grau 2+ na escala da temperatura), sem número nem comando: é conversa com a modelo,
+    nunca pedido a um sistema — mesmo com verbo no imperativo ("Bella, chupa…", "tira a roupa")."""
+    from nucleo import bella_estado
+    if not txt or txt.startswith("/") or any(c.isdigit() for c in txt):
+        return False
+    return bella_estado.classificar(txt) >= 2
+
+
 def _pedido_de_secretaria(db, conta: Conta, canal: str, origem: str, s, txt: str, via_audio: bool) -> Optional[Resposta]:
     """"Júlia transfira 380 reais da Uber Conta para o Mercado Pago": chamou a modelo pelo nome e pediu algo de um
     sistema. O pedido (sem o nome) vai ao sistema, que executa; a modelo responde com o resultado e, se o nome estiver
@@ -463,7 +472,7 @@ def _pedido_de_secretaria(db, conta: Conta, canal: str, origem: str, s, txt: str
     if txt.startswith("/") or not models_persona.ativa(db, conta):
         return None
     nome, pedido = models_persona.vocativo(txt, conta)
-    if not nome or not pedido:
+    if not nome or not pedido or _intimo(pedido):
         return None
     ligados = _sistemas_da_conta(db, conta)
     if not ligados:
@@ -495,6 +504,8 @@ def _papo_com_a_modelo(db, conta: Conta, txt: str, ligados: list) -> bool:
     """Num modo de sistema, com a persona ativa: frase de conversa (sem número, sem comando, sem palavra de
     nenhum sistema e com pelo menos 4 palavras) volta para a modelo. Respostas curtas seguem no sistema."""
     from nucleo import intencao, models_persona
+    if _intimo(txt):
+        return models_persona.ativa(db, conta)
     if txt.startswith("/") or any(c.isdigit() for c in txt) or len(txt.split()) < 4:
         return False
     if not models_persona.ativa(db, conta):
@@ -756,6 +767,10 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
             return _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod)
 
     # 5. hub com texto livre
+    if _intimo(txt):
+        papo = _bella_responder(db, conta, canal, txt, so_se_responder=True)
+        if papo:
+            return papo
     it = intencao.interpretar(db, txt, ligados) if ligados else intencao.Intencao()
 
     # Papo livre: se não é de nenhum sistema, quem responde é a Bella.
