@@ -454,6 +454,14 @@ def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulo
     return r
 
 
+def _frase_para_o_sistema(db, txt: str, alvo, ligados: list) -> bool:
+    """Registro em linguagem natural para um sistema que entende frases soltas: vai a frase original."""
+    from nucleo import intencao
+    if txt.startswith("/") or not intencao.aceita_texto_livre(db, alvo.chave) or intencao.eh_consulta(txt):
+        return False
+    return not intencao.comando_literal(db, txt, ligados).app
+
+
 def _papo_com_a_modelo(db, conta: Conta, txt: str, ligados: list) -> bool:
     """Num modo de sistema, com a persona ativa: frase de conversa (sem número, sem comando, sem palavra de
     nenhum sistema e com pelo menos 4 palavras) volta para a modelo. Respostas curtas seguem no sistema."""
@@ -733,6 +741,10 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     alvo = modulos.por_chave(it.app) if it.app else None
     if alvo and it.mensagem:
         _entrar_modo(db, s, alvo.chave)
+        if _frase_para_o_sistema(db, txt, alvo, ligados):
+            # O sistema entende frases soltas (Finances): vai a frase original, não a tradução da IA,
+            # como acontece dentro do modo dele.
+            return para_sistema(db, conta, canal, origem, alvo, texto=txt, via_audio=via_audio)
         return _entregar_intencao(db, conta, canal, origem, alvo, txt, it, via_audio)
 
     s.pendente = txt[:1000]

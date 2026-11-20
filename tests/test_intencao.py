@@ -239,3 +239,18 @@ def test_ia_recebe_a_sintaxe_do_comando(dois, sistemas, monkeypatch):
     db.close()
     assert d[0]["comandos"][0]["uso"] == "/somar <título> <valor>"
     assert "ORDEM dos argumentos" in intencao.PROMPT and '"/somar noite 25"' in intencao.PROMPT
+
+
+def test_fora_de_modo_a_frase_livre_vai_original_ao_finances(dois, sistemas, caixa, monkeypatch):
+    # Sem modo ativo (a conversa é com a modelo), a IA escolhe o Finances: vai a frase como foi escrita,
+    # para o leitor do Finances, e não a tradução da IA.
+    _ia(monkeypatch, {"app": "fin", "mensagem": "/ganhocorrida uber | 42,94", "confianca": 0.95})
+    _tg(dois, "Recebi 42,94 viagem Uber")
+    assert sistemas.recebidos[-1][0] == "fin" and sistemas.recebidos[-1][2]["texto"] == "Recebi 42,94 viagem Uber"
+
+
+def test_fora_de_modo_consulta_continua_virando_comando(dois, sistemas, caixa, monkeypatch):
+    _ia(monkeypatch, {"app": "fin", "mensagem": "/saldo", "confianca": 0.95})
+    _tg(dois, "qual meu saldo no nubank?")
+    assert sistemas.recebidos[-1][2]["texto"] == "/saldo"
+
