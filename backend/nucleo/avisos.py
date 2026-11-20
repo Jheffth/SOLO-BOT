@@ -94,10 +94,29 @@ def quer_voz(conta: Conta, pedido_do_sistema: Optional[bool]) -> bool:
     return p == "sempre" or (p == "sistema" and bool(pedido_do_sistema))
 
 
-def _entregar(db: Session, conta: Conta, canal: str, origem: str, app: str, mensagens: list, voz: bool):
+def _na_persona(db: Session, conta: Conta, app: str, mensagens: list, cache: Optional[dict] = None) -> list:
+    """Com a persona ativa, o aviso vai na voz da modelo selecionada (ver nucleo/models_persona.py)."""
+    from nucleo import models_persona
+    mod = modulos.por_chave(app)
+    if mod is None or not models_persona.ativa(db, conta):
+        return mensagens
+    chave = (conta.id, app, json.dumps(mensagens, ensure_ascii=False, sort_keys=True, default=str))
+    if cache is not None and chave in cache:
+        return [dict(m) for m in cache[chave]]
+    nomes = mod.nome.replace("Solo ", "")
+    pronto = models_persona.aplicar(conta, nomes, mod.selo, mensagens, usuario=f"[Aviso do {nomes}]")
+    if cache is not None:
+        cache[chave] = pronto
+    return [dict(m) for m in pronto]
+
+
+def _entregar(db: Session, conta: Conta, canal: str, origem: str, app: str, mensagens: list, voz: bool,
+              persona: bool = False):
     from canais import entrega
     s = roteador.sessao_de(db, canal, origem)
-    roteador._entrar_modo(db, s, app)           # responder ao aviso cai no sistema dele
+    if not persona:
+        roteador._entrar_modo(db, s, app)       # responder ao aviso cai no sistema dele
+    # Na persona, a conversa continua com a modelo: o aviso não troca o modo.
     r = roteador.Resposta()
     r.mensagens = mensagens
     entrega.entregar(db, canal, origem, r, falar=voz, forcar_voz=voz)
@@ -136,6 +155,24 @@ def receber(db: Session, mod: modulos.Modulo, usuario_id: str, texto: str, opcoe
     com_voz = quer_voz(conta, voz)
     entregues = adiados = 0
     silencioso = em_silencio(conta)
+    from nucleo import models_persona
+    if canais and not silencioso and models_persona.ativa(db, conta):
+        # A reescrita leva alguns segundos: sai numa fila própria, um aviso por vez e na ordem de chegada,
+        # sem segurar a requisição do sistema.
+        destinos = [(c.canal, c.origem) for c in canais]
+        conta_id, app = conta.id, mod.chave
+
+        def tarefa(db2, msg=dict(msg)):
+            conta2 = models_persona.conta_por_id(db2, conta_id)
+            if conta2 is None:
+                return
+            prontas = _na_persona(db2, conta2, app, [msg])
+            for canal, origem in destinos:
+                _entregar(db2, conta2, canal, origem, app, [dict(m) for m in prontas], com_voz, persona=True)
+
+        models_persona.enfileirar(tarefa)
+        roteador._registrar(db, conta, None, mod.chave, "aviso", "Aviso recebido (na voz da modelo)")
+        return {"entregues": len(destinos), "adiados": 0, "descartados": 0, "vinculado": True}
     for c in canais:
         if silencioso:
             db.add(AvisoPendente(conta_id=conta.id, canal=c.canal, origem=c.origem, app=mod.chave,
@@ -190,6 +227,7 @@ def despachar_pendentes(db: Session, agora: Optional[datetime] = None) -> int:
     """Entrega o que esperava o silêncio acabar (e descarta o que venceu). Chamado a cada minuto."""
     n = 0
     cache = {}  # a mesma referência em dois canais exige só uma consulta
+    persona_cache = {}  # e o mesmo aviso em dois canais, uma só reescrita na voz da modelo
     for p in db.query(AvisoPendente).order_by(AvisoPendente.criado_em).all():
         conta = db.get(Conta, p.conta_id)
         if conta is None:
@@ -214,7 +252,10 @@ def despachar_pendentes(db: Session, agora: Optional[datetime] = None) -> int:
         if em_silencio(conta, agora):
             continue
         try:
-            _entregar(db, conta, p.canal, p.origem, p.app, mensagens, bool(p.voz))
+            from nucleo import models_persona
+            prontas = _na_persona(db, conta, p.app, mensagens, persona_cache)
+            _entregar(db, conta, p.canal, p.origem, p.app, prontas, bool(p.voz),
+                      persona=models_persona.ativa(db, conta))
             n += 1
         except Exception:  # noqa: BLE001
             log.exception("Falha ao despachar aviso guardado")

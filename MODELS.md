@@ -146,3 +146,20 @@ Só o Arquiteto, com uma modelo do Models selecionada.
   (se estavam nus ou na cama, a chegada acontece assim) e a convidada e a anfitriã reagem a ele. Cada cena fica
   arquivada por data e hora no servidor do Models (`dados/cenas/…/AAAA-MM-DD_HH-MM_<nomes>.md`) e a modelo a consulta
   quando perguntada ("lembra da noite com a Kellen?"), só com o que ela viveu depois de chegar.
+
+## Os sistemas na voz da modelo (`nucleo/models_persona.py`)
+
+- Com uma modelo do Models selecionada e `/persona` ligada (padrão), os avisos e as respostas do Rotinas, do Finances
+  e dos outros sistemas chegam como a modelo falando: uma ou duas frases dela e os dados em lista. Os sussurros do
+  Sistema ela reescreve livremente, na personalidade dela.
+- O código confere a versão dela: todo número, valor, horário, data e comando do texto original tem de aparecer, e
+  nenhum número novo pode surgir. Se a conferência ou a IA falhar, vai o texto do sistema como antes.
+- O que ela disse entra no histórico dela no Models (origem `iniciativa`), para a conversa seguir.
+- Os avisos ao vivo saem numa fila própria, um por vez e na ordem de chegada, sem segurar a requisição do sistema.
+  Os guardados pelo horário de silêncio são reescritos na hora de sair.
+- O aviso não troca mais o modo da conversa: depois dele, o que a pessoa escreve vai para a modelo. Num modo de
+  sistema, uma frase de conversa (4 palavras ou mais, sem número, sem comando e sem palavra de nenhum sistema)
+  volta para a modelo; respostas curtas e com número seguem no sistema.
+- Numa cena com várias modelos, quem dá o aviso é a anfitriã, que pode citar as outras.
+- `/persona desligar` volta ao formato padrão dos sistemas.
+

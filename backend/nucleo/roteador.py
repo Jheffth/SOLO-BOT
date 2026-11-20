@@ -301,12 +301,13 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "`[[extrair: cenario, roupas]]` ou `[[parceiro: da imagem]]`",
         "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",
         "▸ `/charactersheet` — prancha de personagem em foto real, com a imagem anexa: `roupa` (só a roupa do anexo), `personagem`, `cenario` ou `tudo` (extrai tudo). Sem palavra: personagem com roupa",
-        "▸ `/charactersheet2` — folha de personagem com as três vistas de corpo inteiro (frente, lado e costas), bloco de informações, paleta de cores e seis painéis de detalhe; use com a imagem da modelo anexa: `/charactersheet2 vestido preto de couro`",
-        "▸ `/estilo` — transforma a foto anexa em outro estilo de arte, mantendo a pessoa, a roupa e a pose: `/estilo GTA V` (dá para acrescentar: `/estilo GTA V numa praia ao pôr do sol`)",
+        "▸ `/charactersheet2` — frente, lado e costas, informações, paleta e seis detalhes, com a foto da modelo",
+        "▸ `/estilo GTA V` — a foto anexa vira arte nesse estilo (mesma pessoa, roupa e pose)",
         "    _Mande a foto junto para usar de referência. A opção *Sem sensualização* (prompts neutros) fica no painel do Solo Bot._",
     ])
     bloco("🔊 VOZ DAS RESPOSTAS", [
         "▸ `/voz` — mostra como respondo; `/voz audio` (falo quando você manda áudio), `/voz sempre` ou `/voz nunca`",
+        "▸ `/persona ligar` ou `desligar` — os sistemas falam na voz da sua modelo",
     ])
     if conta.admin:
         bloco("🎙️ CLONAGEM E VOZES (administrador)", [
@@ -443,7 +444,46 @@ def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulo
     _registrar(db, conta, canal, mod.chave, "comando",
                resumo or ("toque" if dados is not None else "áudio" if audio is not None
                           else _resumo_comando(texto or "")))
-    return _traduzir(mod, resp, Resposta())
+    r = _traduzir(mod, resp, Resposta())
+    from nucleo import models_persona
+    if models_persona.ativa(db, conta):
+        # A modelo entrega a resposta do sistema na voz dela (ver nucleo/models_persona.py).
+        nome = mod.nome.replace("Solo ", "")
+        dito = texto if (texto and dados is None and audio is None) else f"[{'áudio' if audio is not None else 'toque'} no {nome}]"
+        r.mensagens = models_persona.aplicar(conta, nome, mod.selo, r.mensagens, usuario=dito)
+    return r
+
+
+def _papo_com_a_modelo(db, conta: Conta, txt: str, ligados: list) -> bool:
+    """Num modo de sistema, com a persona ativa: frase de conversa (sem número, sem comando, sem palavra de
+    nenhum sistema e com pelo menos 4 palavras) volta para a modelo. Respostas curtas seguem no sistema."""
+    from nucleo import intencao, models_persona
+    if txt.startswith("/") or any(c.isdigit() for c in txt) or len(txt.split()) < 4:
+        return False
+    if not models_persona.ativa(db, conta):
+        return False
+    if intencao.comando_literal(db, txt, ligados).app or intencao.eh_consulta(txt):
+        return False
+    return not any(intencao.por_palavras(db, txt, ligados).values())
+
+
+def _cmd_persona(db, conta: Conta, arg: str) -> Resposta:
+    from nucleo import models, models_persona
+    if arg in ("ligar", "liga", "on", "sim"):
+        models_persona.definir(db, conta.id, True)
+    elif arg in ("desligar", "desliga", "off", "nao", "não"):
+        models_persona.definir(db, conta.id, False)
+    elif arg:
+        return Resposta().diz("Use `/persona ligar` ou `/persona desligar`.")
+    ligada = models_persona.ligada(db, conta.id)
+    try:
+        tem_modelo = bool(models.selecionado(conta.id))
+    except Exception:  # noqa: BLE001
+        tem_modelo = False
+    estado = ("🎭 Avisos e respostas dos sistemas vêm na voz da sua modelo." if ligada and tem_modelo
+              else "🎭 Ligado, mas falta escolher uma modelo em /models: até lá, os sistemas falam por si." if ligada
+              else "📟 Os sistemas falam por si, no formato padrão.")
+    return Resposta().diz(estado + ("\n`/persona desligar` volta ao formato padrão." if ligada else "\n`/persona ligar` passa para a voz da modelo."))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -539,6 +579,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return Resposta().diz(sincronizar(conta))
     if cmd == "/voz":
         return _cmd_voz(db, conta, resto.strip().lower())
+    if cmd == "/persona":
+        return _cmd_persona(db, conta, _sem_acento(resto.strip().lower()))
     if cmd == "/ia":
         return _cmd_ia(db, conta, resto.strip().lower())
     if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo", "/charactersheet", "/fichapersonagem", "/charactersheet2", "/fichapersonagem2", "/estilo", "/style"):
@@ -664,6 +706,11 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if modo:
         mod = modulos.por_chave(modo)
         if mod:
+            if _papo_com_a_modelo(db, conta, txt, ligados):
+                papo = _bella_responder(db, conta, canal, txt, so_se_responder=True)
+                if papo:
+                    _entrar_modo(db, s, None)    # a conversa volta a ser livre, com a modelo
+                    return papo
             _entrar_modo(db, s, modo)            # renova a validade
             return _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod)
 
@@ -1340,7 +1387,7 @@ def resposta_models(texto) -> "Resposta":
 def _entregar_intencao(db, conta, canal, origem, mod, txt, it, via_audio) -> Resposta:
     """Manda o que a intenção decidiu, e mostra em uma linha o que foi entendido."""
     r = para_sistema(db, conta, canal, origem, mod, texto=it.mensagem, via_audio=via_audio)
-    if it.mensagem != txt and r.mensagens:
+    if it.mensagem != txt and r.mensagens and not any(m.get("persona") for m in r.mensagens):
         nota = f"🧭 _Entendi: {mod.nome.replace('Solo ', '')} · `{it.mensagem}`_"
         r.mensagens[0]["texto"] = f"{nota}\n\n{r.mensagens[0]['texto']}"
     return r
