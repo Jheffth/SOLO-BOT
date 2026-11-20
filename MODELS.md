@@ -162,4 +162,9 @@ Só o Arquiteto, com uma modelo do Models selecionada.
   volta para a modelo; respostas curtas e com número seguem no sistema.
 - Numa cena com várias modelos, quem dá o aviso é a anfitriã, que pode citar as outras.
 - `/persona desligar` volta ao formato padrão dos sistemas.
+- Secretária: chamada pelo nome no começo da frase ("Júlia transfira 380 reais da Uber Conta para o Mercado Pago",
+  "Bella, paga o DAS"), o pedido sem o nome vai ao sistema certo, que executa, e a modelo responde com o resultado.
+  Vale o nome de qualquer modelo do catálogo ou um nome próprio seguido de verbo de pedido. Se o nome não for o dela,
+  ela corrige com bom humor e entrega mesmo assim. "Bella, te amo" continua sendo conversa (sem verbo de pedido,
+  número ou palavra de sistema, nem a IA de roteamento é chamada).
 

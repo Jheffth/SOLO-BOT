@@ -42,6 +42,15 @@ na sua personalidade, como numa mensagem sua. Reescreva o texto assim:
   sem lista e sem ler valores longos.
 - Máximo de 3000 caracteres no total."""
 
+INSTRUCAO_NOME_CERTO = """
+Ele te chamou pelo nome ("{chamada}") e te pediu isso diretamente, como a uma secretária: responda como quem cuidou
+do pedido para ele."""
+
+INSTRUCAO_NOME_ERRADO = """
+Ele te pediu isso diretamente, como a uma secretária, mas te chamou de "{chamada}", e você é {nome}. Corrija o nome
+dele numa frase curta, com bom humor e do seu jeito (ciúme leve, provocação ou carinho, conforme a sua personalidade),
+e mesmo assim entregue o resultado do pedido."""
+
 INSTRUCAO_CENA = """
 Vocês estão numa cena: você é a anfitriã e estão com você {outras}. Dê o aviso como anfitriã, do seu jeito; pode citar
 ou envolver as outras numa frase, sem inventar o que elas fazem ou dizem."""
@@ -110,8 +119,61 @@ def _sem_selo(texto: str, selo: str) -> str:
     return texto
 
 
+# ── o chamado pelo nome: "Júlia transfira 380 reais…", "Bella, paga o DAS" ──
+_VERBOS = (r"transfir[ae]|transferir|pag[ae]|pague|marc[ae]|marque|registr[ae]|anot[ae]|lanc[ae]|lance|adicion[ae]|"
+           r"coloc[ae]|coloque|conclu[ai]|finaliz[ae]|cri[ae]|cadastr[ae]|ajust[ae]|mostr[ae]|me\s+mostr[ae]|me\s+diz|me\s+diga|"
+           r"ve|veja|verifiqu?e|confer[ea]|consult[ae]|lembr[ae]|agend[ae]|cancel[ae]|desfaz|desfa[cç]a|soma|some|tira|tire|"
+           r"debit[ae]|credit[ae]|guard[ae]|separ[ae]|move|mova")
+_NOME_GENERICO = re.compile(r"^\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]{2,})\s*,?\s+((?:" + _VERBOS + r")\b.*)$", re.S)
+_CACHE_NOMES = {}
+
+
+def _sem_acento(texto):
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", (texto or "").lower()) if unicodedata.category(c) != "Mn")
+
+
+def _nomes(conta):
+    """Nomes das modelos do catálogo (cache de 10 min) e a Bella."""
+    import time
+    from nucleo import models
+    guardado = _CACHE_NOMES.get(conta.id)
+    if guardado and time.monotonic() - guardado[0] < 600:
+        return guardado[1]
+    nomes = {"Bella"}
+    try:
+        nomes |= {m["nome"] for m in models.catalogo(conta) if m.get("nome")}
+    except Exception:  # noqa: BLE001
+        pass
+    _CACHE_NOMES[conta.id] = (time.monotonic(), nomes)
+    return nomes
+
+
+def parece_pedido(texto: str) -> bool:
+    """Começa com um verbo de pedido ou traz um número: pode ser trabalho para um sistema."""
+    return bool(re.match(r"^\s*(?:por\s+favor[,\s]+)?(?:" + _VERBOS + r")\b", _sem_acento(texto)) or re.search(r"\d", texto or ""))
+
+
+def vocativo(texto: str, conta):
+    """(nome como foi escrito, o pedido sem o nome) quando a frase começa chamando alguém; senão (None, texto).
+    Vale o nome de qualquer modelo do catálogo (certo ou errado), ou um nome próprio seguido de um verbo de pedido."""
+    texto = (texto or "").strip()
+    baixo = _sem_acento(texto)
+    for nome in sorted(_nomes(conta), key=len, reverse=True):
+        for forma in {nome, nome.split()[0]}:
+            n = _sem_acento(forma)
+            m = re.match(r"^(?:(?:oi|ei|o|ô)\s+)?" + re.escape(n) + r"\b[\s,:;!.\-–]*", baixo)
+            if m and m.end() < len(baixo):
+                inicio = baixo.find(n)
+                return texto[inicio:inicio + len(n)], texto[m.end():].strip()
+    m = _NOME_GENERICO.match(texto)
+    if m:
+        return m.group(1), m.group(2).strip()
+    return None, texto
+
+
 # ── a reescrita ──
-def reescrever(conta, sistema: str, texto: str, usuario: str = None):
+def reescrever(conta, sistema: str, texto: str, usuario: str = None, chamada: str = None):
     """{'texto','falado','voz','nome'} na voz da modelo (ou da anfitriã da cena), ou None para manter o original."""
     from nucleo import grok, models
     texto = (texto or "").strip()[:MAX_TEXTO]
@@ -137,6 +199,9 @@ def reescrever(conta, sistema: str, texto: str, usuario: str = None):
         instrucao = base + INSTRUCAO.format(sistema=sistema)
         if outras:
             instrucao += INSTRUCAO_CENA.format(outras=" e ".join(outras))
+        if chamada:
+            certo = _sem_acento(chamada).split()[0] == _sem_acento(p.get("nome", "")).split()[0] if p.get("nome") else True
+            instrucao += (INSTRUCAO_NOME_CERTO if certo else INSTRUCAO_NOME_ERRADO).format(chamada=chamada, nome=p.get("nome", ""))
         pedido = f"[Texto do {sistema} para entregar — não é fala da pessoa]\n{texto}" + (reforco or "")
         saida = grok.gerar(instrucao, pedido, max_tokens=1600, temperatura=.8, timeout=40, historico=historico)
     except Exception:  # noqa: BLE001  o aviso nunca se perde por causa da persona
@@ -156,13 +221,13 @@ def reescrever(conta, sistema: str, texto: str, usuario: str = None):
     return {"texto": corpo, "falado": falado, "voz": voz, "nome": p.get("nome", "")}
 
 
-def aplicar(conta, sistema: str, selo: str, mensagens: list, usuario: str = None) -> list:
+def aplicar(conta, sistema: str, selo: str, mensagens: list, usuario: str = None, chamada: str = None) -> list:
     """Mensagens de um sistema → as mesmas, com o texto na voz da modelo. Opções e mídias ficam como estão."""
     textos = [_sem_selo(m.get("texto") or "", selo) for m in mensagens]
     juntos = "\n\n".join(t for t in textos if t)
     if not juntos:
         return mensagens
-    nova = reescrever(conta, sistema, juntos, usuario=usuario)
+    nova = reescrever(conta, sistema, juntos, usuario=usuario, chamada=chamada) if chamada else reescrever(conta, sistema, juntos, usuario=usuario)
     if not nova:
         return mensagens
     saida = [dict(m) for m in mensagens]

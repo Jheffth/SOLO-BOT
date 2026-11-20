@@ -417,7 +417,7 @@ def _desvinculado_la(db: Session, conta: Conta, mod: modulos.Modulo, dados: dict
 def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulos.Modulo,
                  texto: Optional[str] = None, dados: Optional[str] = None,
                  resumo: Optional[str] = None, via_audio: bool = False,
-                 audio: Optional[tuple] = None) -> Resposta:
+                 audio: Optional[tuple] = None, chamada: Optional[str] = None) -> Resposta:
     v = _vinculo(conta, mod.chave)
     if not v:
         return _nao_conectado(mod)
@@ -450,8 +450,37 @@ def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulo
         # A modelo entrega a resposta do sistema na voz dela (ver nucleo/models_persona.py).
         nome = mod.nome.replace("Solo ", "")
         dito = texto if (texto and dados is None and audio is None) else f"[{'áudio' if audio is not None else 'toque'} no {nome}]"
-        r.mensagens = models_persona.aplicar(conta, nome, mod.selo, r.mensagens, usuario=dito)
+        r.mensagens = models_persona.aplicar(conta, nome, mod.selo, r.mensagens,
+                                             usuario=(f"{chamada}, {dito}" if chamada else dito), chamada=chamada)
     return r
+
+
+def _pedido_de_secretaria(db, conta: Conta, canal: str, origem: str, s, txt: str, via_audio: bool) -> Optional[Resposta]:
+    """"Júlia transfira 380 reais da Uber Conta para o Mercado Pago": chamou a modelo pelo nome e pediu algo de um
+    sistema. O pedido (sem o nome) vai ao sistema, que executa; a modelo responde com o resultado e, se o nome estiver
+    errado, corrige. Vale em qualquer modo. Sem sistema para o pedido, segue o caminho normal (conversa com ela)."""
+    from nucleo import intencao, models_persona
+    if txt.startswith("/") or not models_persona.ativa(db, conta):
+        return None
+    nome, pedido = models_persona.vocativo(txt, conta)
+    if not nome or not pedido:
+        return None
+    ligados = _sistemas_da_conta(db, conta)
+    if not ligados:
+        return None
+    literal = intencao.comando_literal(db, pedido, ligados)
+    if not (literal.app or models_persona.parece_pedido(pedido) or intencao.eh_consulta(pedido)
+            or any(intencao.por_palavras(db, pedido, ligados).values())):
+        return None                              # "Bella, te amo": conversa, sem gastar a IA de roteamento
+    it = literal if literal.app else intencao.interpretar(db, pedido, ligados)
+    if not it.app or it.confianca < intencao.CONFIANCA_MINIMA:
+        return None
+    alvo = modulos.por_chave(it.app)
+    if not alvo or not _vinculo(conta, alvo.chave):
+        return None
+    _entrar_modo(db, s, alvo.chave)              # "sim" para confirmar, ou a escolha da conta, cai no sistema
+    texto = pedido if _frase_para_o_sistema(db, pedido, alvo, ligados) else (it.mensagem or pedido)
+    return para_sistema(db, conta, canal, origem, alvo, texto=texto, via_audio=via_audio, chamada=nome)
 
 
 def _frase_para_o_sistema(db, txt: str, alvo, ligados: list) -> bool:
@@ -691,6 +720,10 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         pedido_prompt = prompts_bella_pedido(txt, canal, conta)
         if pedido_prompt is not None:
             return _prompt_responder(db, conta, canal, pedido_prompt[1], pedido_prompt[0])
+
+    secretaria = _pedido_de_secretaria(db, conta, canal, origem, s, txt, via_audio)
+    if secretaria is not None:
+        return secretaria
 
     if modo == MODO_BELLA:
         _entrar_modo(db, s, MODO_BELLA)          # renova a validade

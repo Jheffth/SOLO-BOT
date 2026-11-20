@@ -9,6 +9,7 @@ import config
 from nucleo import avisos, grok, intencao, models, models_persona, roteador
 from test_avisos import ROT, _hora, pronto  # noqa: F401  (fixture)
 from test_fluxos import _tg
+from test_intencao import dois  # noqa: F401  (fixture)
 
 VOZ = {"principal": True, "ativa": True, "provedor": "voicestudio", "voice_id": "v1"}
 
@@ -173,3 +174,69 @@ def test_comando_persona_liga_e_desliga(pronto, caixa):
     db.close()
     _tg(pronto, "/persona ligar")
     assert "persona" in caixa[-1][2].lower() or "modelo" in caixa[-1][2].lower()
+
+
+# ── secretária: chamada pelo nome ──
+@pytest.fixture()
+def catalogo(monkeypatch):
+    models_persona._CACHE_NOMES.clear()
+    monkeypatch.setattr(models, "catalogo", lambda conta: [{"nome": "Júlia"}, {"nome": "Isabella"}, {"nome": "Bella"}])
+    yield
+    models_persona._CACHE_NOMES.clear()
+
+
+def test_vocativo_reconhece_o_nome_certo_ou_errado(catalogo):
+    conta = SimpleNamespace(id=1)
+    assert models_persona.vocativo("Júlia transfira 380 reais da conta Uber Conta para o mercado pago", conta) == \
+        ("Júlia", "transfira 380 reais da conta Uber Conta para o mercado pago")
+    assert models_persona.vocativo("julia, paga o DAS", conta) == ("julia", "paga o DAS")
+    assert models_persona.vocativo("Bella, quanto tenho no Nubank?", conta) == ("Bella", "quanto tenho no Nubank?")
+    assert models_persona.vocativo("Juliana, marca as flexões como feitas", conta) == ("Juliana", "marca as flexões como feitas")
+    assert models_persona.vocativo("Nubank, quanto tenho?", conta)[0] is None
+    assert models_persona.vocativo("Recebi 42,94 viagem Uber", conta)[0] is None
+    assert models_persona.vocativo("Transfira 380 reais para o Mercado Pago", conta)[0] is None
+
+
+def test_parece_pedido():
+    assert models_persona.parece_pedido("transfira 380 reais")
+    assert models_persona.parece_pedido("lança o almoço de hoje")
+    assert models_persona.parece_pedido("quanto deu 3 mais 4")
+    assert not models_persona.parece_pedido("te amo, sabia?")
+
+
+def test_nome_errado_ela_corrige_e_entrega(models_falso, monkeypatch):
+    _grok(monkeypatch, models_falso, "Júlia? Sou a Isabella, amor 😤 Mas tá feito:\n• 380,00 da Uber Conta para o Mercado Pago")
+    conta = SimpleNamespace(id=1, admin=False)
+    r = models_persona.reescrever(conta, "Finances", "✅ Transferência de R$ 380,00: Uber Conta → Mercado Pago", chamada="Júlia")
+    assert r and r["texto"].startswith("Júlia? Sou a Isabella")
+    instr = models_falso["instrucoes"][-1][0]
+    assert "te chamou de \"Júlia\"" in instr and "você é Isabella" in instr and "Corrija" in instr
+    models_persona.reescrever(conta, "Finances", "✅ R$ 380,00", chamada="Isabella")
+    instr = models_falso["instrucoes"][-1][0]
+    assert "pelo nome (\"Isabella\")" in instr and "Corrija" not in instr
+
+
+def test_secretaria_tira_o_nome_e_o_sistema_executa(dois, sistemas, caixa, catalogo, monkeypatch):
+    monkeypatch.setattr(models_persona, "ativa", lambda db, conta: True)
+    vistos = []
+    monkeypatch.setattr(models_persona, "reescrever", lambda conta, sistema, texto, usuario=None, chamada=None:
+                        vistos.append((sistema, usuario, chamada)) or
+                        {"texto": "Feito, amor 💋\n" + texto, "falado": None, "voz": None, "nome": "Isabella"})
+    from test_intencao import _ia
+    _ia(monkeypatch, {"app": "fin", "mensagem": "transfira 380 reais da conta Uber Conta para o mercado pago", "confianca": 0.95})
+    _tg(dois, "Júlia transfira 380 reais da conta Uber Conta para o mercado pago")
+    assert sistemas.recebidos[-1][0] == "fin"
+    assert sistemas.recebidos[-1][2]["texto"] == "transfira 380 reais da conta Uber Conta para o mercado pago"
+    assert vistos[-1][0] == "Finances" and vistos[-1][2] == "Júlia" and vistos[-1][1].startswith("Júlia, ")
+    assert "Feito, amor" in caixa[-1][2]
+    assert _modo_telegram() == "fin"                     # o "sim" da confirmação cai no Finances
+
+
+def test_chamar_pelo_nome_para_conversar_nao_vai_a_sistema(catalogo, monkeypatch):
+    monkeypatch.setattr(models_persona, "ativa", lambda db, conta: True)
+    monkeypatch.setattr(roteador, "_sistemas_da_conta", lambda db, conta: [SimpleNamespace(chave="fin")])
+    monkeypatch.setattr(intencao, "comando_literal", lambda *a, **k: intencao.Intencao())
+    monkeypatch.setattr(intencao, "por_palavras", lambda db, t, c: {"fin": 0})
+    monkeypatch.setattr(intencao, "interpretar", lambda *a, **k: pytest.fail("não deve gastar a IA de roteamento"))
+    assert roteador._pedido_de_secretaria(None, SimpleNamespace(id=1), "telegram", "1", None, "Bella, te amo sabia?", False) is None
+
