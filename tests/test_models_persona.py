@@ -275,3 +275,65 @@ def test_fora_de_modo_frase_intima_vai_para_ela_sem_ia(dois, sistemas, caixa, mo
     _tg(dois, "chupa meu pau")
     assert respondidas == ["chupa meu pau"] and chamadas == [] and len(sistemas.recebidos) == recebidos
 
+
+# ── o Models não é destino de frase solta (caso "convidar ela pro Models, acho que tem uns 18") ──
+@pytest.mark.parametrize("frase", ["Kkkk", "kkkkkk", "hahaha", "rs", "rsrsrs", "😏", "😂😂", "aff", "eita!"])
+def test_reacao_e_conversa(frase):
+    assert roteador._reacao(frase)
+
+
+@pytest.mark.parametrize("frase", ["sim", "1", "Mercado Pago", "ok", "não"])
+def test_resposta_a_sistema_nao_e_reacao(frase):
+    assert not roteador._reacao(frase)
+
+
+def _models_ligado(monkeypatch):
+    original = roteador._sistemas_da_conta
+    falso = SimpleNamespace(chave="models", nome="Solo Models", emoji="🎭", selo="🎭 Models")
+    monkeypatch.setattr(roteador, "_sistemas_da_conta", lambda db, conta: original(db, conta) + [falso])
+
+
+def _conversa(monkeypatch):
+    respondidas = []
+    monkeypatch.setattr(roteador, "_bella_responder", lambda db, conta, canal, txt, so_se_responder=False:
+                        respondidas.append(txt) or roteador.Resposta().diz("hmm, me conta mais 😏"))
+    return respondidas
+
+
+def test_frase_que_cita_models_com_numero_e_conversa(dois, sistemas, caixa, monkeypatch):
+    from test_intencao import _ia
+    monkeypatch.setattr(models_persona, "ativa", lambda db, conta: True)
+    _models_ligado(monkeypatch)
+    _ia(monkeypatch, {"app": "models", "mensagem": "/ajuda", "confianca": 0.9})
+    respondidas = _conversa(monkeypatch)
+    recebidos = len(sistemas.recebidos)
+    frase = "Conheci uma moça, acho que tem uns 18 igual você. Tava pensando em convidar ela pro Models, o que acha?"
+    _tg(dois, frase)
+    assert respondidas == [frase] and len(sistemas.recebidos) == recebidos
+    assert _modo_telegram() in (None, "")
+
+
+def test_conversa_presa_no_modo_models_volta_para_ela(dois, sistemas, caixa, monkeypatch):
+    from database import Sessao, SessionLocal
+    monkeypatch.setattr(models_persona, "ativa", lambda db, conta: True)
+    _models_ligado(monkeypatch)
+    respondidas = _conversa(monkeypatch)
+    _tg(dois, "/rot hoje")                                   # cria a sessão
+    db = SessionLocal()
+    sessao = db.query(Sessao).filter(Sessao.canal == "telegram").first()
+    sessao.modo = "models"
+    db.commit()
+    db.close()
+    _tg(dois, "Kkkk")
+    assert respondidas == ["Kkkk"] and _modo_telegram() in (None, "")
+
+
+def test_risada_no_modo_finances_volta_para_ela(dois, sistemas, caixa, monkeypatch):
+    monkeypatch.setattr(models_persona, "ativa", lambda db, conta: True)
+    monkeypatch.setattr(models_persona, "reescrever", lambda *a, **k: None)
+    respondidas = _conversa(monkeypatch)
+    _tg(dois, "/fin saldo")
+    recebidos = len(sistemas.recebidos)
+    _tg(dois, "Kkkk")
+    assert respondidas == ["Kkkk"] and len(sistemas.recebidos) == recebidos
+

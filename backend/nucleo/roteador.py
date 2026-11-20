@@ -129,6 +129,24 @@ def _sistemas_da_conta(db: Session, conta: Conta) -> list:
     return [m for m in modulos.todos() if m.chave in ligados]
 
 
+# O Models fornece as modelos e o contexto delas: só atende comandos com barra (/catalogo). Frase solta que cita
+# "Models" ("convidar ela pro Models") é conversa com a modelo, nunca pedido a ele, e ele nunca vira o modo da conversa.
+SEM_TEXTO_LIVRE = {"models"}
+
+
+def _sistemas_de_texto_livre(db: Session, conta: Conta) -> list:
+    return [m for m in _sistemas_da_conta(db, conta) if m.chave not in SEM_TEXTO_LIVRE]
+
+
+_REACAO = re.compile(r"^\s*(?:k{2,}|(?:ha){2,}h?|(?:he){2,}|(?:hi){2,}|(?:rs)+s?|kkk+[a-z]*|aff+|ui+|hum+|hmm+|oxe|eita|nossa|"
+                     r"aham|uhum|aw+n?|[\W_]+)[\s!?.…]*$", re.I)
+
+
+def _reacao(txt: str) -> bool:
+    """Risada, interjeição ou só emoji ("Kkkk", "haha", "rs", "😏"): é conversa, não resposta a um sistema."""
+    return bool(txt) and not any(c.isdigit() for c in txt) and bool(_REACAO.match(txt))
+
+
 def _primeiro_nome(conta: Conta) -> str:
     return (conta.nome or "").split()[0] if conta.nome else ""
 
@@ -474,7 +492,7 @@ def _pedido_de_secretaria(db, conta: Conta, canal: str, origem: str, s, txt: str
     nome, pedido = models_persona.vocativo(txt, conta)
     if not nome or not pedido or _intimo(pedido):
         return None
-    ligados = _sistemas_da_conta(db, conta)
+    ligados = _sistemas_de_texto_livre(db, conta)
     if not ligados:
         return None
     literal = intencao.comando_literal(db, pedido, ligados)
@@ -504,7 +522,7 @@ def _papo_com_a_modelo(db, conta: Conta, txt: str, ligados: list) -> bool:
     """Num modo de sistema, com a persona ativa: frase de conversa (sem número, sem comando, sem palavra de
     nenhum sistema e com pelo menos 4 palavras) volta para a modelo. Respostas curtas seguem no sistema."""
     from nucleo import intencao, models_persona
-    if _intimo(txt):
+    if _intimo(txt) or _reacao(txt):
         return models_persona.ativa(db, conta)
     if txt.startswith("/") or any(c.isdigit() for c in txt) or len(txt.split()) < 4:
         return False
@@ -744,6 +762,9 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _ajuda_hub(db, conta)
 
     ligados = _sistemas_da_conta(db, conta)
+    if modo in SEM_TEXTO_LIVRE and not txt.startswith("/"):
+        _entrar_modo(db, s, None)                # o Models só responde a comandos: a conversa volta a ser livre
+        modo = None
 
     from nucleo import intencao
     candidatos = [modulos.por_chave(modo)] if modo else ligados
@@ -758,7 +779,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
     if modo:
         mod = modulos.por_chave(modo)
         if mod:
-            if _papo_com_a_modelo(db, conta, txt, ligados):
+            if _papo_com_a_modelo(db, conta, txt, [m for m in ligados if m.chave not in SEM_TEXTO_LIVRE]):
                 papo = _bella_responder(db, conta, canal, txt, so_se_responder=True)
                 if papo:
                     _entrar_modo(db, s, None)    # a conversa volta a ser livre, com a modelo
@@ -766,15 +787,19 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
             _entrar_modo(db, s, modo)            # renova a validade
             return _com_intencao(db, conta, canal, origem, txt, ligados, via_audio, mod)
 
-    # 5. hub com texto livre
-    if _intimo(txt):
+    # 5. hub com texto livre (o Models não entra: só comandos com barra chegam a ele)
+    ligados = [m for m in ligados if m.chave not in SEM_TEXTO_LIVRE]
+    if _intimo(txt) or _reacao(txt):
         papo = _bella_responder(db, conta, canal, txt, so_se_responder=True)
         if papo:
             return papo
     it = intencao.interpretar(db, txt, ligados) if ligados else intencao.Intencao()
 
     # Papo livre: se não é de nenhum sistema, quem responde é a Bella.
-    if (not it.app or it.confianca < intencao.CONFIANCA_MINIMA) and not txt.startswith("/") and not (ligados and any(c.isdigit() for c in txt)):
+    # Com a persona ativa, nem número tira a frase da conversa ("acho que tem uns 18"): só um sistema reconhecido.
+    from nucleo import models_persona
+    if ((not it.app or it.confianca < intencao.CONFIANCA_MINIMA) and not txt.startswith("/")
+            and (not (ligados and any(c.isdigit() for c in txt)) or models_persona.ativa(db, conta))):
         papo = _bella_responder(db, conta, canal, txt, so_se_responder=True)
         if papo:
             return papo
