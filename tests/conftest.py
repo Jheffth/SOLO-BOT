@@ -123,3 +123,14 @@ def logado(cliente):
     r = cliente.post("/api/auth/cadastro", json={"nome": "Jefferson Costa", "usuario": "jeff", "email": "j@solo.dev", "senha": "senha-forte-1"})
     assert r.status_code == 200, r.text
     return cliente
+
+
+@pytest.fixture(autouse=True)
+def _models_sem_cache_e_gravacao_sincrona(monkeypatch):
+    """Nos testes, a gravação do turno no Models é imediata e o cache do pacote começa vazio."""
+    from nucleo import models
+    models.limpar_cache()
+    monkeypatch.setattr(models, "GRAVAR_EM_SEGUNDO_PLANO", False)
+    yield
+    models.limpar_cache()
+

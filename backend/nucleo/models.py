@@ -1,7 +1,10 @@
 """Cliente e conversa do Solo Models; a Bella legada permanece como padrão."""
 import base64
 import json
+import logging
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 from urllib.parse import quote
 import httpx
@@ -69,8 +72,29 @@ def catalogo(conta):
                   key=lambda m:(m['nome'].casefold()!='bella',m['nome'].casefold()))
 
 
-def pacote(conta,ident):
-    p=_requisicao('GET','/api/servico/modelos/'+quote(ident,safe='')+'/pacote')['modelo']
+log=logging.getLogger('solobot.models')
+
+# O pacote (ficha, vozes, classificação) muda só quando a modelo é editada no portal: um minuto de cache
+# tira uma ida ao Models de cada mensagem. Escolher uma modelo sempre busca o pacote novo.
+PACOTE_SEGUNDOS=60
+_PACOTES={}
+_PACOTES_TRAVA=threading.Lock()
+
+
+def limpar_cache():
+    with _PACOTES_TRAVA:_PACOTES.clear()
+
+
+def pacote(conta,ident,fresco=False):
+    agora=time.monotonic()
+    with _PACOTES_TRAVA:guardado=None if fresco else _PACOTES.get(ident)
+    if guardado and agora-guardado[0]<PACOTE_SEGUNDOS:
+        p=guardado[1]
+    else:
+        p=_requisicao('GET','/api/servico/modelos/'+quote(ident,safe='')+'/pacote')['modelo']
+        with _PACOTES_TRAVA:
+            if fresco:_PACOTES.pop(ident,None)      # escolher a modelo confere o pacote atual e zera o cache
+            else:_PACOTES[ident]=(agora,p)
     if p.get('classificacao')=='adulto' and not conta.admin:
         raise ErroModels('Esse modelo ainda não está liberado para sua conta.')
     return p
@@ -78,7 +102,7 @@ def pacote(conta,ident):
 
 def escolher(db,conta,ident):
     if ident:
-        p=pacote(conta,ident)
+        p=pacote(conta,ident,fresco=True)
         if not any(v.get('ativa') and v.get('principal') for v in p.get('vozes_por_conta',[])):
             raise ErroModels('Esse modelo ainda não possui uma voz principal ativa.')
     chave='models_selecao:'+str(conta.id)
@@ -102,7 +126,44 @@ def _gravar(conta,ident,tipo,texto,usuario='',titulo='',memorias_usadas=None,con
         dados)
 
 
+# A resposta não precisa esperar o Models gravar o turno: a gravação sai em segundo plano, em ordem por conta,
+# e a próxima montagem de contexto da mesma conta espera a anterior terminar (o histórico nunca fica fora de ordem).
+GRAVAR_EM_SEGUNDO_PLANO=True
+_GRAVADOR=ThreadPoolExecutor(max_workers=4,thread_name_prefix='models-gravar')
+_GRAVACOES={}
+_GRAVACOES_TRAVA=threading.Lock()
+
+
+def _gravar_depois(conta,ident,*args,**kw):
+    if not GRAVAR_EM_SEGUNDO_PLANO:
+        return _gravar(conta,ident,*args,**kw)
+    with _GRAVACOES_TRAVA:
+        anterior=_GRAVACOES.get(conta.id)
+        def tarefa():
+            if anterior is not None:
+                try:anterior.result(timeout=60)
+                except Exception:pass
+            inicio=time.monotonic()
+            try:_gravar(conta,ident,*args,**kw)
+            except Exception:
+                log.warning('Não gravei o turno no Models (conta %s); a resposta já tinha saído.',conta.id)
+                raise
+            finally:log.info('Models: gravação do turno em %.2fs (segundo plano)',time.monotonic()-inicio)
+        futuro=_GRAVADOR.submit(tarefa)
+        _GRAVACOES[conta.id]=futuro
+    return None
+
+
+def aguardar_gravacao(conta_id,limite=20):
+    """Espera a gravação pendente desta conta (a próxima fala precisa do turno anterior no histórico)."""
+    with _GRAVACOES_TRAVA:futuro=_GRAVACOES.get(conta_id)
+    if futuro is None:return
+    try:futuro.result(timeout=limite)
+    except Exception:pass
+
+
 def _montar_contexto(conta,ident,mensagem,origem='usuario',presentes=None):
+    aguardar_gravacao(conta.id)
     dados={'dono_id':'solo-bot:conta:'+str(conta.id),'modelo_id':ident,'mensagem':mensagem,
            'elenco':{'presentes':list(presentes or [ident]),'mencionados':[]},'requisicao_id':str(uuid4())}
     if origem!='usuario':dados['origem']=origem
@@ -226,13 +287,22 @@ def montar_prompt(conta,p,ctx):
     return prompt,_reforco_factual(ficha),historico
 
 
+def _registrar_tempos(marcas,tamanho_prompt,tamanho_resposta):
+    """Uma linha por resposta: quanto cada etapa levou (aparece em `docker logs solo_bot`)."""
+    partes=[f"{nome} {fim-ini:.2f}s" for (_,ini),(nome,fim) in zip(marcas,marcas[1:])]
+    log.info('Models: resposta em %.2fs · %s · prompt %d car. · resposta %d car.',
+             marcas[-1][1]-marcas[0][1],' · '.join(partes),tamanho_prompt,tamanho_resposta)
+
+
 def responder(texto,conta_id,saida_midia=None,canal=None,nota_interna=''):
     from nucleo import grok
     db=SessionLocal()
     try:
         conta=db.get(Conta,int(conta_id));ident=selecionado(conta_id)
         if not conta or not ident:raise ErroModels('Escolha um modelo em Models.')
+        marcas=[('inicio',time.monotonic())]
         p=pacote(conta,ident)
+        marcas.append(('pacote',time.monotonic()))
         if saida_midia is not None:
             from nucleo import models_galeria
             pedido=models_galeria.detectar(texto)
@@ -246,8 +316,10 @@ def responder(texto,conta_id,saida_midia=None,canal=None,nota_interna=''):
         if conta.admin:
             from nucleo import models_cena
             cena=models_cena.cena_ativa(conta,ident)
+            marcas.append(('cena',time.monotonic()))
             if cena:return models_cena.rodada(conta,ident,texto,cena,canal=canal)
         ctx=_montar_contexto(conta,ident,texto)
+        marcas.append(('contexto',time.monotonic()))
         prompt,contexto_factual,historico=montar_prompt(conta,p,ctx)
         # Reforço junto da mensagem atual, depois do histórico, para todos os campos.
         # Só a fala original da pessoa é persistida; o reforço não vira memória.
@@ -258,11 +330,17 @@ def responder(texto,conta_id,saida_midia=None,canal=None,nota_interna=''):
         if (saida and conta.admin and p.get('obediencia_arquiteto',True) is not False
                 and _ordem_firme(texto) and _recusou(saida)):
             # Ele mandou com firmeza e a resposta recusou ou saiu da personagem: uma segunda tentativa.
+            marcas.append(('ia',time.monotonic()))
             outra=grok.gerar(prompt+LEMBRETE_OBEDECER,pergunta,max_tokens=1800,historico=historico)
             if outra and not _recusou(outra):saida=outra
+            marcas.append(('ia_2a_tentativa',time.monotonic()))
+        else:
+            marcas.append(('ia',time.monotonic()))
         if not saida:raise ErroModels('O modelo não conseguiu responder agora. Tente novamente.')
-        _gravar(conta,ident,'turno',saida,usuario=texto,memorias_usadas=ctx['memorias_usadas'],
+        _gravar_depois(conta,ident,'turno',saida,usuario=texto,memorias_usadas=ctx['memorias_usadas'],
             contexto_id=ctx.get('contexto_id'))
+        marcas.append(('gravar',time.monotonic()))
+        _registrar_tempos(marcas,len(prompt)+sum(len(t) for _,t in historico),len(saida))
         voz=next(v for v in p['vozes_por_conta'] if v.get('principal') and v.get('ativa'))
         return TextoModels(saida,voz)
     except ErroModels as e:
