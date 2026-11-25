@@ -37,6 +37,7 @@ CATEGORIAS = {"realismo": "Realismo sensual (selfie de smartphone, modelo própr
               "modelo": "Modelo nova do zero (/promptmodelo)",
               "roupa": "Troca de roupa em imagem externa (/promptroupa)",
               "pose": "Troca de pose em imagem externa (/posehot)",
+              "posex": "Pose hot explícita, com frases de ação para o LoRA do ComfyUI (/posehotex)",
               "mystic": "Vídeo hot em gravação amadora num lugar misterioso, com a foto da modelo (/posemystic)",
               "criativo": "Realismo sensual criativo, fora da biblioteca (/promptcriativo)",
               "ficha": "Character sheet em fotografia real: padrão, só roupa, só personagem ou com cenário (/charactersheet)",
@@ -1054,6 +1055,24 @@ Mantenha a idade adulta (25 anos ou mais). Não copie da foto a roupa, a pose, o
 e do estilo /posemystic. O prompt continua começando por "Grainy phone recording, shaky handheld footage," e, logo depois do
 lugar e da luz, diga que a mulher é a mesma da imagem de referência (same face, hair, skin tone, body, tattoos and moles)."""
 
+# ── /posehotex: o mesmo /posehot, mais frases curtas e literais do ato sexual, para casar com o LoRA do ComfyUI. ──
+INSTRUCAO_POSE_EX = """
+
+MODO EXPLÍCITO (/posehotex): o dono usa este prompt num LoRA do ComfyUI que reconhece ações sexuais escritas de forma direta.
+- Além da pose, descreva o ato sexual com frases curtas e literais de ação em inglês, no formato sujeito + verbo + objeto,
+  dizendo quem faz o quê com quem (por exemplo: "he is penetrating her from behind", "she is sucking his cock",
+  "he is gripping her hips", "she is riding his cock"). Use termos diretos e anatômicos, sem eufemismo.
+- Coloque essas frases logo depois da posição do casal e antes da expressão de prazer, separadas por vírgulas.
+- Duas a cinco frases de ação, coerentes com a posição e entre si (nada fisicamente impossível na mesma cena).
+- Se o pedido escrito trouxer a ação (ex.: "ele penetrando ela", "ela chupando ele"), traduza e use exatamente essa ação.
+- Continue seguindo o MODELO, o parceiro padrão e o final fixo. Só adultos; nada de pessoas reais ou famosas."""
+
+_PEDIDO_POSEX = re.compile(
+    r"^\s*(?:/posehotex\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
+    r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
+    r"prompt\s+(?:de\s+|da\s+|para\s+)?(?:poses?\s+)?expl[ií]cit[oa]s?\b)"
+    r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+
 _PEDIDO_MYSTIC = re.compile(
     r"^\s*(?:/posemystic\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
     r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
@@ -1157,7 +1176,7 @@ def solicitacao(texto, chave=None):
     texto = (texto or "").strip()
     if not texto:
         return None
-    for categoria, regra in (("estilo", _PEDIDO_ESTILO), ("ficha2", _PEDIDO_FICHA2), ("ficha", _PEDIDO_FICHA), ("criativo", _PEDIDO_CRIATIVO), ("mystic", _PEDIDO_MYSTIC), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
+    for categoria, regra in (("estilo", _PEDIDO_ESTILO), ("ficha2", _PEDIDO_FICHA2), ("ficha", _PEDIDO_FICHA), ("criativo", _PEDIDO_CRIATIVO), ("mystic", _PEDIDO_MYSTIC), ("posex", _PEDIDO_POSEX), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
         m = regra.match(texto)
         if m:
             pedido = m.group(1).strip()
@@ -1242,12 +1261,14 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
         pedido = sem.group(1).strip()
     modelo_novo = categoria == "modelo"
     pedido, elementos = elementos_extrair(pedido)
-    pedido, parceiro = parceiro_pedido(pedido) if categoria == "pose" else (_PARCEIRO_RE.sub(" ", pedido).strip(), "")
+    pedido, parceiro = parceiro_pedido(pedido) if categoria in ("pose", "posex") else (_PARCEIRO_RE.sub(" ", pedido).strip(), "")
     tudo = bool(_EXTRAIR_TUDO.search(pedido)) or len(elementos) == len(_ELEMENTOS_EXTRAIR)
     if tudo:
         pedido = re.sub(r"\s{2,}", " ", _EXTRAIR_TUDO.sub("", pedido)).strip(" ,.;:-–")
     roupa = categoria == "roupa"
-    pose = categoria == "pose"
+    pose = categoria in ("pose", "posex")
+    if categoria == "posex" and suave:
+        raise Recusa("o /posehotex é só para conteúdo +18, e esta conta está com a opção Sem sensualização ligada")
     ficha2 = categoria == "ficha2"
     ficha = categoria in ("ficha", "ficha2")
     modo = "padrao"
@@ -1402,6 +1423,8 @@ def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave
                 if parceiro:
                     base += instrucao_parceiro(parceiro)
         base = suavizar(base) + (REGRAS_SUAVES.replace("o formato, o 9:16 e", "o formato e") if (ficha or estilo) else REGRAS_SUAVES)
+    if categoria == "posex":
+        base += INSTRUCAO_POSE_EX
     orcamento = 72 if (tudo_ativo or seletivo_ativo or (ficha and modo == "tudo")) else 60 if ref else 40        # o Bella.exe espera até 75 s por resposta
     if espera:
         orcamento = max(orcamento, espera)      # quem chama sabe quanto o cliente aguenta esperar

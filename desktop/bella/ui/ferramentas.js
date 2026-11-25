@@ -9,6 +9,7 @@
     { cmd: "/promptmodelo", nome: "Modelo", dica: "Cria a modelo (use com imagem de referência)" },
     { cmd: "/promptroupa", nome: "Roupa", dica: "Veste uma roupa em uma imagem de referência" },
     { cmd: "/posehot", nome: "Pose", dica: "Pose sensual" },
+    { cmd: "/posehotex", nome: "Pose EX", dica: "Vídeo explícito no formato do LoRA do ComfyUI, com a modelo da foto anexa" },
     { cmd: "/posemystic", nome: "Mystic", dica: "Vídeo hot gravado no celular num lugar misterioso, com a foto da modelo anexa" },
     { cmd: "/promptcriativo", nome: "Criativo", dica: "Ideia nova, fora da biblioteca" },
     // Character sheet em foto real: use com a imagem de referência anexa. O "modo" vira a palavra depois do comando.
@@ -157,10 +158,10 @@
     if (itensExtrair.length && !api.temAnexo()) return aviso("Anexe a imagem de referência para copiar os itens marcados dela.");
     if (cmd === "/charactersheet" && MODOS_FICHA.test(corpo || "") && !api.temAnexo()) return aviso("Anexe a imagem de referência: a ficha usa o que está nela.");
     if (cmd === "/estilo" && !api.temAnexo()) return aviso("Anexe a imagem que vai ser transformada no estilo.");
-    const parceiroFoto = $("posehot-parceiro-foto") && $("posehot-parceiro-foto").checked && cmd === "/posehot";
+    const parceiroFoto = $("posehot-parceiro-foto") && $("posehot-parceiro-foto").checked && (cmd === "/posehot" || cmd === "/posehotex");
     if (parceiroFoto && !api.temAnexo()) return aviso("Anexe a imagem de referência para copiar o parceiro dela.");
     const campoParc = $("posehot-parceiro");
-    let parceiro = cmd === "/posehot" && campoParc ? campoParc.value.replace(/\[\[|\]\]/g, " ").replace(/\s+/g, " ").trim() : "";
+    let parceiro = (cmd === "/posehot" || cmd === "/posehotex") && campoParc ? campoParc.value.replace(/\[\[|\]\]/g, " ").replace(/\s+/g, " ").trim() : "";
     if (parceiroFoto) parceiro = parceiro ? ("da imagem, " + parceiro) : "da imagem";
     const t = (cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "") + (itensExtrair.length ? " [[extrair: " + itensExtrair.join(", ") + "]]" : "") + (parceiro ? " [[parceiro: " + parceiro + "]]" : "")).trim();
     if (t.length > LIMITE + 40) return aviso("O pedido ficou muito grande. Tire alguns itens.");
@@ -203,9 +204,9 @@
         const comExtracao = c.cmd === "/promptmodelo" || c.cmd === "/prompt" || c.cmd === "/posehot";
         const tudo = $("extrair-tudo") && $("extrair-tudo").checked && comExtracao;
         const itensExtrair = tudo || !comExtracao ? [] : Array.from(document.querySelectorAll(".extrair-item:checked")).map(x => x.dataset.el);
-        const parceiroFoto = $("posehot-parceiro-foto") && $("posehot-parceiro-foto").checked && c.cmd === "/posehot";
+        const parceiroFoto = $("posehot-parceiro-foto") && $("posehot-parceiro-foto").checked && (c.cmd === "/posehot" || c.cmd === "/posehotex");
         const campoParc = $("posehot-parceiro");
-        let parceiro = c.cmd === "/posehot" && campoParc ? campoParc.value.replace(/\[\[|\]\]/g, " ").replace(/\s+/g, " ").trim() : "";
+        let parceiro = (c.cmd === "/posehot" || c.cmd === "/posehotex") && campoParc ? campoParc.value.replace(/\[\[|\]\]/g, " ").replace(/\s+/g, " ").trim() : "";
         if (parceiroFoto) parceiro = parceiro ? ("da imagem, " + parceiro) : "da imagem";
         const t = (c.cmd + (corpo ? " " + corpo : "") + (tudo ? " extrair tudo da imagem de referência" : "") + (itensExtrair.length ? " [[extrair: " + itensExtrair.join(", ") + "]]" : "") + (parceiro ? " [[parceiro: " + parceiro + "]]" : "")).trim();
         window.bellaApi.inserir(t);

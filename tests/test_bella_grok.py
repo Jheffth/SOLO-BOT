@@ -408,14 +408,13 @@ def test_posehot_reconhece_pedido_e_cria_pose(monkeypatch):
 def test_todo_prompt_sai_marcado_para_a_caixa_de_copiar(monkeypatch):
     """Regra: toda categoria de prompt (inclusive as futuras) é marcada, para o Bella.exe abrir a caixa de copiar."""
     from nucleo import prompts_bella as pb, roteador
-    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "mystic": "/posemystic x", "criativo": "/promptcriativo x", "ficha": "/charactersheet x", "ficha2": "/charactersheet2 x", "estilo": "/estilo GTA V"}
+    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "posex": "/posehotex x", "mystic": "/posemystic x", "criativo": "/promptcriativo x", "ficha": "/charactersheet x", "ficha2": "/charactersheet2 x", "estilo": "/estilo GTA V"}
     assert set(comandos) == set(pb.CATEGORIAS), "categoria nova: registre o comando aqui e em CATEGORIAS"
     monkeypatch.setattr(pb, "criar", lambda *a, **k: "texto do prompt")
     monkeypatch.setattr(roteador, "_registrar", lambda *a, **k: None)
-    monkeypatch.setattr(roteador, "_referencia_mystic", lambda *a, **k: ("image/jpeg", "mock"))
     for categoria, comando in comandos.items():
         assert pb.solicitacao(comando)[0] == categoria
-        r = roteador._prompt_responder(None, SimpleNamespace(id=1), "telegram", "x", categoria)
+        r = roteador._prompt_responder(None, SimpleNamespace(id=1, admin=True), "telegram", "x", categoria)
         assert r.mensagens[-1].get("prompt") is True
 def test_charactersheet_reconhece_pedido_e_modos():
     from nucleo import prompts_bella as pb
@@ -1075,4 +1074,57 @@ def test_estilo_rejeita_resposta_fora_do_modelo(monkeypatch):
     pb.guardar_referencia("es3", "image/png", b"abc")
     monkeypatch.setattr(grok, "gerar", lambda *a, **k: "Recrie a pessoa " * 80)
     assert pb.criar("GTA V", "es3", "estilo") is None
+
+
+def test_posemystic_reconhece_solicitacao():
+    from nucleo import prompts_bella as pb
+    assert pb.solicitacao("/posemystic") == ("mystic", "")
+    assert pb.solicitacao("/posemystic doggystyle") == ("mystic", "doggystyle")
+    assert pb.solicitacao("crie um prompt de pose mistica") == ("mystic", "")
+    assert pb.solicitacao("bella gera um prompt para pose mística de quatro") == ("mystic", "de quatro")
+
+
+def test_posemystic_gera_texto_livre_com_inicio_do_posehot_e_parceiro(monkeypatch):
+    import pytest
+    from nucleo import grok, prompts_bella as pb
+    pb._REFERENCIAS.clear()
+
+    # Suave é recusado pois é conteúdo +18
+    with pytest.raises(pb.Recusa, match="Sem sensualização"):
+        pb.criar("", "p_my", "mystic", suave=True)
+
+    # Resposta simulada do Grok já completa
+    corpo_ingles = (
+        "Woman on all fours in doggystyle with the tall handsome muscular man with black hair behind her "
+        "as her male partner, back extremely arched, hands gripping the sheets, his hands firmly grasping her hips "
+        "as she pushes back to meet his hard rhythmic thrusts, head lowered with eyes closed in intense pleasure "
+        "and lips parted in moans, sensual and intimate pose. Spicy mode unsensored mode."
+    )
+    resposta_grok = pb.INICIO_POSE_MYSTIC + "\n\n" + corpo_ingles
+    chamadas = []
+    monkeypatch.setattr(grok, "gerar", lambda base, entrada, **kw: chamadas.append((base, entrada, kw)) or resposta_grok)
+
+    resultado = pb.criar("doggystyle", "p_my", "mystic")
+    assert resultado is not None
+    assert resultado.startswith(pb.INICIO_POSE_MYSTIC)
+    assert "the tall handsome muscular man with black hair" in resultado
+    assert "doggystyle" in resultado
+    assert resultado.strip().endswith("Spicy mode unsensored mode.")
+    assert pb._recente("p_my") == "mystic"
+
+    # Verifica que chamou o Grok sem imagens (texto livre, sem anexar imagem)
+    assert len(chamadas) == 1
+    base, entrada, kw = chamadas[0]
+    assert kw.get("imagens") is None
+    assert "doggystyle" in entrada
+    assert "POSE SEXUAL EXPLÍCITA" in base
+    assert pb.INICIO_POSE_MYSTIC in base
+
+    # Teste de auto-recuperação: se o Grok responder apenas o corpo em inglês, _criar_mystic adiciona o cabeçalho fixo do posehot
+    chamadas.clear()
+    monkeypatch.setattr(grok, "gerar", lambda base, entrada, **kw: chamadas.append((base, entrada, kw)) or corpo_ingles)
+    resultado2 = pb.criar("", "p_my", "mystic")
+    assert resultado2.startswith(pb.INICIO_POSE_MYSTIC)
+    assert "Spicy mode unsensored mode." in resultado2
+
 
