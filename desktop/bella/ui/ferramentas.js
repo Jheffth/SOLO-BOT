@@ -9,6 +9,7 @@
     { cmd: "/promptmodelo", nome: "Modelo", dica: "Cria a modelo (use com imagem de referência)" },
     { cmd: "/promptroupa", nome: "Roupa", dica: "Veste uma roupa em uma imagem de referência" },
     { cmd: "/posehot", nome: "Pose", dica: "Pose sensual" },
+    { cmd: "/posemystic", nome: "Mystic", dica: "Vídeo hot gravado no celular num lugar misterioso, com a foto da modelo anexa" },
     { cmd: "/promptcriativo", nome: "Criativo", dica: "Ideia nova, fora da biblioteca" },
     // Character sheet em foto real: use com a imagem de referência anexa. O "modo" vira a palavra depois do comando.
     { id: "ficha", cmd: "/charactersheet", nome: "Ficha", dica: "Character sheet: personagem com a roupa da imagem anexa" },

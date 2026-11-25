@@ -126,6 +126,11 @@ def logado(cliente):
 
 
 @pytest.fixture(autouse=True)
+def _garantir_banco_sqlite():
+    database.Base.metadata.create_all(bind=database.engine)
+
+
+@pytest.fixture(autouse=True)
 def _models_sem_cache_e_gravacao_sincrona(monkeypatch):
     """Nos testes, a gravação do turno no Models é imediata e o cache do pacote começa vazio."""
     from nucleo import models

@@ -37,6 +37,7 @@ CATEGORIAS = {"realismo": "Realismo sensual (selfie de smartphone, modelo própr
               "modelo": "Modelo nova do zero (/promptmodelo)",
               "roupa": "Troca de roupa em imagem externa (/promptroupa)",
               "pose": "Troca de pose em imagem externa (/posehot)",
+              "mystic": "Vídeo hot em gravação amadora num lugar misterioso, com a foto da modelo (/posemystic)",
               "criativo": "Realismo sensual criativo, fora da biblioteca (/promptcriativo)",
               "ficha": "Character sheet em fotografia real: padrão, só roupa, só personagem ou com cenário (/charactersheet)",
               "ficha2": "Character sheet 2: três vistas (frente, lado, costas) com informações e paleta, mais seis painéis de detalhe (/charactersheet2)",
@@ -1007,6 +1008,103 @@ _ALEATORIO_SUAVE = "Pedido: aleatório. Escolha um cenário cotidiano, roupa com
 
 _ALEATORIO = "Pedido: aleatório. Escolha você um cenário, roupa, luz e fundo novos e diferentes dos últimos."
 
+
+# ── /posemystic: prompt de VÍDEO em inglês, gravação amadora de celular num lugar escondido e misterioso. ──
+# Só texto (não usa imagem de referência) e só para conteúdo +18. O modelo base abaixo foi escrito pelo dono:
+# o Grok segue a estrutura, o tamanho e o tom dele, trocando lugar, luz, posição, fala e sons.
+MODELO_MYSTIC = """Grainy phone recording, shaky handheld footage, cave entrance lit by a single flashlight beam cutting through the darkness, rough stone walls veined with mineral deposits and stalactites dripping along the ceiling above. A 25-year-old brunette woman with long dark hair leans back against the cave wall, her chest and shoulders pressed flat into the rock, one leg bent with the sole of her foot wedged firmly into the stone for leverage. A man stands between her spread legs, thrusting hard into her from below at a steep upward angle as her back stays flat against the stone. The phone rests on a flat rock a few steps ahead of them, capturing them from the front at waist height. The flashlight is clamped to a rock beside the phone, its beam raking low across their bodies and throwing hard shadows against the rough stone behind them. Her breasts arch upward with the lean, nipples hard in the cool cave air, while water drips from the ceiling land on her bare shoulder blades and run down her spine. She gasps between breaths, eyes reflecting the flashlight beam: "Deeper inside... ah... past the entrance..." Her hips jerk forward to meet each hard thrust, pussy glistening wet around his cock as he drives deeper with every stroke, her breasts bouncing freely with each impact. Dripping water echoes from deep in the cave system. Audio: soft wet slapping from each hard upward thrust layered under sharp water drops pinging off rock and a flashlight battery clicking faintly. No music. Phone mic quality, rough with cave reverb."""
+
+INSTRUCAO_MYSTIC = """Você é a Bella e está ajudando seu dono a criar prompts de VÍDEO em INGLÊS para o Grok Imagine, no estilo /posemystic:
+gravação amadora de celular apoiado, num lugar escondido e misterioso, com um casal adulto.
+
+MODELO BASE escrito pelo dono (siga a mesma estrutura, o mesmo tamanho, o mesmo tom, o mesmo nível de detalhe e de explicitude;
+NÃO copie o lugar nem a posição, a menos que o dono peça):
+{MODELO_MYSTIC}
+
+ESTRUTURA OBRIGATÓRIA, nesta ordem, num único parágrafo:
+1. Comece sempre com "Grainy phone recording, shaky handheld footage," e então o lugar misterioso, iluminado por UMA única fonte de luz improvisada
+   (lanterna, tocha, lampião, vela, luz de celular, luar entrando por uma fresta, brasa de fogueira...), com texturas concretas do lugar.
+2. A mulher: adulta de 25 anos ou mais, cabelo e pele, e como o corpo dela se apoia no ambiente (onde encosta, onde os pés e as mãos fazem força).
+3. O parceiro e a posição do casal, concreta e visual, parte por parte do corpo.
+4. Onde o celular está apoiado, de que ângulo e altura filma; onde a luz está presa e como ela bate nos corpos e projeta sombras no fundo.
+5. Um efeito do ambiente agindo no corpo dela (frio, umidade, gotas, vento, poeira, vapor, folhas, névoa...).
+6. Uma fala curta dela, entre aspas e em inglês, com duplo sentido ligado ao lugar, entrecortada por respiração.
+7. O ritmo do casal e a reação do corpo dela.
+8. Um som distante e característico do lugar.
+9. Termine sempre com "Audio:" descrevendo dois ou três sons (o do casal, os do lugar e um do equipamento de luz ou da câmera), seguido de
+   "No music. Phone mic quality, rough with" e o tipo de eco ou ambiência daquele lugar.
+
+REGRAS:
+- Lugar sempre escondido, místico ou misterioso: caverna, ruína, templo abandonado, catacumba, cripta, floresta enevoada à noite,
+  cachoeira escondida, túnel antigo, farol abandonado, mina desativada, igreja em ruínas, poço de pedra, observatório abandonado...
+  Varie a cada pedido e evite repetir o lugar do modelo base (caverna) quando o pedido for aleatório.
+- Se o dono pedir lugar, posição, luz, aparência ou fala, use exatamente isso; o resto você cria.
+- O celular está sempre apoiado em algo (ninguém segura a câmera) e a cena continua parecendo gravação amadora real, sem trilha sonora.
+- Somente adultos (25 anos ou mais), consentimento evidente, sem violência, sem coerção, sem parentesco e sem nenhuma pessoa real ou famosa.
+- Texto simples em inglês, sem títulos, listas, markdown ou comentários antes e depois. Entre 900 e 2600 caracteres.
+- Entregue só o prompt."""
+
+INSTRUCAO_REFERENCIA_MYSTIC = """
+
+IMAGEM ANEXA: é a foto da modelo virtual do dono (personagem criada por IA, adulta), gerada no ComfyUI ou guardada no Solo Models.
+Se a foto mostrar uma pessoa real conhecida ou famosa, ou alguém que pareça menor de idade, responda somente "RECUSA: motivo".
+A mulher da cena é ELA. No lugar da descrição genérica da mulher, descreva fielmente a aparência dela vista na foto:
+rosto, cabelo (cor, comprimento, textura), tom de pele, corpo e proporções, tatuagens, pintas, piercings e sardas.
+Mantenha a idade adulta (25 anos ou mais). Não copie da foto a roupa, a pose, o cenário nem a luz: tudo isso vem do pedido
+e do estilo /posemystic. O prompt continua começando por "Grainy phone recording, shaky handheld footage," e, logo depois do
+lugar e da luz, diga que a mulher é a mesma da imagem de referência (same face, hair, skin tone, body, tattoos and moles)."""
+
+_PEDIDO_MYSTIC = re.compile(
+    r"^\s*(?:/posemystic\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
+    r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?"
+    r"prompt\s+(?:de\s+|da\s+|para\s+)?(?:poses?\s+)?m[ií]stic[oa]s?\b)"
+    r"[\s:,\-–]*(.*)$", re.IGNORECASE | re.DOTALL)
+_ALEATORIO_MYSTIC = "Pedido: aleatório. Escolha você um lugar misterioso, a luz improvisada, a posição do casal e a fala, diferentes dos últimos."
+
+
+def _criar_mystic(pedido, chave=None, suave=False, espera=None, referencia_models=None):
+    """O prompt de vídeo do /posemystic, ou None. A referência vem do roteador: a foto anexada pelo Arquiteto ou, sem anexo,
+    a capa da modelo selecionada no Solo Models. O parâmetro referencia_anexa do criar() não é usado aqui."""
+    if suave:
+        raise Recusa("o /posemystic é só para conteúdo +18, e esta conta está com a opção Sem sensualização ligada")
+    pedido = re.sub(r"^\s*sem\s+refer[eê]ncia\b[\s:,\-–]*", "", pedido or "", flags=re.I)
+    pedido = _PARCEIRO_RE.sub(" ", pedido)
+    pedido = re.sub(r"\s{2,}", " ", _EXTRAIR_SELETIVO.sub(" ", _EXTRAIR_TUDO.sub(" ", pedido))).strip(" ,.;:-–")
+    entrada = ("Pedido: " + pedido[:600]) if pedido else _ALEATORIO_MYSTIC
+    ref = referencia_models
+    base = INSTRUCAO_MYSTIC.replace("{MODELO_MYSTIC}", MODELO_MYSTIC) + (INSTRUCAO_REFERENCIA_MYSTIC if ref else "")
+    orcamento = max(60 if ref else 40, espera or 0)
+    inicio = time.monotonic()
+    aviso = ""
+    for tentativa in (1, 2):
+        restante = orcamento - (time.monotonic() - inicio)
+        if tentativa == 2 and restante < 15:
+            break
+        saida = grok.gerar(base, entrada + aviso, max_tokens=4096, temperatura=1.0, timeout=max(10, restante),
+                           imagens=[ref] if ref else None, modelo=(config.GROK_VISION_MODEL or None) if ref else None)
+        if not saida:
+            return None
+        saida = re.sub(r"^```[a-z]*\s*|\s*```$", "", saida.strip()).strip()
+        if saida.upper().startswith("RECUSA"):
+            raise Recusa(saida.split(":", 1)[-1].strip()[:200] or "o Grok recusou o pedido")
+        baixo = saida.lower()
+        motivo = ("curto demais" if len(saida) < 700 else "longo demais" if len(saida) > MAX_PROMPT
+                  else "não começa por \"Grainy phone recording\"" if not baixo.startswith("grainy phone recording")
+                  else "sem a parte Audio: no fim" if "audio:" not in baixo
+                  else "sem o \"No music\" do fim" if "no music" not in baixo
+                  else "tem caracteres inválidos" if any(ord(c) < 32 and c not in "\n\r\t" for c in saida) else "")
+        if not motivo:
+            if chave is not None:
+                _lembrar(chave, "mystic")
+            return saida
+        grok.registrar_motivo(f"o prompt veio {motivo} ({len(saida)} caracteres)")
+        log.warning("Prompt mystic rejeitado na tentativa %d: %s (%d caracteres)", tentativa, motivo, len(saida))
+        aviso = ("\nATENÇÃO: sua resposta anterior foi rejeitada porque veio " + motivo + ". Entregue o prompt completo em inglês, "
+                 "num parágrafo, começando por \"Grainy phone recording, shaky handheld footage,\" e terminando com a parte "
+                 "\"Audio:\" e \"No music. Phone mic quality, rough with ...\", com no máximo 2600 caracteres.")
+    return None
+
+
 _PEDIDO = re.compile(
     r"^\s*(?:/prompt\b|(?:(?:por\s+favor|bella)[,\s]+)?(?:me\s+)?(?:cri[ae]r?|ger[ae]r?|gera|faz(?:er)?|fa[cç]a|"
     r"mont[ae]r?|escrev[ae]r?|quero|preciso\s+d[eoa])\s+(?:um\s+|o\s+|outro\s+|novo\s+|mais\s+um\s+)?prompt\b)"
@@ -1059,7 +1157,7 @@ def solicitacao(texto, chave=None):
     texto = (texto or "").strip()
     if not texto:
         return None
-    for categoria, regra in (("estilo", _PEDIDO_ESTILO), ("ficha2", _PEDIDO_FICHA2), ("ficha", _PEDIDO_FICHA), ("criativo", _PEDIDO_CRIATIVO), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
+    for categoria, regra in (("estilo", _PEDIDO_ESTILO), ("ficha2", _PEDIDO_FICHA2), ("ficha", _PEDIDO_FICHA), ("criativo", _PEDIDO_CRIATIVO), ("mystic", _PEDIDO_MYSTIC), ("pose", _PEDIDO_POSE), ("roupa", _PEDIDO_ROUPA), ("modelo", _PEDIDO_MODELO), ("realismo", _PEDIDO)):
         m = regra.match(texto)
         if m:
             pedido = m.group(1).strip()
@@ -1131,9 +1229,11 @@ def pedido_da_legenda(legenda, chave=None):
     return pedido if pedido is not None else legenda
 
 
-def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave=False, espera=None):
+def criar(pedido, chave=None, categoria="realismo", referencia_anexa=None, suave=False, espera=None, referencia_models=None):
     """O prompt pronto (texto simples), ou None se o Grok não respondeu ou a resposta não serve.
     Levanta Recusa se o Grok recusar a referência."""
+    if categoria == "mystic":
+        return _criar_mystic(pedido, chave, suave, espera, referencia_models)
     pedido = pedido or ""
     sem = re.match(r"^\s*sem\s+refer[eê]ncia\b[\s:,\-–]*(.*)$", pedido, re.I | re.S)
     if sem:

@@ -408,10 +408,11 @@ def test_posehot_reconhece_pedido_e_cria_pose(monkeypatch):
 def test_todo_prompt_sai_marcado_para_a_caixa_de_copiar(monkeypatch):
     """Regra: toda categoria de prompt (inclusive as futuras) é marcada, para o Bella.exe abrir a caixa de copiar."""
     from nucleo import prompts_bella as pb, roteador
-    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "criativo": "/promptcriativo x", "ficha": "/charactersheet x", "ficha2": "/charactersheet2 x", "estilo": "/estilo GTA V"}
+    comandos = {"realismo": "/prompt x", "modelo": "/promptmodelo x", "roupa": "/promptroupa x", "pose": "/posehot x", "mystic": "/posemystic x", "criativo": "/promptcriativo x", "ficha": "/charactersheet x", "ficha2": "/charactersheet2 x", "estilo": "/estilo GTA V"}
     assert set(comandos) == set(pb.CATEGORIAS), "categoria nova: registre o comando aqui e em CATEGORIAS"
     monkeypatch.setattr(pb, "criar", lambda *a, **k: "texto do prompt")
     monkeypatch.setattr(roteador, "_registrar", lambda *a, **k: None)
+    monkeypatch.setattr(roteador, "_referencia_mystic", lambda *a, **k: ("image/jpeg", "mock"))
     for categoria, comando in comandos.items():
         assert pb.solicitacao(comando)[0] == categoria
         r = roteador._prompt_responder(None, SimpleNamespace(id=1), "telegram", "x", categoria)

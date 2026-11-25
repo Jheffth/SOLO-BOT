@@ -298,7 +298,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/bella` (ou `/safada`) — conversa com a Bella: flerte, humor e, se estiver liberado, conteúdo adulto. "
         "Fica nesse modo até você mandar `/sair`",
         "▸ `/lembrar` — a Bella guarda uma lembrança para sempre: `/lembrar gosto de café sem açúcar`",
-        "▸ `/sincronizarmemorias` — (Arquiteto) copia memórias entre Bella Legado e Bella Models; outras modelos ficam isoladas",
+        "▸ `/sincronizarmemorias` — (Arquiteto) copia memórias entre Bella Legado e Models",
         "▸ `/memoria` — lista lembranças e histórias; `/eternizar Título` guarda a conversa; `/narrador Título: fato` cria um episódio",
         "▸ `/temperatura` — o grau de erotismo da conversa (automático; o Arquiteto pode fixar). `/sentimentos` mostra carinho e saudade",
         "▸ `/galeria` — (Arquiteto) fotos e vídeos · `/iniciativa bomdia` — bom dia automático às 08:00",
@@ -307,16 +307,15 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/addmodel Nome` · `/removemodel Nome` · `/modelos` — (Arquiteto) cena com outra modelo",
         "▸ `/iniciativa` — (Arquiteto) a Bella puxa assunto sozinha, poucas vezes por dia: `ligar`, `desligar`, `max N`, `janela 09:00 22:00`, `testar`",
         "▸ `/historia` — a nossa história guardada por dia · `/esquecer hoje`, `ontem`, `dia 25/10` ou `ultimos 3 dias` apaga só esses dias",
-        "▸ `/emocoes` — a galeria de sentimentos da Bella (o que desperta cada um e as duas reações). `/emocao <nome>` (Arquiteto) define na hora",
+        "▸ `/emocoes` — sentimentos da Bella e reações. `/emocao <nome>` (Arquiteto) define na hora",
         "▸ `/esquecer` — apaga a conversa atual · `/esquecer N` apaga a lembrança N · `/esquecer tudo` apaga tudo",
     ])
     bloco("🖼️ BELLA · PROMPTS DE IMAGEM", [
         "▸ `/prompt` — realismo sensual: `/prompt cozinha, cosplay de odalisca`",
-        "▸ `/promptmodelo` — modelo adulta nova: `/promptmodelo cabelo ruivo, biquíni na praia`. "
-        "Com foto: *extrair tudo da imagem* ou `[[extrair: pose, cenario]]` para escolher os itens",
-        "▸ `/promptroupa` — descreve uma roupa (da foto ou do pedido) para vestir em outra imagem: `/promptroupa lingerie preta de renda`",
-        "▸ `/posehot` — pose sensual: `/posehot de bruços olhando para trás`. Com foto: *extrair tudo da imagem*, "
-        "`[[extrair: cenario, roupas]]` ou `[[parceiro: da imagem]]`",
+        "▸ `/promptmodelo` — modelo adulta: `/promptmodelo ruiva, biquíni`. Com foto: *extrair tudo* ou `[[extrair: pose, cenario]]`",
+        "▸ `/promptroupa` — roupa (da foto ou pedido): `/promptroupa lingerie preta`",
+        "▸ `/posehot` — pose sensual: `/posehot de bruços`. Com foto: *extrair tudo*, `[[extrair: cenario, roupas]]` ou `[[parceiro: da imagem]]`",
+        "▸ `/posemystic` — vídeo hot em lugar misterioso, com foto da modelo anexa: `/posemystic ruínas`",
         "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",
         "▸ `/charactersheet` — prancha em foto real da imagem anexa: `roupa`, `personagem`, `cenario` ou `tudo`",
         "▸ `/charactersheet2` — frente, lado e costas, informações, paleta e seis detalhes, com a foto da modelo",
@@ -339,8 +338,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
             "▸ `/apagarvoz` — lista as vozes; o número que você responder é apagado do VoiceStudio",
         ])
         bloco("📇 CONTATOS DO ENVIO DE ÁUDIO (administrador)", [
-            "▸ `/salvarcontato` — depois mande um contato (📎 → Contato) e ele entra na lista de *Enviar áudio* do painel. "
-            "Pode escolher vários de uma vez",
+        "▸ `/salvarcontato` — depois mande um contato (📎 → Contato) para a lista de *Enviar áudio* do painel",
             "▸ `/salvarcontato Nome +55 11 99999-9999` — salva direto, sem compartilhar o contato",
         ])
     bloco("🧭 NAVEGAÇÃO", [
@@ -660,8 +658,8 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return _cmd_persona(db, conta, _sem_acento(resto.strip().lower()))
     if cmd == "/ia":
         return _cmd_ia(db, conta, resto.strip().lower())
-    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/promptcriativo", "/charactersheet", "/fichapersonagem", "/charactersheet2", "/fichapersonagem2", "/estilo", "/style"):
-        padrao = {"/estilo": "estilo", "/style": "estilo", "/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose", "/promptcriativo": "criativo",
+    if cmd in ("/prompt", "/promptmodelo", "/promptroupa", "/posehot", "/posemystic", "/promptcriativo", "/charactersheet", "/fichapersonagem", "/charactersheet2", "/fichapersonagem2", "/estilo", "/style"):
+        padrao = {"/estilo": "estilo", "/style": "estilo", "/promptmodelo": "modelo", "/promptroupa": "roupa", "/posehot": "pose", "/posemystic": "mystic", "/promptcriativo": "criativo",
                   "/charactersheet": "ficha", "/fichapersonagem": "ficha", "/charactersheet2": "ficha2", "/fichapersonagem2": "ficha2"}.get(cmd, "realismo")
         pedido = prompts_bella_pedido(txt, canal, conta) or (padrao, "")
         return _prompt_responder(db, conta, canal, pedido[1], pedido[0])
@@ -852,12 +850,39 @@ def prompts_bella_pedido(txt: str, canal: str, conta: Conta):
     return prompts_bella.solicitacao(txt, _chave_bella(canal, conta))
 
 
+def _referencia_mystic(conta: Conta, chave):
+    """(mime, base64) da referência do /posemystic. Foto anexada (ex.: gerada no ComfyUI) só vale para o Arquiteto, que cria
+    as modelos de IA; as outras contas usam sempre a capa da modelo +18 selecionada no Solo Models."""
+    from nucleo import models, models_galeria, prompts_bella
+    anexa = prompts_bella.referencia(chave) if getattr(conta, "admin", False) else None
+    if anexa:
+        return anexa
+    try:
+        ident = models.selecionado(getattr(conta, "id", None))
+        if not ident:
+            raise prompts_bella.Recusa("mande a foto da modelo junto com o /posemystic, ou selecione uma modelo no Models (`/models`) para usar a capa dela")
+        perfil = models.pacote(conta, ident)
+        nome = perfil.get("nome") or "essa modelo"
+        if perfil.get("classificacao") != "adulto":
+            raise prompts_bella.Recusa(f"{nome} não é uma modelo +18 no Models, e o /posemystic é só para modelos adultas")
+        capa = (perfil.get("galeria") or {}).get("capa")
+        fotos = models_galeria.catalogo(conta, {**perfil, "id": ident}, "imagem") if capa else []
+        if not any(v.get("id") == capa for v in fotos):
+            raise prompts_bella.Recusa(f"{nome} ainda não tem foto de capa no Solo Models; defina uma no perfil dela")
+        midia = models_galeria.baixar(capa, "imagem")
+        return (midia["mime"], midia["base64"])
+    except models.ErroModels as erro:
+        raise prompts_bella.Recusa(str(erro).rstrip(".")) from None
+
+
 def _prompt_responder(db, conta: Conta, canal: str, pedido: str, categoria: str = "realismo") -> Resposta:
     """A Bella cria um prompt de imagem (realismo sensual). A voz diz só que está pronto."""
     from nucleo import prompts_bella
     try:
         extra = {"suave": True} if getattr(conta, "prompt_suave", False) else {}      # "Sem sensualização" da conta
         extra["espera"] = 130          # Telegram, WhatsApp e Bella.exe (que espera 145 s) aguentam um Grok lento
+        if categoria == "mystic":
+            extra["referencia_models"] = _referencia_mystic(conta, _chave_bella(canal, conta))
         texto = prompts_bella.criar(pedido, _chave_bella(canal, conta), categoria, **extra)
     except prompts_bella.Recusa as erro:
         return Resposta().diz(f"🖼️ Não criei o prompt: {erro}.")
@@ -1561,6 +1586,7 @@ def atender_imagem(db: Session, canal: str, origem: str, conteudo: bytes, mime: 
         "`/prompt use o penteado e o cenário da foto`.\n"
         "`/promptmodelo` cria uma modelo nova a partir das características da foto.\n"
         "`/promptroupa` descreve toda a roupa da foto para vestir em outra imagem.\n"
+        "`/posemystic` põe a modelo da foto numa cena hot gravada no celular, num lugar misterioso.\n"
         "`/posehot` copia a pose da foto (ou use *extrair tudo*, `[[extrair: cenario, roupas]]` para capturar itens da foto/casal, e `[[parceiro: da imagem]]` para o parceiro).\n"
         "`/promptcriativo` usa a foto como roupa e inventa o resto.\n"
         "`/estilo GTA V` transforma a foto em arte no estilo GTA V.\n"
