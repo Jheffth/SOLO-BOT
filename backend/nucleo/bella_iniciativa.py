@@ -268,10 +268,18 @@ def _ultimo_contato_models(conta_id):
     finally:db.close()
 
 
+CHANCE_NOTICIA_MODELS=0.25     # nas mensagens espontâneas das modelos, uma em cada quatro traz uma notícia real dos temas dele
+
+
 def _enviar_models(db,conta,dados,canal,tipo):
     from canais import entrega
     from nucleo import models,avisos,roteador
-    try:texto=models.iniciar(conta,tipo or 'espontanea',dados)
+    noticia=None
+    if tipo=='noticia' or (tipo is None and random.random()<CHANCE_NOTICIA_MODELS):
+        from nucleo import noticias
+        noticia=noticias.manchete_de_interesse()
+    tipo='noticia' if noticia else (None if tipo=='noticia' else tipo)
+    try:texto=models.iniciar(conta,tipo or 'espontanea',dados,noticia=noticia) if noticia else models.iniciar(conta,tipo or 'espontanea',dados)
     except models.ErroModels:return None
     if not texto:return None
     r=roteador.Resposta().diz(texto)

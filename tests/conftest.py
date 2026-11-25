@@ -134,3 +134,14 @@ def _models_sem_cache_e_gravacao_sincrona(monkeypatch):
     yield
     models.limpar_cache()
 
+
+@pytest.fixture(autouse=True)
+def _noticias_sem_internet(monkeypatch):
+    """Nenhum teste busca notícia de verdade: as fontes "não respondem", a não ser que o teste simule outra coisa."""
+    from nucleo import noticias
+    noticias.limpar_cache()
+
+    def sem_rede(url):
+        raise OSError("sem internet nos testes")
+    monkeypatch.setattr(noticias, "_baixar", sem_rede)
+

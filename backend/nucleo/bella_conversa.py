@@ -133,6 +133,10 @@ def responder(texto, conta_id=None, numero_conta=None, saida_midia=None, nota_in
     `nota_interna`: o que o sistema acabou de fazer (ex.: ação na TV); vai junto da fala, mas não vira memória."""
     if numero_conta is None and isinstance(conta_id, int):
         numero_conta = conta_id
+    from nucleo import noticias
+    nota_noticias = noticias.nota(texto)          # pedido de notícia: busca real agora; ela só conta o que veio
+    if nota_noticias:
+        nota_interna = (nota_interna + "\n\n" + nota_noticias).strip()
     from nucleo import models
     try:selecionado=models.selecionado(numero_conta)
     except models.ErroModels as e:return str(e)

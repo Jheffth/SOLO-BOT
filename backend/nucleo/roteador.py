@@ -318,7 +318,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
         "▸ `/posehot` — pose sensual: `/posehot de bruços olhando para trás`. Com foto: *extrair tudo da imagem*, "
         "`[[extrair: cenario, roupas]]` ou `[[parceiro: da imagem]]`",
         "▸ `/promptcriativo` — a Bella inventa um prompt fora da biblioteca: `/promptcriativo praia`",
-        "▸ `/charactersheet` — prancha de personagem em foto real, com a imagem anexa: `roupa` (só a roupa do anexo), `personagem`, `cenario` ou `tudo` (extrai tudo). Sem palavra: personagem com roupa",
+        "▸ `/charactersheet` — prancha em foto real da imagem anexa: `roupa`, `personagem`, `cenario` ou `tudo`",
         "▸ `/charactersheet2` — frente, lado e costas, informações, paleta e seis detalhes, com a foto da modelo",
         "▸ `/estilo GTA V` — a foto anexa vira arte nesse estilo (mesma pessoa, roupa e pose)",
         "    _Mande a foto junto para usar de referência. A opção *Sem sensualização* (prompts neutros) fica no painel do Solo Bot._",
@@ -326,6 +326,7 @@ def _ajuda_hub(db: Session, conta: Conta) -> Resposta:
     bloco("🔊 VOZ DAS RESPOSTAS", [
         "▸ `/voz` — mostra como respondo; `/voz audio` (falo quando você manda áudio), `/voz sempre` ou `/voz nunca`",
         "▸ `/persona ligar` ou `desligar` — os sistemas falam na voz da sua modelo",
+        "▸ `/noticias` — notícias do dia; `/noticias prf` filtra",
     ])
     if conta.admin:
         bloco("🎙️ CLONAGEM E VOZES (administrador)", [
@@ -473,6 +474,13 @@ def para_sistema(db: Session, conta: Conta, canal: str, origem: str, mod: modulo
     return r
 
 
+def _pede_noticia(txt: str) -> bool:
+    """Pedido de notícia ("quais as notícias de hoje?", "saiu edital da PRF?"): é conversa com a modelo, que recebe a
+    busca real (nucleo/noticias.py); nunca vai para um sistema."""
+    from nucleo import noticias
+    return bool(noticias.pedido(txt))
+
+
 def _intimo(txt: str) -> bool:
     """Frase íntima ou sexual (grau 2+ na escala da temperatura), sem número nem comando: é conversa com a modelo,
     nunca pedido a um sistema — mesmo com verbo no imperativo ("Bella, chupa…", "tira a roupa")."""
@@ -490,7 +498,7 @@ def _pedido_de_secretaria(db, conta: Conta, canal: str, origem: str, s, txt: str
     if txt.startswith("/") or not models_persona.ativa(db, conta):
         return None
     nome, pedido = models_persona.vocativo(txt, conta)
-    if not nome or not pedido or _intimo(pedido):
+    if not nome or not pedido or _intimo(pedido) or _pede_noticia(pedido):
         return None
     ligados = _sistemas_de_texto_livre(db, conta)
     if not ligados:
@@ -522,7 +530,7 @@ def _papo_com_a_modelo(db, conta: Conta, txt: str, ligados: list) -> bool:
     """Num modo de sistema, com a persona ativa: frase de conversa (sem número, sem comando, sem palavra de
     nenhum sistema e com pelo menos 4 palavras) volta para a modelo. Respostas curtas seguem no sistema."""
     from nucleo import intencao, models_persona
-    if _intimo(txt) or _reacao(txt):
+    if _intimo(txt) or _reacao(txt) or _pede_noticia(txt):
         return models_persona.ativa(db, conta)
     if txt.startswith("/") or any(c.isdigit() for c in txt) or len(txt.split()) < 4:
         return False
@@ -645,6 +653,9 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
         return Resposta().diz(sincronizar(conta))
     if cmd == "/voz":
         return _cmd_voz(db, conta, resto.strip().lower())
+    if cmd == "/noticias":
+        _entrar_modo(db, s, None)
+        return _bella_responder(db, conta, canal, "me conta as notícias de hoje" + (f" sobre {resto.strip()}" if resto.strip() else ""))
     if cmd == "/persona":
         return _cmd_persona(db, conta, _sem_acento(resto.strip().lower()))
     if cmd == "/ia":
@@ -789,7 +800,7 @@ def atender_texto(db: Session, canal: str, origem: str, texto: str,
 
     # 5. hub com texto livre (o Models não entra: só comandos com barra chegam a ele)
     ligados = [m for m in ligados if m.chave not in SEM_TEXTO_LIVRE]
-    if _intimo(txt) or _reacao(txt):
+    if _intimo(txt) or _reacao(txt) or _pede_noticia(txt):
         papo = _bella_responder(db, conta, canal, txt, so_se_responder=True)
         if papo:
             return papo
