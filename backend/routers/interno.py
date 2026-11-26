@@ -45,6 +45,25 @@ def enviar(a: Aviso, mod: modulos.Modulo = Depends(_modulo), db: Session = Depen
     return avisos.receber(db, mod, a.usuario_id, a.texto, a.opcoes, a.falado, a.voz, a.valido_ate, a.tom, a.formato, a.referencia)
 
 
+class AvisoNumeros(BaseModel):
+    numeros: List[str] = Field(min_length=1, max_length=20)
+    texto: str = Field(min_length=1, max_length=3500)
+    referencia: str = Field(min_length=1, max_length=160)   # idempotência: o mesmo aviso não sai duas vezes
+    persona: bool = False                                     # True: na voz da modelo selecionada do Arquiteto
+
+
+@router.post("/avisar-numeros")
+def avisar_numeros(a: AvisoNumeros, mod: modulos.Modulo = Depends(_modulo), db: Session = Depends(get_db)):
+    """Aviso para números de WhatsApp avulsos (sem Conta Solo). Ver nucleo/avisos_numeros.py."""
+    from nucleo import avisos_numeros
+    try:
+        return avisos_numeros.receber(db, mod, a.numeros, a.texto, a.referencia, a.persona)
+    except avisos_numeros.WhatsAppIndisponivel as e:
+        raise HTTPException(503, str(e))
+    except avisos_numeros.LimiteExcedido as e:
+        raise HTTPException(429, str(e))
+
+
 @router.post("/manifesto")
 def receber_manifesto(corpo: dict, mod: modulos.Modulo = Depends(_modulo), db: Session = Depends(get_db)):
     """O sistema avisa, ao subir, quais comandos tem. Ver nucleo/manifestos.py."""

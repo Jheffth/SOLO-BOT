@@ -215,3 +215,15 @@ def enviar_audio_confirmado(numero: str, audio_b64: str) -> dict:
     if st == 0 or st >= 500 or 200 <= st < 300:
         return {"estado": "incerto", "detalhe": "Não foi possível confirmar o envio. Confira a conversa no WhatsApp antes de criar outro pedido."}
     return {"estado": "falhou", "detalhe": "O WhatsApp recusou o envio. Confira o número e a conexão da instância."}
+
+
+def enviar_texto_confirmado(numero: str, texto: str) -> dict:
+    """Um único envio de texto para um número avulso, com o resultado que a Evolution confirmou."""
+    st, dados = _chamar("POST", f"/message/sendText/{config.EVOLUTION_INSTANCE}",
+                        {"number": numero, "text": texto, "delay": 200}, timeout=30)
+    identificador = (dados.get("key") or {}).get("id") if isinstance(dados, dict) else None
+    if st in (200, 201) and isinstance(identificador, str) and identificador:
+        return {"estado": "enviado", "mensagem_id": identificador[:160], "detalhe": "Mensagem aceita pelo WhatsApp."}
+    if st == 0 or st >= 500 or 200 <= st < 300:
+        return {"estado": "incerto", "detalhe": "Não foi possível confirmar o envio."}
+    return {"estado": "falhou", "detalhe": "O WhatsApp recusou o envio. Confira o número."}

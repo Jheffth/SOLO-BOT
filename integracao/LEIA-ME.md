@@ -111,3 +111,14 @@ outro usuário vinculado seria lido como dele. Um chip dedicado ao bot elimina e
 
 
 **02/11/2026 — entrada de prints esportivos.** O adaptador do Rotinas foi sincronizado com o endpoint `POST /interno/bot/imagem`, autenticado pelo token de serviço. Recebe usuário remoto resolvido pelo hub, imagem em base64, legenda e instante do envio; devolve `{tratado, estado, mensagens}`. `usuario_id` ausente permite somente identificação, sem gravação. Só `tratado: false` libera a imagem para referências de prompts. A implementação de OCR, datas, métricas e idempotência pertence ao Rotinas (`motors/treinos_bot.py` e `motors/treinos.py`). O contrato do Finances e a ponte comum permanecem compatíveis e não precisam ser recopiados. Publique Solo Bot e Rotinas para ativar a integração. Detalhes em `INTEGRACAO_TREINOS.md`.
+
+
+**25/11/2026 — avisos para números avulsos (Ótica Elite).** Novo `POST /interno/avisar-numeros`, autenticado pelo
+token do sistema: `{numeros: [até 10], texto, referencia, persona?}` → `{aceitos, repetidos, recusados, persona}`.
+Serve para avisar quem não tem Conta Solo (ex.: os donos da ótica a cada venda paga). A lista de números fica no
+sistema que avisa; o Solo Bot só entrega pelo WhatsApp (Evolution). Idempotente por `(app, referencia, numero)`:
+o sistema pode repetir o pedido sem duplicar mensagem. `persona: true` reescreve o texto uma vez na voz da
+modelo selecionada na conta do Arquiteto (a conferência da persona mantém valores e números exatos). WhatsApp
+desconectado → 503 (tente de novo); acima de 30 entregas/minuto por sistema ou 10 números por aviso → 429.
+Sistema que só manda avisos entra em `SOLO_MODULOS` com `"so_avisos": true`: o token vale, mas ele não aparece
+em menus, no painel nem na busca de manifestos. Finances e Rotinas não mudam.

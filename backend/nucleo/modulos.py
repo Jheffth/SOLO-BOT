@@ -29,6 +29,7 @@ class Modulo:
     url: str
     token: str
     painel: str
+    so_avisos: bool = False      # sistema que só manda avisos (ex.: Ótica Elite): fora de menus, painel e manifestos
 
     @property
     def selo(self) -> str:
@@ -50,7 +51,7 @@ def _carregar() -> dict:
         mod = Modulo(chave=m["chave"], nome=m["nome"], emoji=m.get("emoji", "•"),
                      cor=m.get("cor", "#8b5cf6"), descricao=m.get("descricao", ""),
                      url=(m.get("url") or "").rstrip("/"), token=m.get("token", ""),
-                     painel=m.get("painel", ""))
+                     painel=m.get("painel", ""), so_avisos=bool(m.get("so_avisos")))
         saida[mod.chave] = mod
     return saida
 
@@ -59,7 +60,8 @@ _REGISTRO = _carregar()
 
 
 def todos() -> list:
-    return list(_REGISTRO.values())
+    """Os sistemas de conversa (menus, painel, manifestos). Os só-de-avisos ficam de fora, mas o token deles vale."""
+    return [m for m in _REGISTRO.values() if not m.so_avisos]
 
 
 def por_chave(chave: str) -> Optional[Modulo]:

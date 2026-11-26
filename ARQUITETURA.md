@@ -65,6 +65,7 @@ E no sentido contrário (sistema → Solo Bot):
 | Rota | Corpo |
 |---|---|
 | `POST /interno/enviar` | `{usuario_id, texto, opcoes?, falado?, voz?, valido_ate?, tom?}` (cabeçalho `X-Solo-Token` do sistema; o token diz o app) → `{entregues, adiados, descartados, vinculado}` |
+| `POST /interno/avisar-numeros` | `{numeros, texto, referencia, persona?}` — números de WhatsApp sem Conta Solo (ex.: vendas da Ótica Elite); idempotente por referência → `{aceitos, repetidos, recusados, persona}` |
 | `POST /interno/manifesto` | o `bot_manifesto.json` — o sistema empurra ao subir |
 
 ## Onde mora cada comando

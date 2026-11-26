@@ -206,6 +206,24 @@ class EnvioAudio(Base):
     atualizado_em = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
+class AvisoNumero(Base):
+    """Um aviso de sistema para um número de WhatsApp avulso (ex.: venda da Ótica Elite). Ver nucleo/avisos_numeros.py.
+
+    A chave (app, referencia, numero) torna a entrega idempotente: o sistema pode repetir o pedido sem duplicar a mensagem.
+    """
+    __tablename__ = "avisos_numeros"
+    __table_args__ = (UniqueConstraint("app", "referencia", "numero", name="uq_aviso_numero_ref"),)
+    id = Column(Integer, primary_key=True)
+    app = Column(String(30), nullable=False, index=True)
+    referencia = Column(String(160), nullable=False)
+    numero = Column(String(15), nullable=False)
+    estado = Column(String(16), nullable=False, default="pendente")   # pendente | enviado | incerto | falhou
+    detalhe = Column(String(300), nullable=True)
+    mensagem_id = Column(String(160), nullable=True)
+    criado_em = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    atualizado_em = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
 class Configuracao(Base):
     """Chave/valor do que se ajusta na tela de Administração (voz, modelo)."""
     __tablename__ = "configuracoes"
