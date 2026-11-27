@@ -44,10 +44,8 @@ def status(_: Conta = Depends(conta_admin), db: Session = Depends(get_db)):
                  "fala_erro": _fala_erro(),
                  "sistemas_com_audio": [m.chave for m in modulos.todos() if _recebe_audio(db, m.chave)]},
         "sistemas": [{**m.publico(), "url": m.url, "contas": por_app.get(m.chave, 0),
-                      "manifesto": _resumo_manifesto(db, m.chave)}
-                     for m in modulos.todos()]
-                    + [{**m.publico(), "url": m.url, "contas": 0, "manifesto": None, "so_avisos": True,
-                        "avisos": _resumo_avisos(db, m.chave)} for m in modulos.so_avisos()],
+                      "manifesto": _resumo_manifesto(db, m.chave), "avisos": _resumo_avisos(db, m.chave)}
+                     for m in modulos.todos()],
     }
 
 

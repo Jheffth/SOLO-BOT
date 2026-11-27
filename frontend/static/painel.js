@@ -28,7 +28,7 @@
     const c = dados.conta;
     document.getElementById("ola").innerHTML = `${periodo}, <span class="grad">${esc(c.nome.split(" ")[0])}</span>`;
     const nCanais = dados.canais.filter(x => x.conectado).length;
-    const nSist = dados.sistemas.filter(x => x.conectado && !x.so_avisos).length;
+    const nSist = dados.sistemas.filter(x => x.conectado).length;
     document.getElementById("ola-sub").textContent =
       nCanais && nSist ? `${nSist} ${nSist === 1 ? "sistema" : "sistemas"} respondendo por ${nCanais === 2 ? "Telegram e WhatsApp" : dados.canais.find(x => x.conectado).canal === "telegram" ? "Telegram" : "WhatsApp"}.`
       : "Faltam poucos passos para o bot falar por você.";
@@ -91,7 +91,6 @@
 
   function renderSistemas() {
     document.getElementById("sistemas").innerHTML = dados.sistemas.map(s => {
-      if (s.so_avisos) return cartaoAvisos(s);
       const estado = s.conectado ? `<span class="chip ok"><span class="ponto"></span>Conectado</span>` : `<span class="chip off">Não conectado</span>`;
       const corpo = s.conectado
         ? `<div class="id-remoto">${icon("user")}<span>Lá você é <b>${esc(s.nome_remoto || "—")}</b></span></div>`
@@ -103,22 +102,16 @@
       return `<article class="cartao vidro sistema ${s.conectado ? "conectado" : ""}" style="--c:${esc(s.cor)}">
         <div class="linha entre"><span class="emblema">${esc(s.emoji)}</span>${estado}</div>
         <div><h3 class="linha" style="gap:.5rem">${esc(s.nome)}${s.conectado ? `<code>/${esc(s.chave)}</code>` : ""}</h3><p class="muted pequeno" style="margin-top:4px">${esc(s.descricao)}</p></div>
-        ${corpo}<div class="rodape">${acoes}</div></article>`;
+        ${corpo}${linhaAvisos(s)}<div class="rodape">${acoes}</div></article>`;
     }).join("");
   }
 
-  function cartaoAvisos(s) {
-    const a = s.avisos || {};
-    const estado = !s.conectado ? `<span class="chip aguarda">Token faltando</span>`
-      : a.falhas_7d ? `<span class="chip aguarda">${a.falhas_7d} ${a.falhas_7d === 1 ? "falha" : "falhas"} em 7 dias</span>`
-      : `<span class="chip ok"><span class="ponto"></span>Ligado</span>`;
-    const ultimo = a.ultimo_em ? `Último aviso ${esc(Solo.tempoRelativo(a.ultimo_em))}` : "Nenhum aviso enviado ainda";
-    const corpo = `<div class="id-remoto">${icon("bell")}<span>${ultimo} · <b>${a.enviados_7d || 0}</b> ${a.enviados_7d === 1 ? "entregue" : "entregues"} em 7 dias</span></div>`;
-    const acoes = s.painel ? `<a class="btn pequeno" href="${esc(s.painel)}" target="_blank" rel="noopener">${icon("external")}Abrir ${esc(s.nome.replace("Solo ", ""))}</a>` : "";
-    return `<article class="cartao vidro sistema ${s.conectado ? "conectado" : ""}" style="--c:${esc(s.cor)}">
-      <div class="linha entre"><span class="emblema">${esc(s.emoji)}</span>${estado}</div>
-      <div><h3 class="linha" style="gap:.5rem">${esc(s.nome)}<code>só avisos</code></h3><p class="muted pequeno" style="margin-top:4px">${esc(s.descricao)} Os números ficam no painel do sistema.</p></div>
-      ${corpo}<div class="rodape">${acoes}</div></article>`;
+  function linhaAvisos(s) {
+    const a = s.avisos;
+    if (!a) return "";
+    const ultimo = a.ultimo_em ? `último ${esc(tempoRelativo(a.ultimo_em))}` : "nenhum ainda";
+    const falhas = a.falhas_7d ? ` · <b>${a.falhas_7d}</b> com falha` : "";
+    return `<p class="muted pequeno linha" style="gap:.4rem">${icon("bell")}Avisos no WhatsApp: <b>${a.enviados_7d}</b> em 7 dias${falhas} · ${ultimo}</p>`;
   }
 
   const ICONE_ATIV = { comando: "chat", aviso: "bell", vinculo: "link", canal: "spark", conta: "user" };

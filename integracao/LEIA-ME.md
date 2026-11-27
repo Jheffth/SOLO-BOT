@@ -123,3 +123,10 @@ desconectado → 503 (tente de novo); acima de 30 entregas/minuto por sistema ou
 Sistema que só manda avisos entra em `SOLO_MODULOS` com `"so_avisos": true`: o token vale, fica fora dos menus,
 dos comandos e da busca de manifestos, e aparece no painel do Arquiteto (e em Administração → Sistemas) com um
 cartão próprio: ligado/token faltando, último aviso, entregues e falhas dos últimos 7 dias. Finances e Rotinas não mudam.
+
+
+**27/11/2026 — Ótica Elite como sistema completo.** A Elite passou a seguir o contrato inteiro (guia **Bots**,
+`/api/solobot/{status,conectar}`, `/interno/bot/*`, manifesto com `/elite vendas` e `/elite pedidos`), com a ponte
+copiada para Flask em `backend/solobot_ponte.py` do repositório otica-elite. O `so_avisos` ficou obsoleto: nenhum
+sistema ligado fica escondido. Ele continua sendo lido sem efeito, para não quebrar `.env` antigos. Os avisos para
+números avulsos aparecem no cartão do sistema (painel do Arquiteto) e em Administração → Sistemas.

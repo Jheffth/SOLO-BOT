@@ -102,12 +102,12 @@ def painel(conta: Conta = Depends(conta_atual), db: Session = Depends(get_db)):
                          "nome_remoto": v.nome_remoto if v else None,
                          "desde": v.vinculado_em.isoformat() if v and v.vinculado_em else None})
     if conta.admin:
-        # Sistemas que só mandam avisos (ex.: Ótica Elite): sem conta para conectar, mas visíveis com o estado.
+        # Avisos para números avulsos (ex.: vendas da Ótica Elite): o Arquiteto vê o estado no cartão do sistema.
         from nucleo import avisos_numeros
-        for m in modulos.so_avisos():
-            sistemas.append({**m.publico(), "so_avisos": True, "conectado": m.publico()["configurado"],
-                             "comandos": [], "exemplos": [], "nome_remoto": None, "desde": None,
-                             "avisos": avisos_numeros.resumo(db, m.chave)})
+        for s in sistemas:
+            r = avisos_numeros.resumo(db, s["chave"])
+            if r["total"]:
+                s["avisos"] = r
     atividade = (db.query(Atividade).filter(Atividade.conta_id == conta.id)
                  .order_by(Atividade.criado_em.desc()).limit(12).all())
     return {
