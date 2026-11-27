@@ -120,5 +120,6 @@ sistema que avisa; o Solo Bot só entrega pelo WhatsApp (Evolution). Idempotente
 o sistema pode repetir o pedido sem duplicar mensagem. `persona: true` reescreve o texto uma vez na voz da
 modelo selecionada na conta do Arquiteto (a conferência da persona mantém valores e números exatos). WhatsApp
 desconectado → 503 (tente de novo); acima de 30 entregas/minuto por sistema ou 10 números por aviso → 429.
-Sistema que só manda avisos entra em `SOLO_MODULOS` com `"so_avisos": true`: o token vale, mas ele não aparece
-em menus, no painel nem na busca de manifestos. Finances e Rotinas não mudam.
+Sistema que só manda avisos entra em `SOLO_MODULOS` com `"so_avisos": true`: o token vale, fica fora dos menus,
+dos comandos e da busca de manifestos, e aparece no painel do Arquiteto (e em Administração → Sistemas) com um
+cartão próprio: ligado/token faltando, último aviso, entregues e falhas dos últimos 7 dias. Finances e Rotinas não mudam.

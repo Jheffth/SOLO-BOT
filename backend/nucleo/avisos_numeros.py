@@ -91,6 +91,19 @@ def _entregar(db: Session, ids: list, texto: str):
         db.commit()
 
 
+def resumo(db: Session, app: str) -> dict:
+    """Estado dos avisos de um sistema, para o painel: último aviso e contagem dos últimos 7 dias."""
+    desde = datetime.utcnow() - timedelta(days=7)
+    base = db.query(AvisoNumero).filter(AvisoNumero.app == app)
+    ultimo = base.order_by(AvisoNumero.criado_em.desc()).first()
+    semana = base.filter(AvisoNumero.criado_em >= desde)
+    return {"ultimo_em": ultimo.criado_em.isoformat() + "Z" if ultimo else None,
+            "ultimo_estado": ultimo.estado if ultimo else None,
+            "enviados_7d": semana.filter(AvisoNumero.estado == "enviado").count(),
+            "falhas_7d": semana.filter(AvisoNumero.estado.in_(("falhou", "incerto"))).count(),
+            "total": base.count()}
+
+
 def receber(db: Session, mod: modulos.Modulo, numeros: list, texto: str, referencia: str,
             persona: bool = False) -> dict:
     validos, recusados = _numeros(numeros)

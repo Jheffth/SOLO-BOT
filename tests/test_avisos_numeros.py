@@ -97,7 +97,7 @@ def test_persona_falha_vai_o_texto_do_sistema(cliente, whats, monkeypatch):
     assert len(whats) == 2 and all("Pedido #12 pago" in t for _, t in whats)
 
 
-def test_sistema_so_de_avisos_fica_fora_dos_menus(cliente, whats):
+def test_sistema_so_de_avisos_fica_fora_dos_menus_e_aparece_no_painel(cliente, whats):
     import config
     from nucleo import modulos
     antes = list(config.MODULOS)
@@ -107,5 +107,29 @@ def test_sistema_so_de_avisos_fica_fora_dos_menus(cliente, whats):
         assert "elite" not in [m.chave for m in modulos.todos()]
         r = cliente.post("/interno/avisar-numeros", headers={"X-Solo-Token": "tok-elite"}, json=_pedido())
         assert r.json()["aceitos"] == 2 and whats[0][1].startswith("🕶️ *Ótica Elite*")
+        assert [m.chave for m in modulos.so_avisos()] == ["elite"]
+
+        # Painel: o Arquiteto vê a Elite com o estado dos avisos; contas comuns não.
+        import database
+        r = cliente.post("/api/auth/cadastro", json={"nome": "Jefferson", "usuario": "arq", "email": "a@solo.dev", "senha": "senha-forte-1"})
+        assert r.status_code == 200, r.text
+        db = database.SessionLocal()
+        db.query(database.Conta).filter(database.Conta.usuario == "arq").update({"admin": True})
+        db.commit()
+        db.close()
+        sist = cliente.get("/api/conta").json()["sistemas"]
+        elite = next(x for x in sist if x["chave"] == "elite")
+        assert elite["so_avisos"] and elite["conectado"] and elite["comandos"] == []
+        assert elite["avisos"]["enviados_7d"] == 2 and elite["avisos"]["falhas_7d"] == 0 and elite["avisos"]["ultimo_em"]
+        assert all(not x.get("so_avisos") for x in sist if x["chave"] != "elite")
+        adm = cliente.get("/api/admin/status")
+        if adm.status_code == 200:
+            linha = next(x for x in adm.json()["sistemas"] if x["chave"] == "elite")
+            assert linha["so_avisos"] and linha["avisos"]["total"] == 2
+        db = database.SessionLocal()
+        db.query(database.Conta).filter(database.Conta.usuario == "arq").update({"admin": False})
+        db.commit()
+        db.close()
+        assert all(x["chave"] != "elite" for x in cliente.get("/api/conta").json()["sistemas"])
     finally:
         modulos.recarregar(antes)

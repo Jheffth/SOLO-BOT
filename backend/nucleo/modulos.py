@@ -29,7 +29,7 @@ class Modulo:
     url: str
     token: str
     painel: str
-    so_avisos: bool = False      # sistema que só manda avisos (ex.: Ótica Elite): fora de menus, painel e manifestos
+    so_avisos: bool = False      # sistema que só manda avisos (ex.: Ótica Elite): fora de menus e manifestos; no painel, cartão próprio
 
     @property
     def selo(self) -> str:
@@ -60,8 +60,13 @@ _REGISTRO = _carregar()
 
 
 def todos() -> list:
-    """Os sistemas de conversa (menus, painel, manifestos). Os só-de-avisos ficam de fora, mas o token deles vale."""
+    """Os sistemas de conversa (menus, comandos, manifestos). Os só-de-avisos ficam fora daqui; ver so_avisos()."""
     return [m for m in _REGISTRO.values() if not m.so_avisos]
+
+
+def so_avisos() -> list:
+    """Sistemas ligados ao Solo Bot só para mandar avisos. Aparecem no painel com o estado dos avisos."""
+    return [m for m in _REGISTRO.values() if m.so_avisos]
 
 
 def por_chave(chave: str) -> Optional[Modulo]:
